@@ -1,12 +1,25 @@
 name: Android SDK
-description: Installs a command-line-tools build new enough to see API 37.x, then the SDK packages in env.SDK_PACKAGES.
+description: >
+  Installs a command-line-tools build new enough to see API 37.x, then the SDK packages in
+  env.SDK_PACKAGES. Both are cached, keyed on the tools URL and package list.
 runs:
   using: composite
   steps:
     - uses: android-actions/setup-android@v3
       with:
         packages: ""
-    - shell: bash
+    - id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ env.ANDROID_HOME }}/cmdline-tools/latest
+          ${{ env.ANDROID_HOME }}/platforms/android-37.1
+          ${{ env.ANDROID_HOME }}/build-tools/37.0.0
+          ${{ env.ANDROID_HOME }}/platform-tools
+          ${{ env.ANDROID_HOME }}/licenses
+        key: android-sdk-${{ hashFiles('.github/actions/android-sdk/action.yml') }}-${{ env.CMDLINE_TOOLS_URL }}-${{ env.SDK_PACKAGES }}
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
       run: |
         set -euo pipefail
         curl -fsSL "$CMDLINE_TOOLS_URL" -o /tmp/clt.zip
