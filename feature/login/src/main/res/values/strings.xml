@@ -1,0 +1,15 @@
+<resources>
+    <string name="login_title">Welcome to xmuks</string>
+    <string name="login_subtitle">Connect to your gomuks backend.</string>
+    <string name="login_server">gomuks server</string>
+    <string name="login_username">Username</string>
+    <string name="login_password">Password</string>
+    <string name="login_show_password">Show password</string>
+    <string name="login_hide_password">Hide password</string>
+    <string name="login_connect">Connect</string>
+    <string name="login_privacy">Your password is encrypted on this device and only ever sent over HTTPS.</string>
+    <string name="login_error_url">That doesn\'t look like a server address.</string>
+    <string name="login_error_insecure">Only HTTPS servers are supported, so your password never travels unencrypted.</string>
+    <string name="login_error_credentials">Wrong username or password.</string>
+    <string name="login_error_other">Couldn\'t connect: %1$s</string>
+</resources>

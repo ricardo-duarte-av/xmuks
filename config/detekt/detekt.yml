@@ -9,6 +9,8 @@ naming:
     ignoreAnnotated: ['Composable']
 
 complexity:
+  CyclomaticComplexMethod:
+    ignoreSimpleWhenEntries: true
   LongParameterList:
     # Composables legitimately take many parameters (modifier, state, callbacks).
     ignoreAnnotated: ['Composable']
@@ -16,6 +18,9 @@ complexity:
     ignoreAnnotated: ['Composable']
 
 style:
+  ReturnCount:
+    max: 3
+    excludeGuardClauses: true
   MagicNumber:
     ignorePropertyDeclaration: true
     ignoreCompanionObjectPropertyDeclaration: true

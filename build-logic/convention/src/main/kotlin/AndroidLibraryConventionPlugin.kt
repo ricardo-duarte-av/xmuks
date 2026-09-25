@@ -12,6 +12,8 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
             extensions.configure<LibraryExtension> {
                 configureKotlinAndroid(this)
                 testOptions.unitTests.isIncludeAndroidResources = true
+                // OkHttp and others probe android.util.Log; return defaults instead of throwing from the stub jar.
+                testOptions.unitTests.isReturnDefaultValues = true
             }
 
             dependencies {
