@@ -158,10 +158,28 @@ jobs:
           name: mapping
           path: mapping
         continue-on-error: true
+      # Accepts the secret either base64-encoded or as the raw JSON key file.
       - name: Write Play service-account JSON
         env:
           PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
-        run: echo "$PLAY_SERVICE_ACCOUNT_JSON_BASE64" | base64 --decode > "$RUNNER_TEMP/play.json"
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/play.json"
+          if [ -z "$PLAY_SERVICE_ACCOUNT_JSON_BASE64" ]; then
+            echo "::error::PLAY_SERVICE_ACCOUNT_JSON_BASE64 is empty"; exit 1
+          fi
+          if printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON_BASE64" | head -c 20 | grep -q '{'; then
+            echo "Secret is raw JSON"
+            printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON_BASE64" > "$out"
+          else
+            echo "Secret is base64"
+            printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON_BASE64" | tr -d ' \n\r' | base64 --decode > "$out"
+          fi
+          if ! jq -e '.client_email and .private_key' "$out" > /dev/null; then
+            echo "::error::Decoded secret is not a service-account key (missing client_email/private_key); top-level keys: $(jq -c 'keys' "$out" 2>/dev/null || echo 'not JSON')"
+            exit 1
+          fi
+          echo "Service account: $(jq -r .client_email "$out")"
       # The Gradle Play Publisher plugin is not used: it targets AGP's pre-9 extension API.
       # `completed` goes live on the internal track as soon as Play processes it.
       - uses: r0adkll/upload-google-play@v1
