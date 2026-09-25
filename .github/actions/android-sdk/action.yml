@@ -1,0 +1,20 @@
+name: Android SDK
+description: Installs a command-line-tools build new enough to see API 37.x, then the SDK packages in env.SDK_PACKAGES.
+runs:
+  using: composite
+  steps:
+    - uses: android-actions/setup-android@v3
+      with:
+        packages: ""
+    - shell: bash
+      run: |
+        set -euo pipefail
+        curl -fsSL "$CMDLINE_TOOLS_URL" -o /tmp/clt.zip
+        rm -rf "$ANDROID_HOME/cmdline-tools/latest" /tmp/clt
+        mkdir -p "$ANDROID_HOME/cmdline-tools"
+        unzip -q /tmp/clt.zip -d /tmp/clt
+        mv /tmp/clt/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+        sdkm="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+        yes | "$sdkm" --licenses > /dev/null 2>&1 || true
+        # shellcheck disable=SC2086
+        "$sdkm" $SDK_PACKAGES > /dev/null

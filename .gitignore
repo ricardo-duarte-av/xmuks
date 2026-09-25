@@ -1,27 +1,27 @@
-# Compiled class file
-*.class
+# Gradle / Kotlin
+.gradle/
+.kotlin/
+build/
+!gradle/wrapper/gradle-wrapper.jar
 
-# Log file
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Local machine config
+local.properties
 *.log
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
-*.jar
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+captures/
 
-# Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
-.kotlin/
+# Release signing — never commit (CI decodes it from secrets)
+keystore.properties
+*.jks
+*.keystore
+
+# Local agent notes (may contain credentials) — never commit
+CLAUDE.md
+CLAUDE.local.md
+.claude/

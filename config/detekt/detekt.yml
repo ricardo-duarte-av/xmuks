@@ -1,0 +1,39 @@
+# Builds on detekt's default config (buildUponDefaultConfig = true); only deviations live here.
+config:
+  validation: true
+  warningsAsErrors: true
+
+naming:
+  FunctionNaming:
+    # Composables are PascalCase.
+    ignoreAnnotated: ['Composable']
+
+complexity:
+  LongParameterList:
+    # Composables legitimately take many parameters (modifier, state, callbacks).
+    ignoreAnnotated: ['Composable']
+  LongMethod:
+    ignoreAnnotated: ['Composable']
+
+style:
+  MagicNumber:
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignoreAnnotated: ['Composable', 'Preview']
+    excludes: ['**/test/**', '**/theme/**']
+  UnusedPrivateFunction:
+    # @Preview functions are only referenced by tooling.
+    ignoreAnnotated: ['Preview']
+
+Compose:
+  ModifierMissing:
+    active: true
+  ModifierReused:
+    active: true
+  ModifierNotUsedAtRoot:
+    active: true
+  ViewModelForwarding:
+    active: true
+  CompositionLocalAllowlist:
+    active: true
+    allowedCompositionLocals: []

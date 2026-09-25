@@ -1,0 +1,202 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+# Keyed by commit SHA so the branch run and the tag run for the same release commit share a group.
+# Only tag runs cancel: the tag run is the one that publishes, so it must always survive. (Andromuks
+# learned this the hard way — an unconditional cancel let a branch run kill a release run.)
+concurrency:
+  group: ci-${{ github.sha }}
+  cancel-in-progress: ${{ github.ref_type == 'tag' }}
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: "21"
+  # Newer than the runner's bundled sdkmanager, which can't see the API 37.x platforms.
+  CMDLINE_TOOLS_URL: https://dl.google.com/android/repository/commandlinetools-linux-14742923_latest.zip
+  SDK_PACKAGES: "platform-tools platforms;android-37.1 build-tools;37.0.0"
+
+#   every push:  checks + test → build
+#   tag v*:      … + verify-tag → play (internal track) + release (GitHub Release with APKs)
+jobs:
+  checks:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: ./.github/actions/android-sdk
+      - uses: gradle/actions/setup-gradle@v4
+
+      # -PwarningsAsErrors: any Kotlin compiler warning fails CI (local builds stay lenient).
+      - name: ktlint, detekt, Android lint, warning-free compile
+        run: ./gradlew spotlessCheck detekt lintDebug compileDebugKotlin -PwarningsAsErrors=true --stacktrace
+
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis-reports
+          path: |
+            build/reports/detekt/**
+            **/build/reports/lint-results-*.*
+          if-no-files-found: ignore
+
+  test:
+    name: Unit + screenshot tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: ./.github/actions/android-sdk
+      - uses: gradle/actions/setup-gradle@v4
+
+      # JVM only (Robolectric + Roborazzi): no emulator. Goldens are committed under src/test/screenshots.
+      - name: Tests and screenshot verification
+        run: ./gradlew testDebugUnitTest verifyRoborazziDebug --stacktrace
+
+      - name: Upload test reports and screenshot diffs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            **/build/reports/tests/**
+            **/build/outputs/roborazzi/**
+          if-no-files-found: ignore
+
+  build:
+    name: Build (debug + release)
+    runs-on: ubuntu-latest
+    needs: [checks, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: ./.github/actions/android-sdk
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Decode upload keystore (if configured)
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+            echo "file=$RUNNER_TEMP/upload.jks" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No KEYSTORE_BASE64 secret — the release build will be unsigned."
+          fi
+
+      - name: Assemble debug, release APK and AAB
+        env:
+          KEYSTORE_FILE: ${{ steps.keystore.outputs.file }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apks
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aab
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mapping
+          path: app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: warn
+
+  verify-tag:
+    name: Tag matches versionName
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare vX.Y.Z with app/build.gradle.kts
+        run: |
+          version=$(sed -n 's/^ *versionName = "\(.*\)"/\1/p' app/build.gradle.kts)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match versionName $version"
+            exit 1
+          fi
+
+  play:
+    name: Upload to Play (internal track)
+    if: github.ref_type == 'tag' && github.repository_owner == 'ricardo-duarte-av'
+    runs-on: ubuntu-latest
+    needs: [build, verify-tag]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: aab
+          path: aab
+      - uses: actions/download-artifact@v4
+        with:
+          name: mapping
+          path: mapping
+        continue-on-error: true
+      - name: Write Play service-account JSON
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
+        run: echo "$PLAY_SERVICE_ACCOUNT_JSON_BASE64" | base64 --decode > "$RUNNER_TEMP/play.json"
+      # The Gradle Play Publisher plugin is not used: it targets AGP's pre-9 extension API.
+      # `completed` goes live on the internal track as soon as Play processes it.
+      - uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJson: ${{ runner.temp }}/play.json
+          packageName: pt.aguiarvieira.xmuks
+          releaseFiles: aab/*.aab
+          tracks: internal
+          status: completed
+          mappingFile: ${{ hashFiles('mapping/mapping.txt') != '' && 'mapping/mapping.txt' || '' }}
+
+  release:
+    name: GitHub Release
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    needs: [build, verify-tag]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apks
+          path: apks
+      - name: Name APKs after the tag
+        run: |
+          set -euo pipefail
+          find apks -name '*.apk' | while read -r f; do
+            case "$f" in
+              *debug*) mv "$f" "apks/xmuks-${GITHUB_REF_NAME}-debug.apk" ;;
+              *) mv "$f" "apks/xmuks-${GITHUB_REF_NAME}-release.apk" ;;
+            esac
+          done
+          ls -la apks
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: apks/xmuks-*.apk
+          generate_release_notes: true
+          fail_on_unmatched_files: true
