@@ -81,6 +81,15 @@ class SyncIngestor(
         }
     }
 
+    /** Our profile as the homeserver has it now (from `get_profile`). */
+    suspend fun updateOwnProfile(
+        userId: String,
+        displayName: String?,
+        avatar: String?,
+    ) = dao.updateOwnProfile(userId, displayName?.takeIf { it.isNotBlank() }, avatar?.takeIf { it.isNotBlank() })
+
+    suspend fun allAvatars(): List<String> = dao.allAvatars()
+
     /** The next connection will take a full snapshot and sweep (see [load]). */
     suspend fun requestFullResync() = dao.markFullSyncDue()
 
@@ -110,11 +119,20 @@ class SyncIngestor(
                 val meta = dao.meta() ?: SyncMetaEntity()
                 val known = meta.userId != null
                 val same = meta.userId == userId && meta.deviceId == state.deviceId
+                val profile = { m: SyncMetaEntity ->
+                    m.copy(
+                        displayName =
+                            state.displayname?.takeIf {
+                                it.isNotBlank()
+                            },
+                        avatar = state.avatarUrl?.takeIf { it.isNotBlank() }
+                    )
+                }
                 if (known && !same) {
                     wipe()
-                    dao.saveMeta(SyncMetaEntity(userId = userId, deviceId = state.deviceId))
-                } else if (!known) {
-                    dao.saveMeta(meta.copy(userId = userId, deviceId = state.deviceId))
+                    dao.saveMeta(profile(SyncMetaEntity(userId = userId, deviceId = state.deviceId)))
+                } else {
+                    dao.saveMeta(profile(meta.copy(userId = userId, deviceId = state.deviceId)))
                 }
                 known && !same
             }

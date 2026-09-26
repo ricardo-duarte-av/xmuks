@@ -92,6 +92,22 @@ interface SyncDao {
 
     @Upsert suspend fun saveMeta(meta: SyncMetaEntity)
 
+    @Query("UPDATE sync_meta SET displayName = :displayName, avatar = :avatar WHERE id = 0 AND userId = :userId")
+    suspend fun updateOwnProfile(
+        userId: String,
+        displayName: String?,
+        avatar: String?,
+    )
+
+    /** Every avatar the room list can show, for background prefetching. */
+    @Query(
+        """
+        SELECT DISTINCT avatar FROM rooms WHERE avatar IS NOT NULL
+        UNION SELECT avatar FROM sync_meta WHERE avatar IS NOT NULL
+        """,
+    )
+    suspend fun allAvatars(): List<String>
+
     /** Makes the next connection ask for a full snapshot (pull-to-refresh, or a suspected gap). */
     @Query("UPDATE sync_meta SET lastFullSyncAt = 0 WHERE id = 0")
     suspend fun markFullSyncDue()

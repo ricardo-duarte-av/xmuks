@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
 import coil3.ImageLoader
+import coil3.annotation.ExperimentalCoilApi
 import coil3.disk.DiskCache
+import coil3.network.ConnectivityChecker
+import coil3.network.DeDupeConcurrentRequestStrategy
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import dagger.Module
 import dagger.Provides
@@ -22,8 +25,10 @@ import pt.aguiarvieira.xmuks.core.data.auth.KeystoreSecretCipher
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
 import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
+import pt.aguiarvieira.xmuks.core.data.connection.LiveTasks
 import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
+import pt.aguiarvieira.xmuks.core.data.media.MediaCacheStrategy
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
@@ -85,6 +90,7 @@ object DataModule {
         store: CredentialStore,
         ingestor: SyncIngestor,
         stats: StreamStatsTracker,
+        liveTasks: LiveTasks,
     ): GomuksConnection {
         val server = { store.credentials()?.serverUrl }
         return GomuksConnection(
@@ -96,6 +102,7 @@ object DataModule {
         ) { frame ->
             ingestor.apply(frame)
             stats.accept(frame)
+            liveTasks.onFrame(frame)
         }
     }
 
@@ -126,21 +133,43 @@ object DataModule {
      * Coil loads media through the same authenticated client as the API (session cookie, token
      * refresh). Disk cache sized for avatars and thumbnails; M6 adds the tiered media cache.
      */
-    @Provides @Singleton
+    @OptIn(ExperimentalCoilApi::class)
+    @Provides
+    @Singleton
     fun imageLoader(
         @ApplicationContext context: Context,
         @Named("api") api: OkHttpClient,
     ): ImageLoader =
         ImageLoader
             .Builder(context)
-            .components { add(OkHttpNetworkFetcherFactory(callFactory = { api })) }
-            .diskCache {
+            .components {
+                add(
+                    OkHttpNetworkFetcherFactory(
+                        callFactory = { api },
+                        cacheStrategy = { MediaCacheStrategy() },
+                        connectivityChecker = ::ConnectivityChecker,
+                        // The same avatar in the list and the header is fetched once, not twice.
+                        concurrentRequestStrategy = { DeDupeConcurrentRequestStrategy() },
+                    ),
+                )
+            }.diskCache {
                 DiskCache
                     .Builder()
                     .directory(context.cacheDir.resolve("images").toOkioPath())
                     .maxSizeBytes(IMAGE_DISK_CACHE_BYTES)
                     .build()
             }.build()
+
+    @Provides @Singleton
+    fun liveTasks(
+        @ApplicationContext context: Context,
+        exec: ExecClient,
+        ingestor: SyncIngestor,
+        database: XmuksDatabase,
+        media: MediaUrls,
+        imageLoader: ImageLoader,
+        scope: CoroutineScope,
+    ) = LiveTasks(context, exec, ingestor, database, media, imageLoader, scope)
 
     @Provides @Singleton
     fun sessionRepository(

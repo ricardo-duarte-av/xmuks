@@ -1,9 +1,14 @@
 package pt.aguiarvieira.xmuks.core.data.rooms
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.transform
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.database.RoomEntity
 import pt.aguiarvieira.xmuks.core.database.RoomSummaryRow
@@ -17,6 +22,14 @@ class RoomListRepository(
 ) {
     private val dao = database.roomListDao()
     private val me: Flow<String?> = dao.meta().map { it?.userId }.distinctUntilChanged()
+
+    fun ownProfile(): Flow<OwnProfile?> =
+        dao
+            .ownProfile()
+            .map { row ->
+                val userId = row?.userId ?: return@map null
+                OwnProfile(userId, row.displayName ?: localpart(userId), media.avatar(row.avatar))
+            }.distinctUntilChanged()
 
     fun chats(): Flow<List<RoomSummary>> = rooms(dao.chats())
 
@@ -39,8 +52,15 @@ class RoomListRepository(
 
     fun space(spaceId: String): Flow<SpaceSummary?> = dao.room(spaceId).map { it?.toSpaceSummary() }
 
+    /**
+     * Busy accounts commit several syncs a second, each invalidating these queries. Map off the main
+     * thread, drop identical results, and emit at most every [UI_THROTTLE_MS] (always the latest).
+     */
     private fun rooms(source: Flow<List<RoomSummaryRow>>) =
-        combine(source, me) { rows, me -> rows.map { it.toSummary(me) } }.distinctUntilChanged()
+        combine(source, me) { rows, me -> rows.map { it.toSummary(me) } }
+            .distinctUntilChanged()
+            .throttleLatest(UI_THROTTLE_MS)
+            .flowOn(Dispatchers.Default)
 
     private fun RoomSummaryRow.toSummary(me: String?) =
         RoomSummary(
@@ -76,6 +96,15 @@ class RoomListRepository(
     private fun RoomEntity.toSpaceSummary() =
         SpaceSummary(roomId, name ?: roomId, media.avatar(avatar), rooms = 0, unread = Unread())
 }
+
+private const val UI_THROTTLE_MS = 250L
+
+/** Emits the first value at once, then at most one (the latest) per [periodMs]. */
+internal fun <T> Flow<T>.throttleLatest(periodMs: Long): Flow<T> =
+    conflate().transform {
+        emit(it)
+        delay(periodMs)
+    }
 
 /** `@alice:example.org` → `alice`. */
 internal fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')

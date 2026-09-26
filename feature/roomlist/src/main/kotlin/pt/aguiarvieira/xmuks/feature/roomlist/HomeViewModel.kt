@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
+import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
@@ -35,6 +36,7 @@ class HomeViewModel
         val dms: StateFlow<List<RoomSummary>?> = rooms.directMessages().stateIn(viewModelScope, WHILE_VISIBLE, null)
         val spaces: StateFlow<List<SpaceSummary>?> = rooms.topLevelSpaces().stateIn(viewModelScope, WHILE_VISIBLE, null)
         val connection: StateFlow<ConnectionState> = sync.state
+        val profile: StateFlow<OwnProfile?> = rooms.ownProfile().stateIn(viewModelScope, WHILE_VISIBLE, null)
         val account: String = store.credentials()?.let { "${it.username} · ${it.serverUrl.host}" }.orEmpty()
 
         private val _refreshing = MutableStateFlow(false)

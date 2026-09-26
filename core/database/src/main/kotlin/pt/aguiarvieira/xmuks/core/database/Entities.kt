@@ -152,6 +152,9 @@ data class SyncMetaEntity(
     /** Identity of the data: a different Matrix user or gomuks device means none of it applies. */
     val userId: String? = null,
     val deviceId: String? = null,
+    /** Our own profile (client_state on connect, refreshed with get_profile). */
+    val displayName: String? = null,
+    val avatar: String? = null,
     val runId: String? = null,
     val lastRequestId: Long = 0,
     val listenerId: Long = 0,

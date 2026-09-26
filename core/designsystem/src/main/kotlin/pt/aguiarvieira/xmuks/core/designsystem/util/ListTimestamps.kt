@@ -7,6 +7,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Room-list timestamps: the time today, the weekday within the last week, day and month this year,
@@ -31,10 +32,18 @@ object ListTimestamps {
                 then.year == today.year -> DateFormat.getBestDateTimePattern(locale, "dMMM")
                 else -> null
             }
-        val formatter =
-            pattern?.let { DateTimeFormatter.ofPattern(it, locale) }
-                ?: DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale)
-        return then.format(formatter)
+        return then.format(formatter(pattern, locale))
+    }
+
+    /** Formatters are immutable and costly to build; a list redraw must not build one per row. */
+    private val formatters = ConcurrentHashMap<Pair<String?, Locale>, DateTimeFormatter>()
+
+    private fun formatter(
+        pattern: String?,
+        locale: Locale,
+    ) = formatters.getOrPut(pattern to locale) {
+        pattern?.let { DateTimeFormatter.ofPattern(it, locale) }
+            ?: DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale)
     }
 
     private const val WEEK_DAYS = 7L

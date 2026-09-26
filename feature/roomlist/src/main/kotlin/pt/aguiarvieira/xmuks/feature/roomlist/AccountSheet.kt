@@ -15,14 +15,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.designsystem.component.AvatarKind
-import pt.aguiarvieira.xmuks.core.designsystem.component.InitialsAvatar
+import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountSheet(
     account: String,
+    profile: OwnProfile?,
     connection: ConnectionState,
     onLogout: () -> Unit,
     onDismiss: () -> Unit,
@@ -34,9 +36,21 @@ fun AccountSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                InitialsAvatar(name = account, id = account, kind = AvatarKind.Person)
+                RoomAvatar(
+                    name = profile?.displayName ?: account,
+                    id = profile?.userId ?: account,
+                    avatarUrl = profile?.avatarUrl,
+                    kind = AvatarKind.Person,
+                    size = 56.dp,
+                )
                 Column {
-                    Text(account, style = MaterialTheme.typography.titleMedium)
+                    Text(profile?.displayName ?: account, style = MaterialTheme.typography.titleLarge)
+                    profile?.let { Text(it.userId, style = MaterialTheme.typography.bodyMedium) }
+                    Text(
+                        account,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Text(
                         statusText(connection),
                         style = MaterialTheme.typography.bodyMedium,

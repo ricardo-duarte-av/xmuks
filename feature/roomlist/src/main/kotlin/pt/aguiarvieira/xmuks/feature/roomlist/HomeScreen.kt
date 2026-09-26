@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.roomlist
 
+import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,16 +32,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
 import pt.aguiarvieira.xmuks.core.designsystem.component.AvatarKind
-import pt.aguiarvieira.xmuks.core.designsystem.component.InitialsAvatar
+import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 
 @Composable
@@ -57,8 +60,9 @@ fun HomeRoute(
     val spaces by viewModel.spaces.collectAsStateWithLifecycle()
     val connection by viewModel.connection.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
+    val profile by viewModel.profile.collectAsStateWithLifecycle()
     HomeScreen(
-        state = HomeUiState(tab, chats, dms, spaces, connection, refreshing, viewModel.account),
+        state = HomeUiState(tab, chats, dms, spaces, connection, refreshing, viewModel.account, profile),
         onTabChange = { tab = it },
         onRefresh = viewModel::refresh,
         onOpenRoom = onOpenRoom,
@@ -69,6 +73,7 @@ fun HomeRoute(
     if (accountOpen) {
         AccountSheet(
             account = viewModel.account,
+            profile = profile,
             connection = connection,
             onLogout = viewModel::logout,
             onDismiss = { accountOpen = false },
@@ -84,6 +89,7 @@ data class HomeUiState(
     val connection: ConnectionState,
     val refreshing: Boolean,
     val account: String,
+    val profile: OwnProfile? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -106,11 +112,12 @@ fun HomeScreen(
                     title = { Text(stringResource(state.tab.title)) },
                     actions = {
                         IconButton(onClick = onAccountClick) {
-                            InitialsAvatar(
-                                name = state.account,
-                                id = state.account,
+                            RoomAvatar(
+                                name = state.profile?.displayName ?: state.account,
+                                id = state.profile?.userId ?: state.account,
+                                avatarUrl = state.profile?.avatarUrl,
                                 kind = AvatarKind.Person,
-                                size = 32.dp
+                                size = 32.dp,
                             )
                         }
                     },
@@ -172,9 +179,16 @@ internal fun RoomList(
         }
 
         else -> {
+            val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
             LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 4.dp)) {
                 items(rooms, key = { it.roomId }, contentType = { "room" }) { room ->
-                    RoomListItem(room, now, onClick = { onOpenRoom(room.roomId) }, modifier = Modifier.animateItem())
+                    RoomListItem(
+                        room = room,
+                        now = now,
+                        onClick = { onOpenRoom(room.roomId) },
+                        is24Hour = is24Hour,
+                        modifier = Modifier.animateItem(),
+                    )
                 }
             }
         }

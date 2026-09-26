@@ -240,6 +240,28 @@ class SyncIngestorTest {
     }
 
     @Test
+    fun `own profile comes from client_state and is refreshed by get_profile`() {
+        apply(
+            frame(
+                GomuksEvent.ClientState(
+                    isLoggedIn = true,
+                    userId = "@me:x",
+                    deviceId = "D",
+                    displayname = "Me",
+                    avatarUrl = "mxc://x/a"
+                )
+            )
+        )
+        assertEquals("Me", runBlocking { rooms.ownProfile().first() }!!.displayName)
+        runBlocking { ingestor.updateOwnProfile("@me:x", "New me", null) }
+        val profile = runBlocking { rooms.ownProfile().first() }!!
+        assertEquals("New me", profile.displayName)
+        assertNull("a removed avatar is removed", profile.avatar)
+        runBlocking { ingestor.updateOwnProfile("@someone-else:x", "Nope", null) }
+        assertEquals("New me", runBlocking { rooms.ownProfile().first() }!!.displayName)
+    }
+
+    @Test
     fun `clearing account data empties the cache`() {
         initialSync("!a:x" to SyncRoom(meta = room("!a:x")))
         runBlocking { ingestor.clearAccountData() }

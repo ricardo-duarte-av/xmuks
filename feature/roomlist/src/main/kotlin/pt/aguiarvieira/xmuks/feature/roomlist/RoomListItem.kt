@@ -11,7 +11,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,12 +32,10 @@ fun RoomListItem(
     now: Long,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    is24Hour: Boolean = true,
 ) {
     val unread = room.unread.any
     val colors = MaterialTheme.colorScheme
-    val is24Hour =
-        android.text.format.DateFormat
-            .is24HourFormat(LocalContext.current)
     Row(
         modifier =
             modifier

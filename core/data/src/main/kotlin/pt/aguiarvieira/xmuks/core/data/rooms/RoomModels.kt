@@ -46,3 +46,10 @@ data class SpaceSummary(
     val rooms: Int,
     val unread: Unread,
 )
+
+/** The logged-in user as the homeserver describes them. */
+data class OwnProfile(
+    val userId: String,
+    val displayName: String,
+    val avatarUrl: String?,
+)

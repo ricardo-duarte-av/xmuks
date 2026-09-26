@@ -8,7 +8,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.AsyncImage
 
 /**
  * A room, person or space avatar: the image when there is one and it loads, the initials tile
@@ -24,16 +24,15 @@ fun RoomAvatar(
     size: Dp = 48.dp,
 ) {
     val shape = kind.shape()
+    // The image simply paints over the initials once loaded (nothing painted on failure), which
+    // avoids a subcomposition per row — expensive in lazy lists.
     Box(modifier = modifier.size(size).clip(shape)) {
-        if (avatarUrl == null) {
-            InitialsAvatar(name = name, id = id, kind = kind, size = size)
-        } else {
-            SubcomposeAsyncImage(
+        InitialsAvatar(name = name, id = id, kind = kind, size = size)
+        if (avatarUrl != null) {
+            AsyncImage(
                 model = avatarUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                loading = { InitialsAvatar(name = name, id = id, kind = kind, size = size) },
-                error = { InitialsAvatar(name = name, id = id, kind = kind, size = size) },
                 modifier = Modifier.size(size),
             )
         }

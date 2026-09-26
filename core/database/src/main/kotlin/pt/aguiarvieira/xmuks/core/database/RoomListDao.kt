@@ -44,6 +44,12 @@ data class SpaceSummaryRow(
     val unreadHighlights: Int,
 )
 
+data class OwnProfileRow(
+    val userId: String?,
+    val displayName: String?,
+    val avatar: String?,
+)
+
 /** Read side. Everything is a Flow: screens re-render whenever a sync transaction commits. */
 @Dao
 interface RoomListDao {
@@ -61,6 +67,9 @@ interface RoomListDao {
 
     @Query("SELECT * FROM sync_meta WHERE id = 0")
     fun meta(): Flow<SyncMetaEntity?>
+
+    @Query("SELECT userId, displayName, avatar FROM sync_meta WHERE id = 0")
+    fun ownProfile(): Flow<OwnProfileRow?>
 
     @Query("SELECT * FROM rooms WHERE roomId = :roomId")
     fun room(roomId: String): Flow<RoomEntity?>
