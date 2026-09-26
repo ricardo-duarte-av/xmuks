@@ -75,11 +75,15 @@ class AccountSwitchTest {
             ingestor.apply(FrameDecoder.decode(INIT_LINE)!!)
             ingestor.save(ResumePoint("run-a", -5, 1, 0))
             assertEquals(2, roomCount())
-            assertEquals(1_000L, ingestor.load().lastServerTs)
+            assertEquals(1_000L, ingestor.load(reconnect = false).lastServerTs)
 
             session.logout()
             assertEquals(0, roomCount())
-            assertEquals("the next server must not be asked for a catch-up", ResumePoint(), ingestor.load())
+            assertEquals(
+                "the next server must not be asked for a catch-up",
+                ResumePoint(),
+                ingestor.load(reconnect = false)
+            )
             assertEquals(StreamStats(), stats.stats.value)
 
             // Frames still in flight from the old stream after logout must not leak into the next account.

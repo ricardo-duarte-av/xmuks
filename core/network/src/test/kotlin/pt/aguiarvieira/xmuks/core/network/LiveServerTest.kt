@@ -39,7 +39,7 @@ class LiveServerTest {
             object : ResumeStore {
                 var point = ResumePoint()
 
-                override suspend fun load() = point
+                override suspend fun load(reconnect: Boolean) = point
 
                 override suspend fun save(point: ResumePoint) {
                     this.point = point

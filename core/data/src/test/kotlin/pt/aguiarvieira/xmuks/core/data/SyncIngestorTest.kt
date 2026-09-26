@@ -105,7 +105,7 @@ class SyncIngestorTest {
 
     private fun roomRow(id: String) = runBlocking { rooms.room(id).first() }
 
-    private fun load() = runBlocking { ingestor.load() }
+    private fun load(reconnect: Boolean = true) = runBlocking { ingestor.load(reconnect) }
 
     // --- tests -------------------------------------------------------------------------------
 
@@ -166,19 +166,32 @@ class SyncIngestorTest {
     }
 
     @Test
-    fun `the sweep keeps cached timelines of rooms that still exist`() {
+    fun `only previews and their senders' member events are kept, the rest pruned`() {
+        val member =
+            Event(
+                rowId = 50,
+                roomId = "!a:x",
+                eventId = "\$m",
+                sender = "@b:x",
+                type = "m.room.member",
+                stateKey = "@b:x",
+            )
         initialSync(
             "!a:x" to
                 SyncRoom(
-                    meta = room("!a:x"),
-                    events = listOf(event("!a:x", 7)),
-                    timeline = listOf(TimelineRowTuple(1, 7))
-                )
+                    meta = room("!a:x").copy(previewEventRowId = 2),
+                    events = listOf(event("!a:x", 1), event("!a:x", 2), member),
+                    timeline = listOf(TimelineRowTuple(1, 1), TimelineRowTuple(2, 2)),
+                    state = mapOf("m.room.member" to mapOf("@b:x" to 50L), "m.room.topic" to mapOf("" to 1L)),
+                ),
         )
-        initialSync("!a:x" to SyncRoom(meta = room("!a:x")))
-        val kept = runBlocking { db.syncDao().roomExists("!a:x") }
-        assertTrue(kept)
-        assertEquals(1, runBlocking { timelineRows("!a:x") })
+        assertEquals("timeline event 1 isn't stored", listOf(2L, 50L), runBlocking { eventRowIds() })
+
+        // A new preview arrives: the old one is no longer referenced and goes.
+        apply(
+            sync("!a:x" to SyncRoom(meta = room("!a:x").copy(previewEventRowId = 3), events = listOf(event("!a:x", 3))))
+        )
+        assertEquals(listOf(3L, 50L), runBlocking { eventRowIds() })
     }
 
     @Test
@@ -235,8 +248,14 @@ class SyncIngestorTest {
         apply(sync(ts = now), frame(GomuksEvent.Typing("!a:x"), requestId = -10))
         assertEquals(ResumePoint("run", -9, 3, now), load())
 
+        assertEquals(
+            "first connection of a session catches up, never resumes",
+            ResumePoint("run", 0, 3, now),
+            load(reconnect = false)
+        )
+
         now += 25 * 60 * 60 * 1000L
-        assertEquals("a day-old snapshot is refreshed in full", ResumePoint(), load())
+        assertEquals("a day-old snapshot is refreshed in full", ResumePoint(runId = "run", listenerId = 3), load())
     }
 
     @Test
@@ -275,6 +294,13 @@ class SyncIngestorTest {
                 it.bindText(1, roomId)
                 it.step()
                 it.getInt(0)
+            }
+        }
+
+    private suspend fun eventRowIds(): List<Long> =
+        db.useReaderConnection { conn ->
+            conn.usePrepared("SELECT rowId FROM events ORDER BY rowId") {
+                buildList { while (it.step()) add(it.getLong(0)) }
             }
         }
 

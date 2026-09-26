@@ -57,7 +57,12 @@ data class TopLevelSpaceEntity(
     val position: Int,
 )
 
-/** Keyed by gomuks' event rowid, which is stable for the lifetime of the backend database. */
+/**
+ * Only what the room list needs to survive a restart: each room's preview event, and the member
+ * event of each preview's sender (for per-room names). Timelines are never persisted — they live in
+ * memory for the session (see TimelineStore). Unreferenced rows are pruned in every sync transaction.
+ * Keyed by gomuks' event rowid, stable for the lifetime of the backend database.
+ */
 @Entity(
     tableName = "events",
     indices = [Index("roomId"), Index("eventId"), Index("relatesTo")],
@@ -87,37 +92,16 @@ data class EventEntity(
     val decryptionError: String?,
 )
 
-/** Current room state: (type, state key) → event rowid. Deep-merged from syncs. */
-@Entity(tableName = "room_state", primaryKeys = ["roomId", "type", "stateKey"])
+/**
+ * Member state only ((room, user) → member event rowid), deep-merged from syncs — enough to name
+ * preview senders. Full room state is fetched fresh (get_room_state) whenever a room is opened.
+ */
+@Entity(tableName = "room_state", primaryKeys = ["roomId", "type", "stateKey"], indices = [Index("eventRowId")])
 data class RoomStateEntity(
     val roomId: String,
     val type: String,
     val stateKey: String,
     val eventRowId: Long,
-)
-
-/** Timeline order. gomuks resets a room's rows (`reset: true`) when it reorders them. */
-@Entity(tableName = "timeline", primaryKeys = ["roomId", "timelineRowId"], indices = [Index("eventRowId")])
-data class TimelineEntity(
-    val roomId: String,
-    val timelineRowId: Long,
-    val eventRowId: Long,
-)
-
-/** Latest receipt per (user, type, thread). */
-@Entity(
-    tableName = "receipts",
-    primaryKeys = ["roomId", "userId", "receiptType", "threadId"],
-    indices = [Index("eventId")]
-)
-data class ReceiptEntity(
-    val roomId: String,
-    val userId: String,
-    val receiptType: String,
-    /** Empty for unthreaded receipts. */
-    val threadId: String,
-    val eventId: String,
-    val timestamp: Long,
 )
 
 /** Global (roomId = "") and per-room account data; content replaced wholesale. */

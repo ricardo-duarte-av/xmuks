@@ -10,13 +10,11 @@ import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
 import pt.aguiarvieira.xmuks.core.database.AccountDataEntity
 import pt.aguiarvieira.xmuks.core.database.EventEntity
 import pt.aguiarvieira.xmuks.core.database.InvitedRoomEntity
-import pt.aguiarvieira.xmuks.core.database.ReceiptEntity
 import pt.aguiarvieira.xmuks.core.database.RoomEntity
 import pt.aguiarvieira.xmuks.core.database.RoomStateEntity
 import pt.aguiarvieira.xmuks.core.database.SpaceEdgeEntity
 import pt.aguiarvieira.xmuks.core.database.SyncDao
 import pt.aguiarvieira.xmuks.core.database.SyncMetaEntity
-import pt.aguiarvieira.xmuks.core.database.TimelineEntity
 import pt.aguiarvieira.xmuks.core.database.TopLevelSpaceEntity
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ResumePoint
@@ -64,14 +62,25 @@ class SyncIngestor(
         }
     }
 
-    override suspend fun load(): ResumePoint {
+    /**
+     * The three ways to (re)connect, chosen by what we send:
+     * - **Full** (A): no `last_received_event`, no `last_server_ts` — after login, an empty or
+     *   interrupted cache, an identity change, pull-to-refresh, or a day since the last one.
+     * - **Catch-up** (C): `last_server_ts` only — first connection of a session (cold start, back
+     *   from the background). Only changed rooms are sent, however long we were away.
+     * - **Resume** (B): also `last_received_event` — a stream that dropped while in the foreground.
+     *   gomuks replays its buffer, or falls back to C/A by itself when it can't.
+     * `run_id` and `prev_listener_id` always go along: they let gomuks release our old listener.
+     */
+    override suspend fun load(reconnect: Boolean): ResumePoint {
         val meta = dao.meta() ?: return ResumePoint()
         val fullSyncDue =
             meta.fullSyncInProgress || meta.lastServerTs == 0L || clock() - meta.lastFullSyncAt > fullResyncAfterMs
-        // Asking for a full sync means asking for nothing to be resumed either: with a valid run ID
-        // and request ID gomuks would replay its buffer instead of sending a snapshot.
-        if (fullSyncDue) return ResumePoint()
-        return ResumePoint(meta.runId, meta.lastRequestId, meta.listenerId, meta.lastServerTs)
+        return when {
+            fullSyncDue -> ResumePoint(runId = meta.runId, listenerId = meta.listenerId)
+            !reconnect -> ResumePoint(meta.runId, lastRequestId = 0, meta.listenerId, meta.lastServerTs)
+            else -> ResumePoint(meta.runId, meta.lastRequestId, meta.listenerId, meta.lastServerTs)
+        }
     }
 
     override suspend fun save(point: ResumePoint) {
@@ -103,8 +112,6 @@ class SyncIngestor(
         dao.wipeTopLevelSpaces()
         dao.wipeEvents()
         dao.wipeRoomState()
-        dao.wipeTimeline()
-        dao.wipeReceipts()
         dao.wipeAccountData()
         dao.wipeInvites()
         dao.wipeMeta()
@@ -168,6 +175,7 @@ class SyncIngestor(
             )
         }
         if (sync.leftRooms.isNotEmpty()) deleteRooms(sync.leftRooms)
+        dao.pruneEvents()
 
         meta =
             if (meta.fullSyncInProgress) {
@@ -190,25 +198,31 @@ class SyncIngestor(
         } else if (!dao.roomExists(roomId)) {
             return // e.g. catch-up account data for a room we don't have; nothing to hang it on
         }
-        dao.upsertEvents(room.events.map { it.toEntity() })
-        dao.upsertState(
-            room.state.flatMap { (type, byKey) ->
-                byKey.map { (key, rowId) -> RoomStateEntity(roomId, type, key, rowId) }
-            },
-        )
-        if (room.reset) dao.clearTimeline(roomId)
-        dao.upsertTimeline(room.timeline.map { TimelineEntity(roomId, it.timelineRowId, it.eventRowId) })
+        // Persist only what the room list reads after a restart: the preview event, the member
+        // events of senders (per-room names), and newer copies of events we already hold (e.g. an
+        // edited or redacted preview). Timelines stay in memory (TimelineStore); receipts too.
+        val members = room.state[MEMBER].orEmpty()
+        val wanted =
+            buildSet {
+                meta?.previewEventRowId?.takeIf { it != 0L }?.let(::add)
+                addAll(members.values)
+                addAll(dao.existingEvents(room.events.map { it.rowId }))
+            }
+        dao.upsertEvents(room.events.filter { it.rowId in wanted }.map { it.toEntity() })
+        dao.upsertState(members.map { (userId, rowId) -> RoomStateEntity(roomId, MEMBER, userId, rowId) })
         dao.upsertAccountData(room.accountData.values.map { it.toEntity(roomId, generation) })
-        dao.upsertReceipts(
-            room.receipts.values.flatten().map {
-                ReceiptEntity(roomId, it.userId, it.receiptType, it.threadId.orEmpty(), it.eventId, it.timestamp)
-            },
-        )
     }
 
     private suspend fun applyDecrypted(event: GomuksEvent.EventsDecrypted) {
         if (!dao.roomExists(event.roomId)) return
-        dao.upsertEvents(event.events.map { it.toEntity() })
+        if (event.previewEventRowId !=
+            0L
+        ) {
+            dao.updatePreview(event.roomId, event.previewEventRowId, event.sortingTimestamp)
+        }
+        val wanted = dao.existingEvents(event.events.map { it.rowId }).toSet() + event.previewEventRowId
+        dao.upsertEvents(event.events.filter { it.rowId in wanted }.map { it.toEntity() })
+        dao.pruneEvents()
     }
 
     /** At init_complete of a full sync: delete everything the snapshot didn't contain. */
@@ -233,8 +247,6 @@ class SyncIngestor(
         roomIds.chunked(SQL_VARIABLE_CHUNK).forEach { ids ->
             dao.deleteEventsOf(ids)
             dao.deleteStateOf(ids)
-            dao.deleteTimelineOf(ids)
-            dao.deleteReceiptsOf(ids)
             dao.deleteAccountDataOf(ids)
             dao.deleteInvites(ids)
             dao.deleteEdgesFrom(ids)
@@ -245,6 +257,7 @@ class SyncIngestor(
 
     private companion object {
         const val DAY_MS = 24 * 60 * 60 * 1000L
+        const val MEMBER = "m.room.member"
 
         /** Stay well under SQLite's bound-parameter limit. */
         const val SQL_VARIABLE_CHUNK = 500

@@ -63,7 +63,11 @@ sealed interface ConnectionState {
  * (run, listener, last request ID) after each applied frame.
  */
 interface ResumeStore {
-    suspend fun load(): ResumePoint
+    /**
+     * [reconnect] is false for the first connection of a session (cold start, or back from the
+     * background) and true when re-establishing a stream that dropped while in the foreground.
+     */
+    suspend fun load(reconnect: Boolean): ResumePoint
 
     suspend fun save(point: ResumePoint)
 }
@@ -96,10 +100,12 @@ class GomuksConnection(
     /** Runs until cancelled (typically: the app leaves the foreground). */
     suspend fun run() {
         var attempt = 0
+        var reconnect = false
         try {
             while (currentCoroutineContext().isActive) {
                 _state.value = ConnectionState.Connecting(attempt)
-                val error = runOnce(onLive = { attempt = 0 })
+                val error = runOnce(reconnect, onLive = { attempt = 0 })
+                reconnect = true
                 if (error is HttpStatusException && error.code == HTTP_UNAUTHORIZED) {
                     _state.value = ConnectionState.AuthFailed
                     return
@@ -120,8 +126,11 @@ class GomuksConnection(
     }
 
     /** One connection's lifetime. Returns why it ended (null: server closed it cleanly). */
-    private suspend fun runOnce(onLive: () -> Unit): Throwable? {
-        var point = resumeStore.load()
+    private suspend fun runOnce(
+        reconnect: Boolean,
+        onLive: () -> Unit,
+    ): Throwable? {
+        var point = resumeStore.load(reconnect)
         return try {
             coroutineScope {
                 val acker = launch { ackLoop { point } }

@@ -15,10 +15,6 @@ interface SyncDao {
 
     @Upsert suspend fun upsertState(state: List<RoomStateEntity>)
 
-    @Upsert suspend fun upsertTimeline(rows: List<TimelineEntity>)
-
-    @Upsert suspend fun upsertReceipts(receipts: List<ReceiptEntity>)
-
     @Upsert suspend fun upsertAccountData(data: List<AccountDataEntity>)
 
     @Upsert suspend fun upsertInvites(invites: List<InvitedRoomEntity>)
@@ -31,9 +27,6 @@ interface SyncDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM rooms WHERE roomId = :roomId)")
     suspend fun roomExists(roomId: String): Boolean
-
-    @Query("DELETE FROM timeline WHERE roomId = :roomId")
-    suspend fun clearTimeline(roomId: String)
 
     @Query("DELETE FROM space_edges WHERE spaceId = :spaceId")
     suspend fun clearSpaceEdges(spaceId: String)
@@ -55,12 +48,6 @@ interface SyncDao {
     @Query("DELETE FROM room_state WHERE roomId IN (:roomIds)")
     suspend fun deleteStateOf(roomIds: List<String>)
 
-    @Query("DELETE FROM timeline WHERE roomId IN (:roomIds)")
-    suspend fun deleteTimelineOf(roomIds: List<String>)
-
-    @Query("DELETE FROM receipts WHERE roomId IN (:roomIds)")
-    suspend fun deleteReceiptsOf(roomIds: List<String>)
-
     @Query("DELETE FROM account_data WHERE roomId IN (:roomIds)")
     suspend fun deleteAccountDataOf(roomIds: List<String>)
 
@@ -73,6 +60,31 @@ interface SyncDao {
 
     @Query("DELETE FROM top_level_spaces WHERE roomId IN (:roomIds)")
     suspend fun deleteTopLevel(roomIds: List<String>)
+
+    /** A late decryption can make an encrypted event the room's new preview. */
+    @Query(
+        """
+        UPDATE rooms SET previewEventRowId = :rowId, sortingTs = MAX(sortingTs, :sortingTs)
+        WHERE roomId = :roomId
+        """,
+    )
+    suspend fun updatePreview(
+        roomId: String,
+        rowId: Long,
+        sortingTs: Long,
+    )
+
+    /** Events that are neither a room's preview nor a referenced member event: nothing will read them. */
+    @Query(
+        """
+        DELETE FROM events WHERE rowId NOT IN (SELECT previewEventRowId FROM rooms)
+            AND rowId NOT IN (SELECT eventRowId FROM room_state)
+        """,
+    )
+    suspend fun pruneEvents()
+
+    @Query("SELECT rowId FROM events WHERE rowId IN (:rowIds)")
+    suspend fun existingEvents(rowIds: List<Long>): List<Long>
 
     // --- Full-sync sweep ---
 
@@ -136,12 +148,6 @@ interface SyncDao {
 
     @Query("DELETE FROM room_state")
     suspend fun wipeRoomState()
-
-    @Query("DELETE FROM timeline")
-    suspend fun wipeTimeline()
-
-    @Query("DELETE FROM receipts")
-    suspend fun wipeReceipts()
 
     @Query("DELETE FROM account_data")
     suspend fun wipeAccountData()

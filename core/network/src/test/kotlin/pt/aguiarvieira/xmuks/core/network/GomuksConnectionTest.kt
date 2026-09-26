@@ -25,7 +25,12 @@ class GomuksConnectionTest {
         val saved = mutableListOf<ResumePoint>()
         var point = ResumePoint()
 
-        override suspend fun load() = point
+        val reconnects = mutableListOf<Boolean>()
+
+        override suspend fun load(reconnect: Boolean): ResumePoint {
+            reconnects += reconnect
+            return point
+        }
 
         override suspend fun save(point: ResumePoint) {
             this.point = point
@@ -76,6 +81,11 @@ class GomuksConnectionTest {
             assertEquals("3", second.queryParameter("prev_listener_id"))
             assertEquals("450", second.queryParameter("last_server_ts"))
             assertEquals(ResumePoint("7", -11, 3, 450), store.point)
+            assertEquals(
+                "first connect starts a session, the next re-establishes it",
+                listOf(false, true),
+                store.reconnects.take(2)
+            )
         }
     }
 

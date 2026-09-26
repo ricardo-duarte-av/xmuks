@@ -14,6 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import androidx.room3.useReaderConnection
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.AuthApi
@@ -121,6 +122,16 @@ class LiveIngestTest {
             val dms = repo.directMessages().first()
             val spaces = repo.topLevelSpaces().first()
             println("chats=${chats.size} dms=${dms.size} spaces=${spaces.size}")
+            val sizes =
+                db.useReaderConnection { conn ->
+                    listOf("events", "room_state", "rooms").map { table ->
+                        conn.usePrepared("SELECT COUNT(*) FROM $table") { st ->
+                            st.step()
+                            "$table=${st.getLong(0)}"
+                        }
+                    }
+                }
+            println("table sizes: $sizes")
             println(
                 "chats without preview: ${chats.count {
                     it.preview == pt.aguiarvieira.xmuks.core.data.rooms.Preview.None
