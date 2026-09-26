@@ -51,7 +51,7 @@ import pt.aguiarvieira.xmuks.core.network.ConnectionState
 
 @Composable
 fun HomeRoute(
-    onOpenRoom: (String) -> Unit,
+    onOpenRoom: (roomId: String, scope: String) -> Unit,
     onOpenSpace: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
@@ -101,7 +101,7 @@ fun HomeScreen(
     state: HomeUiState,
     onTabChange: (HomeTab) -> Unit,
     onRefresh: () -> Unit,
-    onOpenRoom: (String) -> Unit,
+    onOpenRoom: (roomId: String, scope: String) -> Unit,
     onOpenSpace: (String) -> Unit,
     onAccountClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -168,8 +168,8 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize(),
             ) { page ->
                 when (HomeTab.entries[page]) {
-                    HomeTab.Chats -> RoomList(state.chats, now, R.string.empty_chats, onOpenRoom)
-                    HomeTab.Dms -> RoomList(state.dms, now, R.string.empty_dms, onOpenRoom)
+                    HomeTab.Chats -> RoomList(state.chats, now, R.string.empty_chats, SharedScopes.CHATS, onOpenRoom)
+                    HomeTab.Dms -> RoomList(state.dms, now, R.string.empty_dms, SharedScopes.DMS, onOpenRoom)
                     HomeTab.Spaces -> SpaceGrid(state.spaces, onOpenSpace)
                 }
             }
@@ -182,7 +182,8 @@ internal fun RoomList(
     rooms: List<RoomSummary>?,
     now: Long,
     emptyText: Int,
-    onOpenRoom: (String) -> Unit,
+    sharedScope: String,
+    onOpenRoom: (roomId: String, scope: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when {
@@ -201,8 +202,9 @@ internal fun RoomList(
                     RoomListItem(
                         room = room,
                         now = now,
-                        onClick = { onOpenRoom(room.roomId) },
+                        onClick = { onOpenRoom(room.roomId, sharedScope) },
                         is24Hour = is24Hour,
+                        sharedScope = sharedScope,
                         modifier = Modifier.animateItem(),
                     )
                 }

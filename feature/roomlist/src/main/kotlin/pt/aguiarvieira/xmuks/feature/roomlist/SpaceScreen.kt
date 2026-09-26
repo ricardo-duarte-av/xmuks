@@ -36,7 +36,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.sharedElement
 fun SpaceRoute(
     spaceId: String,
     onBack: () -> Unit,
-    onOpenRoom: (String) -> Unit,
+    onOpenRoom: (roomId: String, scope: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SpaceViewModel =
         hiltViewModel<SpaceViewModel, SpaceViewModel.Factory>(key = spaceId) { it.create(spaceId) },
@@ -68,7 +68,7 @@ fun SpaceScreen(
     rooms: List<RoomSummary>?,
     onSelect: (String?) -> Unit,
     onBack: () -> Unit,
-    onOpenRoom: (String) -> Unit,
+    onOpenRoom: (roomId: String, scope: String) -> Unit,
     modifier: Modifier = Modifier,
     now: Long = rememberNow(),
 ) {
@@ -84,6 +84,7 @@ fun SpaceScreen(
                             name = space?.name ?: "",
                             avatarUrl = space?.avatarUrl,
                             kind = AvatarKind.Space,
+                            sharedScope = SharedScopes.SPACES,
                         )
                     },
                 )
@@ -110,7 +111,14 @@ fun SpaceScreen(
             }
         },
     ) { padding ->
-        RoomList(rooms, now, R.string.empty_space, onOpenRoom, modifier = Modifier.padding(padding))
+        RoomList(
+            rooms,
+            now,
+            R.string.empty_space,
+            SharedScopes.space(spaceId),
+            onOpenRoom,
+            modifier = Modifier.padding(padding)
+        )
     }
 }
 
@@ -118,6 +126,7 @@ fun SpaceScreen(
 @Composable
 fun RoomRoute(
     roomId: String,
+    sharedScope: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RoomViewModel = hiltViewModel<RoomViewModel, RoomViewModel.Factory>(key = roomId) { it.create(roomId) },
@@ -134,6 +143,7 @@ fun RoomRoute(
                         name = room?.name ?: "",
                         avatarUrl = room?.avatarUrl,
                         kind = if (room?.isDirect == true) AvatarKind.Person else AvatarKind.Room,
+                        sharedScope = sharedScope,
                     )
                 },
             )
@@ -150,6 +160,7 @@ internal fun HeaderTitle(
     name: String,
     avatarUrl: String?,
     kind: AvatarKind,
+    sharedScope: String,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -163,14 +174,14 @@ internal fun HeaderTitle(
             avatarUrl = avatarUrl,
             kind = kind,
             size = 40.dp,
-            modifier = Modifier.sharedElement(SharedKeys.avatar(id)),
+            modifier = Modifier.sharedElement(SharedKeys.avatar(id, sharedScope)),
         )
         Text(
             text = name,
             style = MaterialTheme.typography.titleLarge,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.sharedElement(SharedKeys.title(id)),
+            modifier = Modifier.sharedElement(SharedKeys.title(id, sharedScope)),
         )
     }
 }

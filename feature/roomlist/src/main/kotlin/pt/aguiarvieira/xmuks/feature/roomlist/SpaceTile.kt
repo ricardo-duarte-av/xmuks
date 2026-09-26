@@ -42,7 +42,7 @@ fun SpaceTile(
                 avatarUrl = space.avatarUrl,
                 kind = AvatarKind.Space,
                 size = 84.dp,
-                modifier = Modifier.sharedElement(SharedKeys.avatar(space.roomId)),
+                modifier = Modifier.sharedElement(SharedKeys.avatar(space.roomId, SharedScopes.SPACES)),
             )
             val (level, count) = space.unread.level()
             UnreadBadge(level, count, modifier = Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp))
@@ -54,7 +54,11 @@ fun SpaceTile(
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 4.dp).sharedElement(SharedKeys.title(space.roomId)),
+            modifier =
+                Modifier
+                    .padding(
+                        horizontal = 4.dp
+                    ).sharedElement(SharedKeys.title(space.roomId, SharedScopes.SPACES)),
         )
     }
 }

@@ -29,8 +29,10 @@ import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
     val spaceId: String,
 ) : NavKey
 
+/** [scope] is the list the room was opened from, so only that row's avatar flies into the header. */
 @Serializable data class RoomKey(
     val roomId: String,
+    val scope: String,
 ) : NavKey
 
 /**
@@ -75,7 +77,13 @@ fun XmuksNavHost(modifier: Modifier = Modifier) {
                             }
                         }
                         entry<RoomKey>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
-                            Destination { RoomRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() }) }
+                            Destination {
+                                RoomRoute(
+                                    roomId = key.roomId,
+                                    sharedScope = key.scope,
+                                    onBack = { backStack.removeLastOrNull() }
+                                )
+                            }
                         }
                     },
             )
@@ -93,7 +101,10 @@ private fun Destination(content: @Composable () -> Unit) {
 }
 
 /** Opening a room replaces an open one (on large screens the detail pane swaps, not stacks). */
-private fun NavBackStack<NavKey>.openRoom(roomId: String) {
+private fun NavBackStack<NavKey>.openRoom(
+    roomId: String,
+    scope: String,
+) {
     if (lastOrNull() is RoomKey) removeAt(lastIndex)
-    add(RoomKey(roomId))
+    add(RoomKey(roomId, scope))
 }

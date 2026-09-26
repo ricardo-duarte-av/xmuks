@@ -12,13 +12,23 @@ val LocalSharedTransitionScope = compositionLocalOf<SharedTransitionScope?> { nu
 /** Provided per destination (the navigation's animated content scope). */
 val LocalAnimatedVisibilityScope = compositionLocalOf<AnimatedVisibilityScope?> { null }
 
-/** Keys shared between screens so the same element morphs across a navigation. */
+/**
+ * Keys shared between screens so the same element morphs across a navigation.
+ *
+ * [scope] names the list an element was tapped in (`chats`, `space:!id`, …) and travels with the
+ * navigation to the destination's header. Without it, a room shown in two lists at once — say
+ * Chats (kept composed off-screen) and a space — matched itself and flew across the screen.
+ */
 object SharedKeys {
-    fun avatar(id: String) = "avatar:$id"
+    fun avatar(
+        id: String,
+        scope: String,
+    ) = "avatar:$scope:$id"
 
-    fun title(id: String) = "title:$id"
-
-    fun container(id: String) = "container:$id"
+    fun title(
+        id: String,
+        scope: String,
+    ) = "title:$scope:$id"
 }
 
 /**

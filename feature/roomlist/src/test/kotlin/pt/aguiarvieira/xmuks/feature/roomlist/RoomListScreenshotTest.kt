@@ -116,7 +116,7 @@ class RoomListScreenshotTest {
     }
 
     @Test
-    fun chats() = capture("home_chats") { HomeScreen(home(HomeTab.Chats), {}, {}, {}, {}, {}, now = now) }
+    fun chats() = capture("home_chats") { HomeScreen(home(HomeTab.Chats), {}, {}, { _, _ -> }, {}, {}, now = now) }
 
     @Test
     fun chatsDarkConnecting() =
@@ -125,15 +125,15 @@ class RoomListScreenshotTest {
                 home(HomeTab.Chats, ConnectionState.Initializing(120, catchup = true)),
                 {},
                 {},
+                { _, _ -> },
                 {},
                 {},
-                {},
-                now = now
+                now = now,
             )
         }
 
     @Test
-    fun spaces() = capture("home_spaces") { HomeScreen(home(HomeTab.Spaces), {}, {}, {}, {}, {}, now = now) }
+    fun spaces() = capture("home_spaces") { HomeScreen(home(HomeTab.Spaces), {}, {}, { _, _ -> }, {}, {}, now = now) }
 
     @Test
     fun spaceWithChips() =
@@ -150,7 +150,7 @@ class RoomListScreenshotTest {
                 rooms = chats.take(4),
                 onSelect = {},
                 onBack = {},
-                onOpenRoom = {},
+                onOpenRoom = { _, _ -> },
                 now = now,
             )
         }

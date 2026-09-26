@@ -33,6 +33,7 @@ fun RoomListItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     is24Hour: Boolean = true,
+    sharedScope: String = SharedScopes.CHATS,
 ) {
     val unread = room.unread.any
     val colors = MaterialTheme.colorScheme
@@ -50,7 +51,7 @@ fun RoomListItem(
             id = room.roomId,
             avatarUrl = room.avatarUrl,
             kind = if (room.isDirect) AvatarKind.Person else AvatarKind.Room,
-            modifier = Modifier.sharedElement(SharedKeys.avatar(room.roomId)),
+            modifier = Modifier.sharedElement(SharedKeys.avatar(room.roomId, sharedScope)),
         )
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -60,7 +61,7 @@ fun RoomListItem(
                     fontWeight = if (unread) FontWeight.Bold else FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).sharedElement(SharedKeys.title(room.roomId)),
+                    modifier = Modifier.weight(1f).sharedElement(SharedKeys.title(room.roomId, sharedScope)),
                 )
                 Text(
                     text = ListTimestamps.format(room.timestamp, now, is24Hour = is24Hour),
@@ -114,3 +115,12 @@ fun Unread.level(): Pair<UnreadLevel, Int> =
         any -> UnreadLevel.Dot to 0
         else -> UnreadLevel.None to 0
     }
+
+/** Where a room or space was opened from; see [SharedKeys]. */
+object SharedScopes {
+    const val CHATS = "chats"
+    const val DMS = "dms"
+    const val SPACES = "spaces"
+
+    fun space(spaceId: String) = "space:$spaceId"
+}
