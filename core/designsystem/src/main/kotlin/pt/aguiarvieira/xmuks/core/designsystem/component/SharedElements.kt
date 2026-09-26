@@ -29,6 +29,9 @@ object SharedKeys {
         id: String,
         scope: String,
     ) = "title:$scope:$id"
+
+    /** A piece of media (by event ID) growing into the viewer. */
+    fun media(id: String) = "media:$id"
 }
 
 /**

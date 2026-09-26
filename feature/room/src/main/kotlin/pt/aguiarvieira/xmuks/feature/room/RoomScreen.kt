@@ -45,6 +45,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.Change
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
+import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -54,6 +55,7 @@ fun RoomRoute(
     roomId: String,
     sharedScope: String,
     onBack: () -> Unit,
+    onOpenMedia: (ViewerMedia) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RoomViewModel = hiltViewModel<RoomViewModel, RoomViewModel.Factory>(key = roomId) { it.create(roomId) },
 ) {
@@ -77,6 +79,7 @@ fun RoomRoute(
             resolver = resolver,
             onBack = onBack,
             onLoadOlder = viewModel::loadOlder,
+            onOpenMedia = onOpenMedia,
             modifier = modifier,
         )
     }
@@ -95,6 +98,7 @@ fun RoomScreen(
     resolver: MediaResolver,
     onBack: () -> Unit,
     onLoadOlder: () -> Unit,
+    onOpenMedia: (ViewerMedia) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -137,7 +141,7 @@ fun RoomScreen(
                 }
 
                 else -> {
-                    Timeline(items, loadingOlder, hasMoreBefore, resolver, onLoadOlder)
+                    Timeline(items, loadingOlder, hasMoreBefore, resolver, onLoadOlder, onOpenMedia)
                 }
             }
         }
@@ -151,6 +155,7 @@ private fun Timeline(
     hasMoreBefore: Boolean,
     resolver: MediaResolver,
     onLoadOlder: () -> Unit,
+    onOpenMedia: (ViewerMedia) -> Unit,
 ) {
     val state = rememberLazyListState()
     LoadOlderNearTop(state, hasMoreBefore, onLoadOlder)
@@ -163,7 +168,7 @@ private fun Timeline(
     ) {
         items(items, key = { it.key }, contentType = { it::class }) { item ->
             when (item) {
-                is TimelineItem.Message -> MessageRow(item, resolver, Modifier.animateItem())
+                is TimelineItem.Message -> MessageRow(item, resolver, onOpenMedia, Modifier.animateItem())
                 is TimelineItem.StateChange -> StateChangeRow(item, Modifier.animateItem())
                 is TimelineItem.DaySeparator -> DayRow(item.day, Modifier.animateItem())
             }

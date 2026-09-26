@@ -19,6 +19,8 @@ import androidx.navigation3.ui.NavDisplay
 import kotlinx.serialization.Serializable
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalAnimatedVisibilityScope
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalSharedTransitionScope
+import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
+import pt.aguiarvieira.xmuks.feature.media.MediaViewerRoute
 import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
@@ -33,6 +35,11 @@ import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
 @Serializable data class RoomKey(
     val roomId: String,
     val scope: String,
+) : NavKey
+
+/** Full-screen media, over whatever opened it (never a list-detail pane). */
+@Serializable data class MediaKey(
+    val media: ViewerMedia,
 ) : NavKey
 
 /**
@@ -81,8 +88,14 @@ fun XmuksNavHost(modifier: Modifier = Modifier) {
                                 RoomRoute(
                                     roomId = key.roomId,
                                     sharedScope = key.scope,
-                                    onBack = { backStack.removeLastOrNull() }
+                                    onBack = { backStack.removeLastOrNull() },
+                                    onOpenMedia = { backStack.add(MediaKey(it)) },
                                 )
+                            }
+                        }
+                        entry<MediaKey> { key ->
+                            Destination {
+                                MediaViewerRoute(media = key.media, onBack = { backStack.removeLastOrNull() })
                             }
                         }
                     },

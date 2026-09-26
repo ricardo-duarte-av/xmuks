@@ -91,14 +91,14 @@ class TimelineItemBuilder(
     ): TimelineItem.Message {
         val edit = event.lastEditRowId?.let(snapshot.eventsByRowId::get)
         val content = (edit?.effectiveContent?.obj("m.new_content")) ?: event.effectiveContent
-        val html = (edit ?: event).localContent?.takeUnless { it.wasPlaintext }?.sanitizedHtml
+        val html = htmlOf((edit ?: event).localContent?.sanitizedHtml, content)
         val perMessage = content.obj(PER_MESSAGE_PROFILE) ?: content.obj(PER_MESSAGE_PROFILE_STABLE)
         val profile = members[event.sender]
         return TimelineItem.Message(
             key = "e:${event.rowId}",
             eventId = event.eventId,
             sender = event.sender,
-            senderName = perMessage?.str("displayname") ?: profile?.displayName ?: localpart(event.sender),
+            senderName = senderLabel(perMessage, event.sender, members),
             senderAvatarMxc = perMessage?.str("avatar_url")?.takeIf { it.startsWith("mxc://") } ?: profile?.avatarMxc,
             fromMe = event.sender == me,
             timestamp = event.timestamp,
@@ -113,7 +113,7 @@ class TimelineItemBuilder(
             firstInGroup = true,
             lastInGroup = true,
             readBy = readers[event.eventId].orEmpty().filter { it != me && it != event.sender },
-            sendError = event.sendError?.takeIf { it.isNotBlank() },
+            sendError = event.sendError?.takeIf { it.isNotBlank() && it != NOT_SENT },
         )
     }
 
@@ -234,9 +234,7 @@ class TimelineItemBuilder(
                 ?: original.effectiveContent.obj(PER_MESSAGE_PROFILE_STABLE)
         return ReplyPreview(
             eventId = target,
-            senderName =
-                originalProfile?.str("displayname") ?: members[original.sender]?.displayName
-                    ?: localpart(original.sender),
+            senderName = senderLabel(originalProfile, original.sender, members),
             text = original.localContent?.previewText ?: original.effectiveContent.str("body"),
         )
     }
@@ -347,6 +345,9 @@ class TimelineItemBuilder(
         const val GROUP_GAP_MS = 5 * 60 * 1000L
         const val DAY_SEPARATOR_SLACK = 16
         const val PER_MESSAGE_PROFILE = "com.beeper.per_message_profile"
+
+        /** gomuks' placeholder while it has no send result: not an error. */
+        const val NOT_SENT = "not sent"
         const val PER_MESSAGE_PROFILE_STABLE = "m.per_message_profile"
         val MESSAGE_TYPES = setOf("m.room.message", "m.sticker", "m.room.encrypted")
         val STATE_TYPES =
@@ -354,11 +355,3 @@ class TimelineItemBuilder(
         val HIDDEN_TYPES = setOf("m.reaction", "m.room.redaction")
     }
 }
-
-internal fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
-
-private fun JsonObject.obj(key: String) = get(key) as? JsonObject
-
-private fun JsonObject.str(key: String) = (get(key) as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
-
-private fun JsonObject.long(key: String) = (get(key) as? JsonPrimitive)?.longOrNull

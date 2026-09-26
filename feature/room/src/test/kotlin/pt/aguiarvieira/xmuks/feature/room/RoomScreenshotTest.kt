@@ -125,6 +125,7 @@ class RoomScreenshotTest {
         resolver = MediaResolver({ null }, { _, _ -> null }),
         onBack = {},
         onLoadOlder = {},
+        onOpenMedia = {},
     )
 
     @Test

@@ -55,6 +55,18 @@ object NetworkModule {
             .addInterceptor(AuthInterceptor(store, authApi))
             .build()
 
+    /**
+     * Media streaming (video/audio): auth only. No compression negotiation — players make Range
+     * requests, and byte ranges of a compressed body are meaningless.
+     */
+    @Provides @Singleton
+    @Named("media")
+    fun mediaHttp(
+        @Named("plain") plain: OkHttpClient,
+        store: CredentialStore,
+        authApi: AuthApi,
+    ): OkHttpClient = plain.newBuilder().addInterceptor(AuthInterceptor(store, authApi)).build()
+
     @Provides @Singleton
     @Named("sse")
     fun sseHttp(

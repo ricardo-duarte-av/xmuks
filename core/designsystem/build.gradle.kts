@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.xmuks.android.library)
     alias(libs.plugins.xmuks.android.compose)
     alias(libs.plugins.xmuks.screenshots)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -15,4 +16,5 @@ dependencies {
     api(libs.androidx.compose.animation)
     implementation(libs.material.kolor)
     api(libs.coil.compose)
+    implementation(libs.kotlinx.serialization.json)
 }

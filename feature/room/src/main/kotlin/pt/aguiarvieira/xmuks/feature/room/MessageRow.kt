@@ -3,6 +3,7 @@ package pt.aguiarvieira.xmuks.feature.room
 import android.text.format.Formatter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -47,6 +49,9 @@ import pt.aguiarvieira.xmuks.core.data.timeline.ReplyPreview
 import pt.aguiarvieira.xmuks.core.data.timeline.TextKind
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
+import pt.aguiarvieira.xmuks.core.designsystem.component.SharedKeys
+import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
+import pt.aguiarvieira.xmuks.core.designsystem.component.sharedElement
 import pt.aguiarvieira.xmuks.core.designsystem.util.Blurhash
 import java.text.DateFormat
 import java.util.Date
@@ -55,64 +60,107 @@ import java.util.Date
 fun MessageRow(
     message: TimelineItem.Message,
     resolver: MediaResolver,
+    onOpenMedia: (ViewerMedia) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val mine = message.fromMe
     val bare = message.content.isBare()
-    Row(
+    Column(
         modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(start = 8.dp, end = 12.dp, top = if (message.firstInGroup) 8.dp else 2.dp),
-        horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.Bottom,
+            modifier.fillMaxWidth().padding(
+                start = 8.dp,
+                end = 12.dp,
+                top = if (message.firstInGroup) 8.dp else 2.dp
+            )
     ) {
-        if (!mine) {
-            Box(Modifier.width(AVATAR_SLOT)) {
-                if (message.lastInGroup) {
-                    RoomAvatar(
-                        message.senderName,
-                        message.sender,
-                        resolver.avatar(message.senderAvatarMxc),
-                        size = 32.dp
-                    )
-                }
-            }
-            Spacer(Modifier.width(6.dp))
+        if (!mine && message.firstInGroup) {
+            Text(
+                message.senderName,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = AVATAR_SLOT + AVATAR_GAP + 12.dp, bottom = 2.dp),
+            )
         }
-        Column(
-            horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
-            modifier = Modifier.widthIn(max = BUBBLE_MAX)
+        // The avatar sits beside the top of the group's first bubble.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
+            verticalAlignment = Alignment.Top,
         ) {
-            if (!mine && message.firstInGroup) {
-                Text(
-                    message.senderName,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 12.dp, bottom = 2.dp),
-                )
-            }
-            if (bare) {
-                Content(message, resolver, MaterialTheme.colorScheme.onSurface)
-                Footer(message, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(horizontal = 4.dp))
-            } else {
-                Bubble(message) { color ->
-                    Column(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        message.reply?.let { Reply(it, color) }
-                        Content(message, resolver, color)
-                        Footer(message, color.copy(alpha = FOOTER_ALPHA), Modifier.align(Alignment.End))
+            if (!mine) {
+                Box(Modifier.width(AVATAR_SLOT)) {
+                    if (message.firstInGroup) {
+                        RoomAvatar(
+                            message.senderName,
+                            message.sender,
+                            resolver.avatar(message.senderAvatarMxc),
+                            size = AVATAR_SLOT
+                        )
                     }
                 }
+                Spacer(Modifier.width(AVATAR_GAP))
             }
-            if (message.reactions.isNotEmpty()) Reactions(message.reactions, resolver, Modifier.padding(top = 4.dp))
+            Column(
+                horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
+                modifier = Modifier.widthIn(max = BUBBLE_MAX)
+            ) {
+                val open = {
+                    media: Media,
+                    kind: ViewerMedia.Kind,
+                    ->
+                    onOpenMedia(viewerMedia(message, media, kind, resolver))
+                }
+                if (bare) {
+                    Content(message, resolver, MaterialTheme.colorScheme.onSurface, open)
+                    Footer(message, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(horizontal = 4.dp))
+                } else {
+                    Bubble(message) { color ->
+                        Column(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            message.reply?.let { Reply(it, color) }
+                            Content(message, resolver, color, open)
+                            Footer(message, color.copy(alpha = FOOTER_ALPHA), Modifier.align(Alignment.End))
+                        }
+                    }
+                }
+                if (message.reactions.isNotEmpty()) Reactions(message.reactions, resolver, Modifier.padding(top = 4.dp))
+            }
         }
     }
 }
+
+private fun viewerMedia(
+    message: TimelineItem.Message,
+    media: Media,
+    kind: ViewerMedia.Kind,
+    resolver: MediaResolver,
+) = ViewerMedia(
+    kind = kind,
+    url = resolver.media(media.mxc, media.encrypted).orEmpty(),
+    previewUrl = timelineSource(media, kind, resolver),
+    blurhash = media.blurhash,
+    width = media.width,
+    height = media.height,
+    title = message.senderName,
+    subtitle = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(message.timestamp)),
+    sharedKey = SharedKeys.media(message.eventId),
+)
+
+/**
+ * What the timeline loads: the sender's thumbnail when there is one (gomuks only makes avatar
+ * thumbnails itself), else the original for images — Coil downsamples it to the bubble.
+ */
+private fun timelineSource(
+    media: Media,
+    kind: ViewerMedia.Kind,
+    resolver: MediaResolver,
+): String? =
+    media.thumbnailMxc?.let { resolver.media(it, media.thumbnailEncrypted) }
+        ?: resolver.media(media.mxc, media.encrypted).takeIf { kind == ViewerMedia.Kind.Image }
 
 /** Big emoji and stickers stand on their own, without a bubble. */
 private fun MessageContent.isBare() = (this is MessageContent.Text && bigEmoji) || this is MessageContent.Sticker
@@ -153,6 +201,7 @@ private fun Content(
     message: TimelineItem.Message,
     resolver: MediaResolver,
     color: Color,
+    onOpen: (Media, ViewerMedia.Kind) -> Unit,
 ) {
     val style = MaterialTheme.typography.bodyLarge
     when (val c = message.content) {
@@ -161,7 +210,9 @@ private fun Content(
         }
 
         is MessageContent.Image -> {
-            MediaImage(c.media, resolver, c.caption, color)
+            MediaImage(c.media, resolver, c.caption, color, message.eventId, ViewerMedia.Kind.Image) {
+                onOpen(c.media, ViewerMedia.Kind.Image)
+            }
         }
 
         is MessageContent.Sticker -> {
@@ -173,11 +224,19 @@ private fun Content(
         }
 
         is MessageContent.Video -> {
-            MediaImage(c.media, resolver, c.caption, color, video = true)
+            MediaImage(c.media, resolver, c.caption, color, message.eventId, ViewerMedia.Kind.Video) {
+                onOpen(c.media, ViewerMedia.Kind.Video)
+            }
         }
 
         is MessageContent.Audio -> {
-            FileCard(R.drawable.ic_audio, c.media.mxc.substringAfterLast('/'), c.media.size, color)
+            FileCard(
+                R.drawable.ic_audio,
+                stringResource(R.string.audio),
+                c.media.size,
+                color,
+                Modifier.clickable { onOpen(c.media, ViewerMedia.Kind.Audio) },
+            )
         }
 
         is MessageContent.File -> {
@@ -248,40 +307,35 @@ private fun MediaImage(
     resolver: MediaResolver,
     caption: String?,
     color: Color,
-    video: Boolean = false,
+    eventId: String,
+    kind: ViewerMedia.Kind,
+    onClick: () -> Unit,
 ) {
     val ratio = media.aspectRatio() ?: DEFAULT_RATIO
     val placeholder = remember(media.blurhash) { media.blurhash?.let { Blurhash.decode(it)?.asImageBitmap() } }
-    // Videos show their thumbnail; images load the file itself (gomuks has no server-side resizing
-    // for timeline media, and Coil downsamples to the view size).
-    val source =
-        if (video) {
-            media.thumbnailMxc?.let { resolver.media(it, media.thumbnailEncrypted) }
-        } else {
-            resolver.media(media.mxc, media.encrypted)
-        }
+    val source = timelineSource(media, kind, resolver)
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(
             modifier =
                 Modifier
+                    .sharedElement(SharedKeys.media(eventId))
                     .widthIn(max = MEDIA_MAX)
                     .heightIn(max = MEDIA_MAX_HEIGHT)
                     .aspectRatio(ratio.coerceIn(MIN_RATIO, MAX_RATIO))
-                    .clip(RoundedCornerShape(12.dp)),
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
-            placeholder?.let {
-                Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().fillMaxHeight())
-            }
+            placeholder?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
             if (source != null) {
                 AsyncImage(
                     model = source,
                     contentDescription = caption,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                    modifier = Modifier.fillMaxSize()
                 )
             }
-            if (video) {
+            if (kind == ViewerMedia.Kind.Video) {
                 Surface(shape = CircleShape, color = Color.Black.copy(alpha = SCRIM)) {
                     Icon(
                         painterResource(R.drawable.ic_play),
@@ -308,9 +362,14 @@ private fun FileCard(
     name: String,
     size: Long?,
     color: Color,
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         Icon(painterResource(icon), null, tint = color)
         Column {
             Text(
@@ -443,6 +502,7 @@ private fun Reactions(
 }
 
 private val AVATAR_SLOT = 32.dp
+private val AVATAR_GAP = 6.dp
 private val BUBBLE_MAX = 320.dp
 private val BUBBLE_RADIUS = 20.dp
 private val GROUPED_RADIUS = 6.dp

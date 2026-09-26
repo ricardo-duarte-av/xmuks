@@ -96,7 +96,7 @@ class TimelineItemBuilderTest {
                 ev(sender = "@stranger:x", ts = t0 + 2_000),
                 profiles = profiles,
             ).messages()
-        assertEquals(listOf("Cat", "Bob in this room", "stranger"), items.map { it.senderName })
+        assertEquals(listOf("Cat via Bob in this room", "Bob in this room", "stranger"), items.map { it.senderName })
         assertEquals(listOf("mxc://x/cat", "mxc://x/bob", null), items.map { it.senderAvatarMxc })
     }
 
@@ -171,5 +171,24 @@ class TimelineItemBuilderTest {
         assertEquals(Change.Joined, items[0].change)
         assertEquals(Change.Renamed("Ann", "Annie"), items[1].change)
         assertEquals(Change.Kicked("Annie", "spam"), items[2].change)
+    }
+
+    @Test
+    fun `sanitised html wins, then formatted_body, then plain`() {
+        val msgs =
+            build(
+                ev(content = """{"msgtype":"m.text","body":"a.b","format":"org.matrix.custom.html","formatted_body":"<i>raw</i>"}""") {
+                    copy(localContent = LocalContent(sanitizedHtml = "<i>clean</i>", wasPlaintext = true))
+                },
+                ev(content = """{"msgtype":"m.text","body":"x","format":"org.matrix.custom.html","formatted_body":"<i>raw</i>"}"""),
+                ev(content = """{"msgtype":"m.text","body":"plain"}"""),
+            ).messages()
+        assertEquals(listOf("<i>clean</i>", "<i>raw</i>", null), msgs.map { (it.content as MessageContent.Text).html })
+    }
+
+    @Test
+    fun `gomuks' not-sent placeholder is not an error`() {
+        val msgs = build(ev { copy(sendError = "not sent") }, ev { copy(sendError = "M_FORBIDDEN") }).messages()
+        assertEquals(listOf(null, "M_FORBIDDEN"), msgs.map { it.sendError })
     }
 }

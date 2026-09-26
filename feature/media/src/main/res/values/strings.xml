@@ -1,0 +1,4 @@
+<resources>
+    <string name="back">Back</string>
+    <string name="media_failed">Couldn\'t load this media</string>
+</resources>

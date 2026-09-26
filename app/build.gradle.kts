@@ -70,6 +70,7 @@ dependencies {
     implementation(projects.feature.login)
     implementation(projects.feature.roomlist)
     implementation(projects.feature.room)
+    implementation(projects.feature.media)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

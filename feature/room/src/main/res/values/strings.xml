@@ -6,6 +6,7 @@
     <string name="edited">edited</string>
     <string name="reply_unavailable">Reply to a message that isn\'t loaded</string>
     <string name="sticker">Sticker</string>
+    <string name="audio">Audio message</string>
     <string name="typing_one">%1$s is typing…</string>
     <string name="typing_two">%1$s and %2$s are typing…</string>
     <string name="typing_many">Several people are typing…</string>
