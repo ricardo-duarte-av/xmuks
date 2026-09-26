@@ -18,6 +18,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import okhttp3.OkHttpClient
 import okio.Path.Companion.toOkioPath
 import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
@@ -32,13 +34,18 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaCacheStrategy
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
+import pt.aguiarvieira.xmuks.core.data.timeline.TimelineStore
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.AuthApi
 import pt.aguiarvieira.xmuks.core.network.AuthInterceptor
 import pt.aguiarvieira.xmuks.core.network.CompressionInterceptor
 import pt.aguiarvieira.xmuks.core.network.ExecClient
+import pt.aguiarvieira.xmuks.core.network.ExecMode
+import pt.aguiarvieira.xmuks.core.network.ExecResult
 import pt.aguiarvieira.xmuks.core.network.GomuksConnection
 import pt.aguiarvieira.xmuks.core.network.SseClient
+import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
+import pt.aguiarvieira.xmuks.core.protocol.PaginationResponse
 import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
@@ -81,7 +88,28 @@ object DataModule {
     fun accountScoped(
         ingestor: SyncIngestor,
         stats: StreamStatsTracker,
-    ): Set<AccountScoped> = setOf(ingestor, stats)
+        timelines: TimelineStore,
+    ): Set<AccountScoped> = setOf(ingestor, stats, timelines)
+
+    /** Session-only timelines, paged from gomuks with `paginate` and kept live by the stream. */
+    @Provides @Singleton
+    fun timelineStore(
+        exec: ExecClient,
+        scope: CoroutineScope,
+    ) = TimelineStore(
+        paginator = { roomId, maxTimelineId, limit ->
+            val params =
+                buildJsonObject {
+                    put("room_id", JsonPrimitive(roomId))
+                    put("max_timeline_id", JsonPrimitive(maxTimelineId))
+                    put("limit", JsonPrimitive(limit))
+                }
+            (exec.exec("paginate", params, ExecMode.Read) as? ExecResult.Ok)?.let {
+                runCatching { GomuksJson.decodeFromJsonElement(PaginationResponse.serializer(), it.data) }.getOrNull()
+            }
+        },
+        scope = scope,
+    )
 
     @Provides @Singleton
     fun gomuksConnection(
@@ -91,6 +119,7 @@ object DataModule {
         ingestor: SyncIngestor,
         stats: StreamStatsTracker,
         liveTasks: LiveTasks,
+        timelines: TimelineStore,
     ): GomuksConnection {
         val server = { store.credentials()?.serverUrl }
         return GomuksConnection(
@@ -101,6 +130,7 @@ object DataModule {
             Dispatchers.IO,
         ) { frame ->
             ingestor.apply(frame)
+            timelines.onFrame(frame)
             stats.accept(frame)
             liveTasks.onFrame(frame)
         }
