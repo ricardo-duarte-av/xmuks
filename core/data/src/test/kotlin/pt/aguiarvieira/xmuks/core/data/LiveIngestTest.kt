@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.core.data
 
+import androidx.room3.useReaderConnection
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -14,7 +15,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import androidx.room3.useReaderConnection
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.AuthApi
