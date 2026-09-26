@@ -24,6 +24,9 @@ complexity:
     ignoreAnnotated: ['Composable']
 
 style:
+  MaxLineLength:
+    # Tests carry inline JSON fixtures that read better on one line.
+    excludes: ['**/test/**']
   ReturnCount:
     max: 3
     excludeGuardClauses: true

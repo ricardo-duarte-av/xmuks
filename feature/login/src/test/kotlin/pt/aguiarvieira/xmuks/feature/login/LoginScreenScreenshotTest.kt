@@ -43,6 +43,5 @@ class LoginScreenScreenshotTest {
             status = LoginStatus(error = LoginError.BadCredentials),
         )
 
-    private fun filled(password: String) =
-        LoginForm(TextFieldState("gomuks.example.org"), TextFieldState("alice"), TextFieldState(password))
+    private fun filled(password: String) = LoginForm(TextFieldState("gomuks.example.org"), TextFieldState("alice"), TextFieldState(password))
 }

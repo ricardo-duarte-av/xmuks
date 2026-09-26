@@ -98,8 +98,7 @@ class SyncIngestorTest {
 
     private fun apply(vararg frames: GomuksFrame) = runBlocking { frames.forEach { ingestor.apply(it) } }
 
-    private fun initialSync(vararg data: Pair<String, SyncRoom>) =
-        apply(sync(*data, clearState = true), frame(GomuksEvent.InitComplete))
+    private fun initialSync(vararg data: Pair<String, SyncRoom>) = apply(sync(*data, clearState = true), frame(GomuksEvent.InitComplete))
 
     private val counts get() = runBlocking { rooms.counts().first() }
 

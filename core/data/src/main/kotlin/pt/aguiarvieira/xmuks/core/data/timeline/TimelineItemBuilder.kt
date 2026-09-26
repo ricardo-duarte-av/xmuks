@@ -1,0 +1,364 @@
+package pt.aguiarvieira.xmuks.core.data.timeline
+
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.longOrNull
+import pt.aguiarvieira.xmuks.core.protocol.Event
+import java.time.Instant
+import java.time.ZoneId
+
+/**
+ * Turns a [TimelineSnapshot] into what the screen shows. Pure: same input, same output.
+ *
+ * Sender names/avatars, in order: the message's own per-message profile (MSC4144), the sender's
+ * `m.room.member` in this room ([profiles], newest member events in the timeline winning), then
+ * the Matrix ID's localpart.
+ */
+class TimelineItemBuilder(
+    private val me: String?,
+    private val zone: ZoneId = ZoneId.systemDefault(),
+) {
+    fun build(
+        snapshot: TimelineSnapshot,
+        profiles: Map<String, MemberProfile>,
+    ): List<TimelineItem> {
+        val byEventId = snapshot.eventsByRowId.values.associateBy { it.eventId }
+        val members = profiles + membersFromTimeline(snapshot.events)
+        val myReactions = myReactions(snapshot.eventsByRowId.values)
+        val readers =
+            snapshot.receiptsByEventId.mapValues { (_, list) ->
+                list.filter { it.receiptType == "m.read" }.map { it.userId }
+            }
+
+        val out = ArrayList<TimelineItem>(snapshot.events.size + DAY_SEPARATOR_SLACK)
+        var previous: Event? = null
+        var previousGroup: String? = null
+        for (event in snapshot.events) {
+            if (!event.isShown()) continue
+            val day = Instant.ofEpochMilli(event.timestamp).atZone(zone).toLocalDate()
+            val previousDay = previous?.let { Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() }
+            if (day != previousDay) out += TimelineItem.DaySeparator("day:$day", day)
+
+            val item =
+                if (event.stateKey != null) {
+                    stateChange(event, members)
+                } else {
+                    message(event, snapshot, byEventId, members, myReactions, readers)
+                }
+            if (item is TimelineItem.Message) {
+                val group = groupKey(event, item)
+                val gap = previous?.let { event.timestamp - it.timestamp } ?: Long.MAX_VALUE
+                val continues = group == previousGroup && day == previousDay && gap < GROUP_GAP_MS
+                if (continues) {
+                    val last = out.last() as TimelineItem.Message
+                    out[out.lastIndex] = last.copy(lastInGroup = false)
+                }
+                out += item.copy(firstInGroup = !continues)
+                previousGroup = group
+            } else if (item != null) {
+                out += item
+                previousGroup = null
+            }
+            previous = event
+        }
+        return out
+    }
+
+    // --- visibility ---------------------------------------------------------------------------
+
+    private fun Event.isShown(): Boolean =
+        when {
+            relationType == "m.replace" -> false
+
+            // edits are folded into the original
+            effectiveType in HIDDEN_TYPES -> false
+
+            stateKey != null -> effectiveType in STATE_TYPES
+
+            else -> effectiveType in MESSAGE_TYPES
+        }
+
+    // --- messages -------------------------------------------------------------------------------
+
+    private fun message(
+        event: Event,
+        snapshot: TimelineSnapshot,
+        byEventId: Map<String, Event>,
+        members: Map<String, MemberProfile>,
+        myReactions: Map<String, Set<String>>,
+        readers: Map<String, List<String>>,
+    ): TimelineItem.Message {
+        val edit = event.lastEditRowId?.let(snapshot.eventsByRowId::get)
+        val content = (edit?.effectiveContent?.obj("m.new_content")) ?: event.effectiveContent
+        val html = (edit ?: event).localContent?.takeUnless { it.wasPlaintext }?.sanitizedHtml
+        val perMessage = content.obj(PER_MESSAGE_PROFILE) ?: content.obj(PER_MESSAGE_PROFILE_STABLE)
+        val profile = members[event.sender]
+        return TimelineItem.Message(
+            key = "e:${event.rowId}",
+            eventId = event.eventId,
+            sender = event.sender,
+            senderName = perMessage?.str("displayname") ?: profile?.displayName ?: localpart(event.sender),
+            senderAvatarMxc = perMessage?.str("avatar_url")?.takeIf { it.startsWith("mxc://") } ?: profile?.avatarMxc,
+            fromMe = event.sender == me,
+            timestamp = event.timestamp,
+            content = contentOf(event, content, html, (edit ?: event).localContent?.bigEmoji == true),
+            reply = replyOf(content, event, byEventId, members),
+            reactions =
+                event.reactions
+                    .orEmpty()
+                    .map { (key, count) -> Reaction(key, count, key in myReactions[event.eventId].orEmpty()) }
+                    .sortedByDescending { it.count },
+            edited = edit != null,
+            firstInGroup = true,
+            lastInGroup = true,
+            readBy = readers[event.eventId].orEmpty().filter { it != me && it != event.sender },
+            sendError = event.sendError?.takeIf { it.isNotBlank() },
+        )
+    }
+
+    private fun contentOf(
+        event: Event,
+        content: JsonObject,
+        html: String?,
+        bigEmoji: Boolean,
+    ): MessageContent {
+        if (event.redactedBy != null) return MessageContent.Redacted
+        if (event.type == "m.room.encrypted" &&
+            event.decrypted == null
+        ) {
+            return MessageContent.Undecryptable(event.decryptionError)
+        }
+        val body = content.str("body").orEmpty()
+        if (event.effectiveType == "m.sticker") {
+            return media(content)?.let { MessageContent.Sticker(it, body) }
+                ?: MessageContent.Unsupported("m.sticker", body)
+        }
+        return byMsgtype(content, body, html, bigEmoji)
+            ?: MessageContent.Unsupported(content.str("msgtype") ?: event.effectiveType, body)
+    }
+
+    private fun byMsgtype(
+        content: JsonObject,
+        body: String,
+        html: String?,
+        bigEmoji: Boolean,
+    ): MessageContent? =
+        when (val msgtype = content.str("msgtype")) {
+            "m.text", null -> {
+                MessageContent.Text(body, html, TextKind.Text, bigEmoji)
+            }
+
+            "m.notice" -> {
+                MessageContent.Text(body, html, TextKind.Notice, bigEmoji)
+            }
+
+            "m.emote" -> {
+                MessageContent.Text(body, html, TextKind.Emote, bigEmoji)
+            }
+
+            "m.image", "m.video", "m.audio", "m.file" -> {
+                mediaMessage(msgtype, content, body)
+            }
+
+            "m.location" -> {
+                MessageContent.Location(body, content.str("geo_uri"))
+            }
+
+            // Unknown msgtypes still render their fallback body when they have one.
+            else -> {
+                if (body.isNotEmpty()) {
+                    MessageContent.Text(
+                        body,
+                        html,
+                        TextKind.Text,
+                        bigEmoji
+                    )
+                } else {
+                    MessageContent.Unsupported(msgtype, null)
+                }
+            }
+        }
+
+    private fun mediaMessage(
+        msgtype: String,
+        content: JsonObject,
+        body: String,
+    ): MessageContent? {
+        val media = media(content) ?: return null
+        return when (msgtype) {
+            "m.image" -> MessageContent.Image(media, caption(content))
+            "m.video" -> MessageContent.Video(media, caption(content))
+            "m.audio" -> MessageContent.Audio(media, content.obj("info")?.long("duration"))
+            else -> MessageContent.File(media, content.str("filename") ?: body)
+        }
+    }
+
+    /** Unencrypted media has `url`; encrypted media has `file.url` (gomuks decrypts on download). */
+    private fun media(content: JsonObject): Media? {
+        val file = content.obj("file")
+        val mxc = content.str("url") ?: file?.str("url") ?: return null
+        val info = content.obj("info")
+        val thumbFile = info?.obj("thumbnail_file")
+        return Media(
+            mxc = mxc,
+            encrypted = file != null,
+            mimeType = info?.str("mimetype"),
+            width = info?.long("w")?.toInt(),
+            height = info?.long("h")?.toInt(),
+            size = info?.long("size"),
+            blurhash = info?.str("xyz.amorgan.blurhash") ?: content.str("xyz.amorgan.blurhash"),
+            thumbnailMxc = info?.str("thumbnail_url") ?: thumbFile?.str("url"),
+            thumbnailEncrypted = thumbFile != null,
+        )
+    }
+
+    /** Media captions (MSC2530): `body` is the caption when a separate `filename` is given. */
+    private fun caption(content: JsonObject): String? {
+        val body = content.str("body") ?: return null
+        val filename = content.str("filename") ?: return null
+        return body.takeIf { it != filename && it.isNotBlank() }
+    }
+
+    private fun replyOf(
+        content: JsonObject,
+        event: Event,
+        byEventId: Map<String, Event>,
+        members: Map<String, MemberProfile>,
+    ): ReplyPreview? {
+        val relatesTo = content.obj("m.relates_to") ?: event.content.obj("m.relates_to") ?: return null
+        val target = relatesTo.obj("m.in_reply_to")?.str("event_id") ?: return null
+        val original = byEventId[target] ?: return ReplyPreview(target, senderName = null, text = null)
+        val originalProfile =
+            original.effectiveContent.obj(PER_MESSAGE_PROFILE)
+                ?: original.effectiveContent.obj(PER_MESSAGE_PROFILE_STABLE)
+        return ReplyPreview(
+            eventId = target,
+            senderName =
+                originalProfile?.str("displayname") ?: members[original.sender]?.displayName
+                    ?: localpart(original.sender),
+            text = original.localContent?.previewText ?: original.effectiveContent.str("body"),
+        )
+    }
+
+    private fun groupKey(
+        event: Event,
+        item: TimelineItem.Message,
+    ): String {
+        val profileId =
+            event.effectiveContent.obj(PER_MESSAGE_PROFILE)?.str("id")
+                ?: event.effectiveContent.obj(PER_MESSAGE_PROFILE_STABLE)?.str("id")
+        return "${item.sender}|${profileId.orEmpty()}"
+    }
+
+    // --- state ----------------------------------------------------------------------------------
+
+    private fun stateChange(
+        event: Event,
+        members: Map<String, MemberProfile>,
+    ): TimelineItem.StateChange? {
+        val content = event.effectiveContent
+        val actor = members[event.sender]?.displayName ?: localpart(event.sender)
+        val change: Change =
+            when (event.effectiveType) {
+                "m.room.member" -> memberChange(event, content, members) ?: return null
+                "m.room.name" -> Change.RoomName(content.str("name"))
+                "m.room.topic" -> Change.RoomTopic(content.str("topic"))
+                "m.room.avatar" -> Change.RoomAvatar
+                "m.room.create" -> Change.RoomCreated
+                "m.room.encryption" -> Change.EncryptionEnabled
+                else -> return null
+            }
+        return TimelineItem.StateChange("e:${event.rowId}", actor, change, event.timestamp)
+    }
+
+    private fun memberChange(
+        event: Event,
+        content: JsonObject,
+        members: Map<String, MemberProfile>,
+    ): Change? {
+        val target = event.stateKey ?: return null
+        val targetName = content.str("displayname") ?: members[target]?.displayName ?: localpart(target)
+        val previous = event.unsigned?.obj("prev_content")
+        val was = previous?.str("membership")
+        return when (content.str("membership")) {
+            "join" -> {
+                when {
+                    was != "join" -> {
+                        Change.Joined
+                    }
+
+                    previous.str("displayname") != content.str("displayname") -> {
+                        Change.Renamed(previous.str("displayname"), content.str("displayname"))
+                    }
+
+                    previous.str("avatar_url") != content.str("avatar_url") -> {
+                        Change.ChangedAvatar
+                    }
+
+                    else -> {
+                        null
+                    }
+                }
+            }
+
+            "invite" -> {
+                Change.Invited(targetName)
+            }
+
+            "leave" -> {
+                if (event.sender == target) Change.Left else Change.Kicked(targetName, content.str("reason"))
+            }
+
+            "ban" -> {
+                Change.Banned(targetName, content.str("reason"))
+            }
+
+            else -> {
+                null
+            }
+        }
+    }
+
+    /** Member events loaded with the timeline are newer than any fetched snapshot: they win. */
+    private fun membersFromTimeline(events: List<Event>): Map<String, MemberProfile> =
+        events
+            .filter {
+                it.effectiveType == "m.room.member" && it.stateKey != null &&
+                    it.effectiveContent.str("membership") == "join"
+            }.associate {
+                it.stateKey!! to
+                    MemberProfile(it.effectiveContent.str("displayname"), it.effectiveContent.str("avatar_url"))
+            }
+
+    /** Event ID → reaction keys we sent to it, from the reaction events we happen to hold. */
+    private fun myReactions(events: Collection<Event>): Map<String, Set<String>> =
+        events
+            .filter { it.sender == me && it.effectiveType == "m.reaction" && it.redactedBy == null }
+            .mapNotNull { r ->
+                val relates = r.effectiveContent.obj("m.relates_to") ?: return@mapNotNull null
+                val target = relates.str("event_id") ?: return@mapNotNull null
+                val key = relates.str("key") ?: return@mapNotNull null
+                target to key
+            }.groupBy({ it.first }, { it.second })
+            .mapValues { it.value.toSet() }
+
+    private companion object {
+        const val GROUP_GAP_MS = 5 * 60 * 1000L
+        const val DAY_SEPARATOR_SLACK = 16
+        const val PER_MESSAGE_PROFILE = "com.beeper.per_message_profile"
+        const val PER_MESSAGE_PROFILE_STABLE = "m.per_message_profile"
+        val MESSAGE_TYPES = setOf("m.room.message", "m.sticker", "m.room.encrypted")
+        val STATE_TYPES =
+            setOf("m.room.member", "m.room.name", "m.room.topic", "m.room.avatar", "m.room.create", "m.room.encryption")
+        val HIDDEN_TYPES = setOf("m.reaction", "m.room.redaction")
+    }
+}
+
+internal fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
+
+private fun JsonObject.obj(key: String) = get(key) as? JsonObject
+
+private fun JsonObject.str(key: String) = (get(key) as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
+
+private fun JsonObject.long(key: String) = (get(key) as? JsonPrimitive)?.longOrNull

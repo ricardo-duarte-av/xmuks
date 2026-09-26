@@ -34,8 +34,14 @@ dependencies {
 spotless {
     kotlin {
         target("**/src/**/*.kt")
-        targetExclude("**/build/**")
+        targetExclude("**/build/**", "**/src/test/**")
         ktlint(libs.versions.ktlint.get())
+    }
+    // Tests carry inline JSON fixtures that read better on one line.
+    format("kotlinTest", com.diffplug.gradle.spotless.KotlinExtension::class.java) {
+        target("**/src/test/**/*.kt")
+        targetExclude("**/build/**")
+        ktlint(libs.versions.ktlint.get()).editorConfigOverride(mapOf("max_line_length" to "off"))
     }
     kotlinGradle {
         target("*.gradle.kts", "**/*.gradle.kts")
