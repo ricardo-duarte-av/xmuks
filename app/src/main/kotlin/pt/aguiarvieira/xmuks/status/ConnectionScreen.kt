@@ -35,27 +35,26 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import pt.aguiarvieira.xmuks.core.data.connection.SyncSummary
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 import java.text.DateFormat
 import java.util.Date
 
-/** M1 home: proves login → `/sse` → decode end to end. Replaced by the room list in M3. */
+/** Temporary home: the cache (instantly, from the database) and the stream. Replaced by the room list in M3. */
 @Composable
 fun ConnectionRoute(
     modifier: Modifier = Modifier,
     viewModel: ConnectionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val summary by viewModel.summary.collectAsStateWithLifecycle()
-    ConnectionScreen(state, summary, viewModel.server, viewModel::reconnect, viewModel::logout, modifier)
+    val status by viewModel.status.collectAsStateWithLifecycle()
+    ConnectionScreen(state, status, viewModel.server, viewModel::reconnect, viewModel::logout, modifier)
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ConnectionScreen(
     state: ConnectionState,
-    summary: SyncSummary,
+    status: StatusUi,
     server: String,
     onReconnect: () -> Unit,
     onLogout: () -> Unit,
@@ -67,7 +66,7 @@ fun ConnectionScreen(
         topBar = {
             LargeFlexibleTopAppBar(
                 title = { Text("xmuks") },
-                subtitle = { Text(summary.userId ?: server) },
+                subtitle = { Text(status.userId ?: server) },
                 scrollBehavior = scroll,
             )
         },
@@ -81,24 +80,39 @@ fun ConnectionScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Stat("Rooms", summary.rooms.toString())
-                Stat("Spaces", summary.spaces.toString())
-                Stat("Top-level", summary.topLevelSpaces.toString())
-                Stat("DMs", summary.dms.toString())
+                Stat("Rooms", status.counts.rooms.toString())
+                Stat("Spaces", status.counts.spaces.toString())
+                Stat("Top-level", status.counts.topLevelSpaces.toString())
+                Stat("DMs", status.counts.dms.toString())
+                Stat("Invites", status.counts.invites.toString())
                 Stat(
-                    if (summary.catchup) "Catch-up" else "Initial sync",
-                    summary.initialSyncMs?.let { "$it ms" } ?: "…"
+                    if (status.stats.catchup) "Catch-up" else "Full sync",
+                    status.stats.initialSyncMs?.let { "$it ms" } ?: "…"
                 )
-                Stat("Live events", summary.liveEvents.toString())
+                Stat("Live events", status.stats.liveEvents.toString())
             }
-            if (summary.lastServerTs > 0) {
-                Text(
-                    "Last sync: " + DateFormat.getDateTimeInstance().format(Date(summary.lastServerTs)) +
-                        (summary.homeserverSync?.let { " · homeserver: $it" } ?: ""),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            val format = DateFormat.getDateTimeInstance()
+            Text(
+                buildString {
+                    append(
+                        if (status.lastServerTs >
+                            0
+                        ) {
+                            "Cached up to " + format.format(Date(status.lastServerTs))
+                        } else {
+                            "Nothing cached yet"
+                        }
+                    )
+                    if (status.lastFullSyncAt >
+                        0
+                    ) {
+                        append("\nLast full sync " + format.format(Date(status.lastFullSyncAt)))
+                    }
+                    status.stats.homeserverSync?.let { append("\nHomeserver sync: $it") }
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (state == ConnectionState.AuthFailed) {
                     Button(onClick = onLogout) { Text("Sign in again") }

@@ -23,6 +23,15 @@ import java.io.IOException
 import kotlin.coroutines.CoroutineContext
 import kotlin.random.Random
 
+/**
+ * Thrown by the sink when the local data can't be continued from (e.g. the backend now belongs to a
+ * different Matrix account): the connection drops and immediately reconnects from a fresh
+ * [ResumeStore.load], which the store has reset to ask for a full sync.
+ */
+class ResyncRequired(
+    reason: String,
+) : Exception(reason)
+
 sealed interface ConnectionState {
     data object Idle : ConnectionState
 
@@ -48,7 +57,11 @@ sealed interface ConnectionState {
     data object AuthFailed : ConnectionState
 }
 
-/** Persists where the stream is up to. [save] is called only after the frame's data is applied. */
+/**
+ * Where the stream is up to. [load] decides what to ask for — including the catch-up timestamp,
+ * which the store derives from what it has durably applied. [save] records the stream position
+ * (run, listener, last request ID) after each applied frame.
+ */
 interface ResumeStore {
     suspend fun load(): ResumePoint
 
@@ -91,6 +104,10 @@ class GomuksConnection(
                     _state.value = ConnectionState.AuthFailed
                     return
                 }
+                if (error is ResyncRequired) {
+                    attempt = 0
+                    continue
+                }
                 val wait = backoffMs(attempt++)
                 _state.value = ConnectionState.Retrying(attempt, wait, error?.message ?: "Stream closed")
                 // Wait out the backoff, unless reconnectNow() (network back) cuts it short.
@@ -124,6 +141,8 @@ class GomuksConnection(
                 }
             }
             null
+        } catch (e: ResyncRequired) {
+            e
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
@@ -149,17 +168,16 @@ class GomuksConnection(
         )
     }
 
-    /** Advances and persists the resume point once [frame] has been applied by the sink. */
+    /**
+     * Advances the stream position once [frame] has been applied by the sink. The catch-up timestamp
+     * is deliberately not derived here: only the store knows whether the data behind it is complete
+     * (a full sync interrupted halfway must not be resumed as a catch-up).
+     */
     private suspend fun afterApply(
         frame: GomuksFrame,
         point: ResumePoint,
     ): ResumePoint {
-        val serverTs = (frame.event as? GomuksEvent.Sync)?.sync?.serverTimestamp ?: 0
-        val next =
-            point.copy(
-                lastRequestId = if (frame.requestId < 0) frame.requestId else point.lastRequestId,
-                lastServerTs = maxOf(point.lastServerTs, serverTs),
-            )
+        val next = point.copy(lastRequestId = if (frame.requestId < 0) frame.requestId else point.lastRequestId)
         if (next != point || frame.event is GomuksEvent.RunId) resumeStore.save(next)
         return next
     }

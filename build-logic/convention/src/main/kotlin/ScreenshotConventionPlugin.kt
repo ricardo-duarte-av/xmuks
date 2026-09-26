@@ -1,8 +1,6 @@
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.dependencies
-import org.gradle.kotlin.dsl.withType
 
 /**
  * JVM screenshot tests: Roborazzi on Robolectric's native graphics, so Compose UI renders to PNG
@@ -13,12 +11,6 @@ class ScreenshotConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             pluginManager.apply("io.github.takahirom.roborazzi")
-
-            // Robolectric reads font/asset file descriptors through JDK internals; JDK 17+ hides them.
-            tasks.withType<Test>().configureEach {
-                jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
-                jvmArgs("--add-opens=java.base/java.io=ALL-UNNAMED")
-            }
 
             dependencies {
                 add("testImplementation", libs.lib("robolectric"))

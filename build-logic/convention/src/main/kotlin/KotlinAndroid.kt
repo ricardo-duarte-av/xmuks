@@ -1,6 +1,7 @@
 import com.android.build.api.dsl.CommonExtension
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
+import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -15,6 +16,19 @@ internal fun Project.configureKotlinAndroid(commonExtension: CommonExtension) {
         compileOptions.targetCompatibility = JavaVersion.VERSION_17
     }
     configureKotlinCompile()
+    configureRobolectricJvm()
+}
+
+/** Robolectric reads file descriptors (fonts, assets, SQLite) through JDK internals that JDK 17+ hides. */
+internal fun Project.configureRobolectricJvm() {
+    tasks.withType<Test>().configureEach {
+        // Opt-in live tests read these; as inputs, changing the target server re-runs them.
+        listOf("XMUKS_LIVE_SERVER", "XMUKS_LIVE_USER").forEach { name ->
+            inputs.property(name, providers.environmentVariable(name).orElse(""))
+        }
+        jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
+        jvmArgs("--add-opens=java.base/java.io=ALL-UNNAMED")
+    }
 }
 
 /**

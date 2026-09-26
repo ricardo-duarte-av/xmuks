@@ -34,7 +34,7 @@ class GomuksConnectionTest {
     }
 
     @Test
-    fun `reconnects resuming from the last applied event and server timestamp`() {
+    fun `reconnects resuming from the last applied event, with the store's catch-up timestamp`() {
         server.enqueue(
             MockResponse
                 .Builder()
@@ -50,7 +50,8 @@ class GomuksConnectionTest {
                 ).build(),
         )
         server.enqueue(MockResponse.Builder().code(503).build())
-        val store = MemoryResumeStore()
+        // The store owns the catch-up timestamp (only it knows the data behind it is complete).
+        val store = MemoryResumeStore().apply { point = ResumePoint(lastServerTs = 450) }
         val applied = mutableListOf<GomuksFrame>()
         val session = FakeSessionStore(credsFor(server.url("/")), currentToken = "tok")
         val http = testClient(session)
@@ -73,8 +74,8 @@ class GomuksConnectionTest {
             assertEquals("7", second.queryParameter("run_id"))
             assertEquals("-11", second.queryParameter("last_received_event"))
             assertEquals("3", second.queryParameter("prev_listener_id"))
-            assertEquals("600", second.queryParameter("last_server_ts"))
-            assertEquals(ResumePoint("7", -11, 3, 600), store.point)
+            assertEquals("450", second.queryParameter("last_server_ts"))
+            assertEquals(ResumePoint("7", -11, 3, 450), store.point)
         }
     }
 

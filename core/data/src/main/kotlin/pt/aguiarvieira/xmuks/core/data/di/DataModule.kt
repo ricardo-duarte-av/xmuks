@@ -18,8 +18,9 @@ import pt.aguiarvieira.xmuks.core.data.auth.KeystoreSecretCipher
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
 import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
-import pt.aguiarvieira.xmuks.core.data.connection.InMemoryResumeStore
-import pt.aguiarvieira.xmuks.core.data.connection.SyncSummarySink
+import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker
+import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
+import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.AuthApi
 import pt.aguiarvieira.xmuks.core.network.AuthInterceptor
 import pt.aguiarvieira.xmuks.core.network.CompressionInterceptor
@@ -51,35 +52,41 @@ object DataModule {
     }
 
     @Provides @Singleton
-    fun syncSummarySink() = SyncSummarySink()
+    fun database(
+        @ApplicationContext context: Context,
+    ) = XmuksDatabase.build(context)
 
     @Provides @Singleton
-    fun resumeStore() = InMemoryResumeStore()
+    fun syncIngestor(database: XmuksDatabase) = SyncIngestor(database)
+
+    @Provides @Singleton
+    fun streamStats() = StreamStatsTracker()
 
     /** Everything wiped when the account changes (logout, or login to a different account). */
     @Provides @Singleton
     fun accountScoped(
-        sink: SyncSummarySink,
-        resumeStore: InMemoryResumeStore,
-    ): Set<AccountScoped> = setOf(sink, resumeStore)
+        ingestor: SyncIngestor,
+        stats: StreamStatsTracker,
+    ): Set<AccountScoped> = setOf(ingestor, stats)
 
     @Provides @Singleton
     fun gomuksConnection(
         @Named("sse") sse: OkHttpClient,
         @Named("api") api: OkHttpClient,
         store: CredentialStore,
-        sink: SyncSummarySink,
-        resumeStore: InMemoryResumeStore,
+        ingestor: SyncIngestor,
+        stats: StreamStatsTracker,
     ): GomuksConnection {
         val server = { store.credentials()?.serverUrl }
         return GomuksConnection(
             SseClient(sse, server, Dispatchers.IO),
             api,
             server,
-            resumeStore,
+            ingestor,
             Dispatchers.IO,
-        ) {
-            sink.accept(it)
+        ) { frame ->
+            ingestor.apply(frame)
+            stats.accept(frame)
         }
     }
 

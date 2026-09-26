@@ -9,6 +9,9 @@ naming:
     ignoreAnnotated: ['Composable']
 
 complexity:
+  TooManyFunctions:
+    # Room DAOs are one annotated function per SQL statement by design.
+    ignoreAnnotated: ['Dao']
   CyclomaticComplexMethod:
     ignoreSimpleWhenEntries: true
   LongParameterList:

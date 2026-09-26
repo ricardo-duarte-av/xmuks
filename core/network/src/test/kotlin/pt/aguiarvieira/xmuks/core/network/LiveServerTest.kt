@@ -55,6 +55,10 @@ class LiveServerTest {
                     (frame.event as? GomuksEvent.Sync)?.let {
                         rooms += it.sync.rooms.size
                         catchup = catchup || it.sync.catchup
+                        // Stand-in for the database store: this test applies nothing, so it just
+                        // records the snapshot's timestamp to request a catch-up next time.
+                        resume.point =
+                            resume.point.copy(lastServerTs = maxOf(resume.point.lastServerTs, it.sync.serverTimestamp))
                     }
                 }
             runBlocking {
