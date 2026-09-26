@@ -33,7 +33,11 @@ data class RoomSummaryRow(
     val previewTs: Long?,
 )
 
-/** A space with unread totals over every room below it (subspaces included, each room counted once). */
+/**
+ * A space with unread totals over every room below it (subspaces included, each room counted once).
+ * The totals are *room counts*: rooms with any unread, rooms needing attention (notifying or
+ * mentioning), and rooms with a mention.
+ */
 data class SpaceSummaryRow(
     val roomId: String,
     val name: String?,
@@ -42,6 +46,13 @@ data class SpaceSummaryRow(
     val unreadRooms: Int,
     val unreadNotifications: Int,
     val unreadHighlights: Int,
+)
+
+/** Unread room counts for one bottom-bar tab (same meaning as [SpaceSummaryRow]'s totals). */
+data class TabUnreadRow(
+    val unreadRooms: Int,
+    val notifyingRooms: Int,
+    val mentionRooms: Int,
 )
 
 data class OwnProfileRow(
@@ -90,7 +101,7 @@ interface RoomListDao {
     )
     fun spaceChildren(spaceId: String): Flow<List<RoomEntity>>
 
-    /** Every joined non-space room that isn't a DM, most recent first. */
+    /** Every joined non-space room, DMs included, most recent first. */
     @Query(
         """
         SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.sortingTs,
@@ -99,7 +110,7 @@ interface RoomListDao {
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
              WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName
         FROM rooms r LEFT JOIN events e ON e.rowId = r.previewEventRowId
-        WHERE r.isSpace = 0 AND r.dmUserId IS NULL
+        WHERE r.isSpace = 0
         ORDER BY r.sortingTs DESC
         """
     )
@@ -164,8 +175,8 @@ interface RoomListDao {
             SELECT t.root AS root,
                 COUNT(r.roomId) AS rooms,
                 SUM(CASE WHEN r.unreadMessages > 0 OR r.markedUnread THEN 1 ELSE 0 END) AS unreadRooms,
-                SUM(r.unreadNotifications) AS unreadNotifications,
-                SUM(r.unreadHighlights) AS unreadHighlights
+                SUM(CASE WHEN r.unreadNotifications > 0 OR r.unreadHighlights > 0 THEN 1 ELSE 0 END) AS unreadNotifications,
+                SUM(CASE WHEN r.unreadHighlights > 0 THEN 1 ELSE 0 END) AS unreadHighlights
             FROM tree t JOIN rooms r ON r.roomId = t.id AND r.isSpace = 0
             GROUP BY t.root
         )
@@ -191,4 +202,32 @@ interface RoomListDao {
         """
     )
     fun roomSummary(roomId: String): Flow<RoomSummaryRow?>
+
+    @Query(
+        """
+        SELECT
+            COALESCE(SUM(CASE WHEN unreadMessages > 0 OR markedUnread THEN 1 ELSE 0 END), 0) AS unreadRooms,
+            COALESCE(SUM(CASE WHEN unreadNotifications > 0 OR unreadHighlights > 0 THEN 1 ELSE 0 END), 0) AS notifyingRooms,
+            COALESCE(SUM(CASE WHEN unreadHighlights > 0 THEN 1 ELSE 0 END), 0) AS mentionRooms
+        FROM rooms WHERE isSpace = 0 AND (:dmsOnly = 0 OR dmUserId IS NOT NULL)
+        """
+    )
+    fun tabUnread(dmsOnly: Boolean): Flow<TabUnreadRow>
+
+    /** Unread room counts over every room reachable from a top-level space, each counted once. */
+    @Query(
+        """
+        WITH RECURSIVE tree(id) AS (
+            SELECT roomId FROM top_level_spaces
+            UNION
+            SELECT e.childId FROM space_edges e JOIN tree t ON e.spaceId = t.id
+        )
+        SELECT
+            COALESCE(SUM(CASE WHEN unreadMessages > 0 OR markedUnread THEN 1 ELSE 0 END), 0) AS unreadRooms,
+            COALESCE(SUM(CASE WHEN unreadNotifications > 0 OR unreadHighlights > 0 THEN 1 ELSE 0 END), 0) AS notifyingRooms,
+            COALESCE(SUM(CASE WHEN unreadHighlights > 0 THEN 1 ELSE 0 END), 0) AS mentionRooms
+        FROM rooms WHERE isSpace = 0 AND roomId IN (SELECT id FROM tree)
+        """
+    )
+    fun spacesTabUnread(): Flow<TabUnreadRow>
 }

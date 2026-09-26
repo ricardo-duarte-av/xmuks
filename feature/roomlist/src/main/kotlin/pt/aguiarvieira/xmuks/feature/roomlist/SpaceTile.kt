@@ -17,7 +17,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
-import pt.aguiarvieira.xmuks.core.designsystem.component.AvatarKind
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.SharedKeys
 import pt.aguiarvieira.xmuks.core.designsystem.component.UnreadBadge
@@ -40,7 +39,6 @@ fun SpaceTile(
                 name = space.name,
                 id = space.roomId,
                 avatarUrl = space.avatarUrl,
-                kind = AvatarKind.Space,
                 size = 84.dp,
                 modifier = Modifier.sharedElement(SharedKeys.avatar(space.roomId, SharedScopes.SPACES)),
             )

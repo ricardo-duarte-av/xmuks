@@ -27,7 +27,6 @@ import com.materialkolor.ktx.toColor
 fun InitialsAvatar(
     name: String,
     id: String,
-    kind: AvatarKind,
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
 ) {
@@ -37,7 +36,7 @@ fun InitialsAvatar(
         modifier =
             modifier
                 .size(size)
-                .background(container, kind.shape())
+                .background(container, AvatarShape)
                 .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {

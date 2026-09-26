@@ -17,6 +17,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
+import pt.aguiarvieira.xmuks.core.data.rooms.TabBadges
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 import javax.inject.Inject
 
@@ -37,6 +38,7 @@ class HomeViewModel
         val spaces: StateFlow<List<SpaceSummary>?> = rooms.topLevelSpaces().stateIn(viewModelScope, WHILE_VISIBLE, null)
         val connection: StateFlow<ConnectionState> = sync.state
         val profile: StateFlow<OwnProfile?> = rooms.ownProfile().stateIn(viewModelScope, WHILE_VISIBLE, null)
+        val badges: StateFlow<TabBadges> = rooms.tabBadges().stateIn(viewModelScope, WHILE_VISIBLE, TabBadges())
         val account: String = store.credentials()?.let { "${it.username} · ${it.serverUrl.host}" }.orEmpty()
 
         private val _refreshing = MutableStateFlow(false)

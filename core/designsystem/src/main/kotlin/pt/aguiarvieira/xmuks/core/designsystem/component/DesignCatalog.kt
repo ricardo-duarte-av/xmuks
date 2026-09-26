@@ -57,11 +57,11 @@ fun DesignCatalog(modifier: Modifier = Modifier) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                InitialsAvatar(name = "Gomuks", id = "!gomuks:example.org", kind = AvatarKind.Room)
-                InitialsAvatar(name = "Matrix HQ", id = "!hq:example.org", kind = AvatarKind.Room)
-                InitialsAvatar(name = "@tulir", id = "@tulir:example.org", kind = AvatarKind.Person)
-                InitialsAvatar(name = "Ana Ribeiro", id = "@ana:example.org", kind = AvatarKind.Person)
-                InitialsAvatar(name = "Matrix", id = "!space:example.org", kind = AvatarKind.Space)
+                InitialsAvatar(name = "Gomuks", id = "!gomuks:example.org")
+                InitialsAvatar(name = "Matrix HQ", id = "!hq:example.org")
+                InitialsAvatar(name = "@tulir", id = "@tulir:example.org")
+                InitialsAvatar(name = "Ana Ribeiro", id = "@ana:example.org")
+                InitialsAvatar(name = "Matrix", id = "!space:example.org")
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = {}) { Text("Send") }

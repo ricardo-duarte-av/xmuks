@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -45,8 +47,9 @@ import kotlinx.coroutines.delay
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
-import pt.aguiarvieira.xmuks.core.designsystem.component.AvatarKind
+import pt.aguiarvieira.xmuks.core.data.rooms.TabBadges
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
+import pt.aguiarvieira.xmuks.core.designsystem.component.UnreadLevel
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 
 @Composable
@@ -64,8 +67,9 @@ fun HomeRoute(
     val connection by viewModel.connection.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val profile by viewModel.profile.collectAsStateWithLifecycle()
+    val badges by viewModel.badges.collectAsStateWithLifecycle()
     HomeScreen(
-        state = HomeUiState(tab, chats, dms, spaces, connection, refreshing, viewModel.account, profile),
+        state = HomeUiState(tab, chats, dms, spaces, connection, refreshing, viewModel.account, profile, badges),
         onTabChange = { tab = it },
         onRefresh = viewModel::refresh,
         onOpenRoom = onOpenRoom,
@@ -93,6 +97,7 @@ data class HomeUiState(
     val refreshing: Boolean,
     val account: String,
     val profile: OwnProfile? = null,
+    val badges: TabBadges = TabBadges(),
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -119,7 +124,6 @@ fun HomeScreen(
                                 name = state.profile?.displayName ?: state.account,
                                 id = state.profile?.userId ?: state.account,
                                 avatarUrl = state.profile?.avatarUrl,
-                                kind = AvatarKind.Person,
                                 size = 32.dp,
                             )
                         }
@@ -134,7 +138,7 @@ fun HomeScreen(
                     ShortNavigationBarItem(
                         selected = tab == state.tab,
                         onClick = { onTabChange(tab) },
-                        icon = { Icon(painterResource(tab.icon), contentDescription = null) },
+                        icon = { TabIcon(tab, state.badges) },
                         label = { Text(stringResource(tab.label)) },
                     )
                 }
@@ -176,6 +180,46 @@ fun HomeScreen(
         }
     }
 }
+
+/** Tab icon with the tab's unread badge: a number (red with mentions) or a quiet dot. */
+@Composable
+private fun TabIcon(
+    tab: HomeTab,
+    badges: TabBadges,
+) {
+    val unread =
+        when (tab) {
+            HomeTab.Chats -> badges.chats
+            HomeTab.Dms -> badges.dms
+            HomeTab.Spaces -> badges.spaces
+        }
+    val (level, count) = unread.level()
+    BadgedBox(
+        badge = {
+            when (level) {
+                UnreadLevel.None -> {}
+
+                UnreadLevel.Dot -> {
+                    Badge(containerColor = MaterialTheme.colorScheme.primary)
+                }
+
+                UnreadLevel.Count -> {
+                    Badge(containerColor = MaterialTheme.colorScheme.primary) { Text(badgeCount(count)) }
+                }
+
+                UnreadLevel.Mention -> {
+                    Badge { Text(badgeCount(count)) }
+                }
+            }
+        },
+    ) {
+        Icon(painterResource(tab.icon), contentDescription = null)
+    }
+}
+
+private fun badgeCount(count: Int) = if (count > MAX_BADGE) "$MAX_BADGE+" else count.toString()
+
+private const val MAX_BADGE = 99
 
 @Composable
 internal fun RoomList(

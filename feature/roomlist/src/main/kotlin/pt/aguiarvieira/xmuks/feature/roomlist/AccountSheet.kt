@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
-import pt.aguiarvieira.xmuks.core.designsystem.component.AvatarKind
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 
@@ -40,7 +39,6 @@ fun AccountSheet(
                     name = profile?.displayName ?: account,
                     id = profile?.userId ?: account,
                     avatarUrl = profile?.avatarUrl,
-                    kind = AvatarKind.Person,
                     size = 56.dp,
                 )
                 Column {

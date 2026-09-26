@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.rooms.Preview
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.Unread
-import pt.aguiarvieira.xmuks.core.designsystem.component.AvatarKind
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.SharedKeys
 import pt.aguiarvieira.xmuks.core.designsystem.component.UnreadBadge
@@ -50,7 +49,6 @@ fun RoomListItem(
             name = room.name,
             id = room.roomId,
             avatarUrl = room.avatarUrl,
-            kind = if (room.isDirect) AvatarKind.Person else AvatarKind.Room,
             modifier = Modifier.sharedElement(SharedKeys.avatar(room.roomId, sharedScope)),
         )
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -107,14 +105,19 @@ private fun previewLine(room: RoomSummary): String {
     return if (sender == null) body else stringResource(R.string.preview_sender, sender, body)
 }
 
-/** Loudest first: mentions, then notifying messages, then quiet unread (or marked unread). */
-fun Unread.level(): Pair<UnreadLevel, Int> =
-    when {
-        highlights > 0 -> UnreadLevel.Mention to highlights
-        notifications > 0 -> UnreadLevel.Count to notifications
+/**
+ * One rule for rooms, spaces and tabs: anything needing attention shows a number (red when it
+ * includes a mention); quiet unread shows a dot.
+ */
+fun Unread.level(): Pair<UnreadLevel, Int> {
+    val attention = maxOf(notifications, highlights)
+    return when {
+        highlights > 0 -> UnreadLevel.Mention to attention
+        attention > 0 -> UnreadLevel.Count to attention
         any -> UnreadLevel.Dot to 0
         else -> UnreadLevel.None to 0
     }
+}
 
 /** Where a room or space was opened from; see [SharedKeys]. */
 object SharedScopes {

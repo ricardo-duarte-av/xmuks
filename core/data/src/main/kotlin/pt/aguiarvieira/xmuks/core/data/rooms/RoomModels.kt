@@ -1,6 +1,9 @@
 package pt.aguiarvieira.xmuks.core.data.rooms
 
-/** How loud a room's (or a space's) unread state is, most important first. */
+/**
+ * How loud a room's unread state is. For aggregates (a space, a tab) the fields count *rooms*:
+ * rooms with anything unread, rooms needing attention (notifying or mentioning), rooms mentioning us.
+ */
 data class Unread(
     val messages: Int = 0,
     val notifications: Int = 0,
@@ -38,6 +41,13 @@ sealed interface Preview {
 
     data object None : Preview
 }
+
+/** Badges for the bottom bar. */
+data class TabBadges(
+    val chats: Unread = Unread(),
+    val dms: Unread = Unread(),
+    val spaces: Unread = Unread(),
+)
 
 data class SpaceSummary(
     val roomId: String,

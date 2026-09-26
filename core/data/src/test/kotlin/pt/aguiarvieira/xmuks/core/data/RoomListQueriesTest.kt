@@ -12,6 +12,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
+import pt.aguiarvieira.xmuks.core.database.TabUnreadRow
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.GomuksEvent
@@ -120,19 +121,28 @@ class RoomListQueriesTest {
     }
 
     @Test
-    fun `space unread totals count each room once`() {
+    fun `space unread totals count rooms, each once`() {
         spaces()
         val top = runBlocking { dao.topLevelSpaceSummaries().first() }.single()
         assertEquals(2, top.rooms)
-        assertEquals(2, top.unreadRooms)
-        assertEquals(3, top.unreadNotifications)
-        assertEquals(1, top.unreadHighlights)
+        assertEquals("rooms with anything unread", 2, top.unreadRooms)
+        assertEquals("rooms needing attention", 2, top.unreadNotifications)
+        assertEquals("rooms with a mention", 1, top.unreadHighlights)
     }
 
     @Test
-    fun `chats and DMs split, newest first`() {
+    fun `tab badges count rooms per tab, spaces through every level once`() {
         spaces()
-        assertEquals(listOf("!c", "!b", "!a"), runBlocking { dao.chats().first() }.map { it.roomId })
+        val chats = runBlocking { dao.tabUnread(dmsOnly = false).first() }
+        assertEquals(TabUnreadRow(unreadRooms = 3, notifyingRooms = 3, mentionRooms = 1), chats)
+        assertEquals(TabUnreadRow(1, 1, 0), runBlocking { dao.tabUnread(dmsOnly = true).first() })
+        assertEquals(TabUnreadRow(2, 2, 1), runBlocking { dao.spacesTabUnread().first() })
+    }
+
+    @Test
+    fun `chats include DMs, the DM tab only DMs, newest first`() {
+        spaces()
+        assertEquals(listOf("!c", "!dm", "!b", "!a"), runBlocking { dao.chats().first() }.map { it.roomId })
         assertEquals(listOf("!dm"), runBlocking { dao.directMessages().first() }.map { it.roomId })
     }
 

@@ -10,8 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
@@ -28,31 +27,23 @@ fun RoomAvatar(
     name: String,
     id: String,
     avatarUrl: String?,
-    kind: AvatarKind,
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
 ) {
-    val shape = kind.shape()
     // Initials sit under the image until it has loaded. Then a light neutral replaces them, in both
     // themes: transparent logos are nearly always dark glyphs made for light pages, so they stay
     // legible in dark mode, and no initials colour shows through as a ring (seen on-device).
     var loaded by remember(avatarUrl) { mutableStateOf(false) }
     Box(
         modifier =
-            modifier.size(size).graphicsLayer {
-                this.shape = shape
-                clip = true
-                // The cookie outline is costly to clip every frame; as a cached layer it is drawn
-                // once and scrolling just moves the texture (measured: the Spaces grid was GPU-bound).
-                if (kind == AvatarKind.Space) compositingStrategy = CompositingStrategy.Offscreen
-            },
+            modifier.size(size).clip(AvatarShape),
     ) {
         if (loaded) {
             val colors = MaterialTheme.colorScheme
             val dark = colors.surface.luminance() < HALF
             Box(Modifier.size(size).background(if (dark) colors.inverseSurface else colors.surfaceContainerHighest))
         } else {
-            InitialsAvatar(name = name, id = id, kind = kind, size = size)
+            InitialsAvatar(name = name, id = id, size = size)
         }
         if (avatarUrl != null) {
             AsyncImage(

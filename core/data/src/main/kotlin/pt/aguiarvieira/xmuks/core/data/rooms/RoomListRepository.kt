@@ -13,6 +13,7 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.database.RoomEntity
 import pt.aguiarvieira.xmuks.core.database.RoomSummaryRow
 import pt.aguiarvieira.xmuks.core.database.SpaceSummaryRow
+import pt.aguiarvieira.xmuks.core.database.TabUnreadRow
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 
 /** Room-list data straight from the database: every emission reflects the last committed sync. */
@@ -32,6 +33,19 @@ class RoomListRepository(
             }.distinctUntilChanged()
 
     fun chats(): Flow<List<RoomSummary>> = rooms(dao.chats())
+
+    fun tabBadges(): Flow<TabBadges> =
+        combine(
+            dao.tabUnread(dmsOnly = false),
+            dao.tabUnread(dmsOnly = true),
+            dao.spacesTabUnread()
+        ) { chats, dms, spaces ->
+            TabBadges(chats.toUnread(), dms.toUnread(), spaces.toUnread())
+        }.distinctUntilChanged()
+            .throttleLatest(UI_THROTTLE_MS)
+            .flowOn(Dispatchers.Default)
+
+    private fun TabUnreadRow.toUnread() = Unread(unreadRooms, notifyingRooms, mentionRooms)
 
     fun directMessages(): Flow<List<RoomSummary>> = rooms(dao.directMessages())
 

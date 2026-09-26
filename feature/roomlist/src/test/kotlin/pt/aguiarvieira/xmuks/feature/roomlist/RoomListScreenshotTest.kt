@@ -12,6 +12,7 @@ import org.robolectric.annotation.Config
 import pt.aguiarvieira.xmuks.core.data.rooms.Preview
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
+import pt.aguiarvieira.xmuks.core.data.rooms.TabBadges
 import pt.aguiarvieira.xmuks.core.data.rooms.Unread
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
@@ -103,7 +104,8 @@ class RoomListScreenshotTest {
         spaces,
         connection,
         refreshing = false,
-        account = "daedric"
+        account = "daedric",
+        badges = TabBadges(chats = Unread(4, 3, 1), dms = Unread(1, 0, 0), spaces = Unread(2, 2, 0)),
     )
 
     private fun capture(

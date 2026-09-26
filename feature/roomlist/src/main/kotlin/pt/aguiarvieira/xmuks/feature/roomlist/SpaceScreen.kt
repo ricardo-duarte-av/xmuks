@@ -27,7 +27,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
-import pt.aguiarvieira.xmuks.core.designsystem.component.AvatarKind
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.SharedKeys
 import pt.aguiarvieira.xmuks.core.designsystem.component.sharedElement
@@ -83,7 +82,6 @@ fun SpaceScreen(
                             id = spaceId,
                             name = space?.name ?: "",
                             avatarUrl = space?.avatarUrl,
-                            kind = AvatarKind.Space,
                             sharedScope = SharedScopes.SPACES,
                         )
                     },
@@ -142,7 +140,6 @@ fun RoomRoute(
                         id = roomId,
                         name = room?.name ?: "",
                         avatarUrl = room?.avatarUrl,
-                        kind = if (room?.isDirect == true) AvatarKind.Person else AvatarKind.Room,
                         sharedScope = sharedScope,
                     )
                 },
@@ -159,7 +156,6 @@ internal fun HeaderTitle(
     id: String,
     name: String,
     avatarUrl: String?,
-    kind: AvatarKind,
     sharedScope: String,
     modifier: Modifier = Modifier,
 ) {
@@ -172,7 +168,6 @@ internal fun HeaderTitle(
             name = name,
             id = id,
             avatarUrl = avatarUrl,
-            kind = kind,
             size = 40.dp,
             modifier = Modifier.sharedElement(SharedKeys.avatar(id, sharedScope)),
         )
