@@ -9,6 +9,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.Preview
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
@@ -105,6 +106,7 @@ class RoomListScreenshotTest {
         connection,
         refreshing = false,
         account = "daedric",
+        profile = OwnProfile("@daedric:example.org", "Ricardo", null),
         badges = TabBadges(chats = Unread(4, 3, 1), dms = Unread(1, 0, 0), spaces = Unread(2, 2, 0)),
     )
 

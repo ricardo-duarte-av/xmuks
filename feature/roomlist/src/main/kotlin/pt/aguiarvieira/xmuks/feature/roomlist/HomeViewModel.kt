@@ -32,10 +32,15 @@ class HomeViewModel
         private val session: SessionRepository,
         store: CredentialStore,
     ) : ViewModel() {
+        val search = SearchQueries()
+
         /** Null until the database has answered: distinguishes "loading" from "empty". */
-        val chats: StateFlow<List<RoomSummary>?> = rooms.chats().stateIn(viewModelScope, WHILE_VISIBLE, null)
-        val dms: StateFlow<List<RoomSummary>?> = rooms.directMessages().stateIn(viewModelScope, WHILE_VISIBLE, null)
-        val spaces: StateFlow<List<SpaceSummary>?> = rooms.topLevelSpaces().stateIn(viewModelScope, WHILE_VISIBLE, null)
+        val chats: StateFlow<List<RoomSummary>?> =
+            rooms.chats().filteredBy(search.chats) { it.name }.stateIn(viewModelScope, WHILE_VISIBLE, null)
+        val dms: StateFlow<List<RoomSummary>?> =
+            rooms.directMessages().filteredBy(search.dms) { it.name }.stateIn(viewModelScope, WHILE_VISIBLE, null)
+        val spaces: StateFlow<List<SpaceSummary>?> =
+            rooms.topLevelSpaces().filteredBy(search.spaces) { it.name }.stateIn(viewModelScope, WHILE_VISIBLE, null)
         val connection: StateFlow<ConnectionState> = sync.state
         val profile: StateFlow<OwnProfile?> = rooms.ownProfile().stateIn(viewModelScope, WHILE_VISIBLE, null)
         val badges: StateFlow<TabBadges> = rooms.tabBadges().stateIn(viewModelScope, WHILE_VISIBLE, TabBadges())

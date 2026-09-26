@@ -28,4 +28,9 @@
     <string name="sign_in_again">Sign in again</string>
     <string name="room_placeholder">The timeline arrives in the next milestone.</string>
     <string name="unread_mentions">%1$d mentions</string>
+    <string name="search_chats">Search chats</string>
+    <string name="search_dms">Search people</string>
+    <string name="search_spaces">Search spaces</string>
+    <string name="search_clear">Clear search</string>
+    <string name="search_no_match">No matches</string>
 </resources>

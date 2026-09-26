@@ -4,8 +4,10 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -33,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -76,6 +80,7 @@ fun HomeRoute(
         onOpenSpace = onOpenSpace,
         onAccountClick = { accountOpen = true },
         modifier = modifier,
+        search = viewModel.search,
     )
     if (accountOpen) {
         AccountSheet(
@@ -111,6 +116,7 @@ fun HomeScreen(
     onAccountClick: () -> Unit,
     modifier: Modifier = Modifier,
     now: Long = rememberNow(),
+    search: SearchQueries = remember { SearchQueries() },
 ) {
     Scaffold(
         modifier = modifier,
@@ -118,16 +124,7 @@ fun HomeScreen(
             Column {
                 TopAppBar(
                     title = { Text(stringResource(state.tab.title)) },
-                    actions = {
-                        IconButton(onClick = onAccountClick) {
-                            RoomAvatar(
-                                name = state.profile?.displayName ?: state.account,
-                                id = state.profile?.userId ?: state.account,
-                                avatarUrl = state.profile?.avatarUrl,
-                                size = 32.dp,
-                            )
-                        }
-                    },
+                    actions = { AccountButton(state, onAccountClick) },
                 )
                 ConnectionIndicator(state.connection)
             }
@@ -171,15 +168,96 @@ fun HomeScreen(
                 key = { HomeTab.entries[it] },
                 modifier = Modifier.fillMaxSize(),
             ) { page ->
-                when (HomeTab.entries[page]) {
-                    HomeTab.Chats -> RoomList(state.chats, now, R.string.empty_chats, SharedScopes.CHATS, onOpenRoom)
-                    HomeTab.Dms -> RoomList(state.dms, now, R.string.empty_dms, SharedScopes.DMS, onOpenRoom)
-                    HomeTab.Spaces -> SpaceGrid(state.spaces, onOpenSpace)
+                val tab = HomeTab.entries[page]
+                val query = search.of(tab)
+                Column {
+                    SearchField(query, stringResource(tab.searchHint))
+                    val searching = query.text.isNotBlank()
+                    when (tab) {
+                        HomeTab.Chats -> {
+                            RoomList(
+                                state.chats,
+                                now,
+                                emptyText(searching, R.string.empty_chats),
+                                SharedScopes.CHATS,
+                                onOpenRoom
+                            )
+                        }
+
+                        HomeTab.Dms -> {
+                            RoomList(
+                                state.dms,
+                                now,
+                                emptyText(searching, R.string.empty_dms),
+                                SharedScopes.DMS,
+                                onOpenRoom
+                            )
+                        }
+
+                        HomeTab.Spaces -> {
+                            SpaceGrid(state.spaces, emptyText(searching, R.string.empty_spaces), onOpenSpace)
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+/** Our display name and Matrix ID beside our avatar, which opens the account sheet. */
+@Composable
+private fun AccountButton(
+    state: HomeUiState,
+    onClick: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        state.profile?.let { profile ->
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.widthIn(max = 200.dp)) {
+                Text(
+                    profile.displayName,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    profile.userId,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        IconButton(onClick = onClick) {
+            RoomAvatar(
+                name = state.profile?.displayName ?: state.account,
+                id = state.profile?.userId ?: state.account,
+                avatarUrl = state.profile?.avatarUrl,
+                size = 32.dp,
+            )
+        }
+    }
+}
+
+private fun SearchQueries.of(tab: HomeTab) =
+    when (tab) {
+        HomeTab.Chats -> chats
+        HomeTab.Dms -> dms
+        HomeTab.Spaces -> spaces
+    }
+
+private fun emptyText(
+    searching: Boolean,
+    empty: Int,
+) = if (searching) R.string.search_no_match else empty
+
+private val HomeTab.searchHint
+    get() =
+        when (this) {
+            HomeTab.Chats -> R.string.search_chats
+            HomeTab.Dms -> R.string.search_dms
+            HomeTab.Spaces -> R.string.search_spaces
+        }
 
 /** Tab icon with the tab's unread badge: a number (red with mentions) or a quiet dot. */
 @Composable
@@ -260,6 +338,7 @@ internal fun RoomList(
 @Composable
 private fun SpaceGrid(
     spaces: List<SpaceSummary>?,
+    emptyText: Int,
     onOpenSpace: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -269,7 +348,7 @@ private fun SpaceGrid(
         }
 
         spaces.isEmpty() -> {
-            EmptyState(stringResource(R.string.empty_spaces), modifier)
+            EmptyState(stringResource(emptyText), modifier)
         }
 
         else -> {
