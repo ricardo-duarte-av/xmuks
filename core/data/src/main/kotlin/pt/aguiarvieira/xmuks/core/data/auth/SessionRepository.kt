@@ -2,6 +2,7 @@ package pt.aguiarvieira.xmuks.core.data.auth
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
 import pt.aguiarvieira.xmuks.core.network.AuthApi
 import pt.aguiarvieira.xmuks.core.network.AuthResult
 import pt.aguiarvieira.xmuks.core.network.Credentials
@@ -25,6 +26,7 @@ class SessionRepository(
     private val store: CredentialStore,
     private val authApi: AuthApi,
     private val io: CoroutineDispatcher,
+    private val accountScoped: Set<AccountScoped>,
 ) {
     val loggedIn = store.loggedIn
 
@@ -37,6 +39,8 @@ class SessionRepository(
         val credentials = Credentials(url, username.trim(), password)
         return when (val result = withContext(io) { authApi.login(credentials) }) {
             is AuthResult.Success -> {
+                // Also on login, not just logout: nothing from a previous account may leak into this one.
+                clearAccountData()
                 store.saveLogin(credentials, result.token)
                 LoginResult.Success
             }
@@ -59,5 +63,11 @@ class SessionRepository(
         }
     }
 
-    suspend fun logout() = store.clear()
+    /** Forgets the account and everything cached for it. Flipping [loggedIn] stops the stream first. */
+    suspend fun logout() {
+        store.clear()
+        clearAccountData()
+    }
+
+    private suspend fun clearAccountData() = accountScoped.forEach { it.clearAccountData() }
 }

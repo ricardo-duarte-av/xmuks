@@ -30,7 +30,7 @@ data class SyncSummary(
  */
 class SyncSummarySink(
     private val clock: () -> Long = System::currentTimeMillis,
-) {
+) : AccountScoped {
     private val _summary = MutableStateFlow(SyncSummary())
     val summary: StateFlow<SyncSummary> = _summary.asStateFlow()
 
@@ -39,6 +39,17 @@ class SyncSummarySink(
     private val dmIds = HashSet<String>()
     private var connectedAt = 0L
     private var initialised = false
+
+    override suspend fun clearAccountData() = reset()
+
+    @Synchronized
+    private fun reset() {
+        roomIds.clear()
+        spaceIds.clear()
+        dmIds.clear()
+        initialised = false
+        _summary.value = SyncSummary()
+    }
 
     @Synchronized
     fun accept(frame: GomuksFrame) {
@@ -107,8 +118,14 @@ class SyncSummarySink(
  * the data it builds on is still here; with an in-memory M1 sink that means in-memory too. M2 moves
  * this next to the database, so it persists exactly as long as the cache does.
  */
-class InMemoryResumeStore : ResumeStore {
+class InMemoryResumeStore :
+    ResumeStore,
+    AccountScoped {
     @Volatile private var point = ResumePoint()
+
+    override suspend fun clearAccountData() {
+        point = ResumePoint()
+    }
 
     override suspend fun load() = point
 
