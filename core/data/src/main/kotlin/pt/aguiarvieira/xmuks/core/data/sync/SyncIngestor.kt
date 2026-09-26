@@ -81,6 +81,9 @@ class SyncIngestor(
         }
     }
 
+    /** The next connection will take a full snapshot and sweep (see [load]). */
+    suspend fun requestFullResync() = dao.markFullSyncDue()
+
     override suspend fun clearAccountData() {
         db.withWriteTransaction { wipe() }
     }

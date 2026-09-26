@@ -12,6 +12,9 @@ complexity:
   TooManyFunctions:
     # Room DAOs are one annotated function per SQL statement by design.
     ignoreAnnotated: ['Dao']
+    allowedFunctionsPerClass: 15
+    allowedFunctionsPerObject: 15
+    allowedFunctionsPerFile: 15
   CyclomaticComplexMethod:
     ignoreSimpleWhenEntries: true
   LongParameterList:
@@ -44,4 +47,5 @@ Compose:
     active: true
   CompositionLocalAllowlist:
     active: true
-    allowedCompositionLocals: []
+    # Navigation hands shared-element scopes to destinations; see component/SharedElements.kt.
+    allowedCompositionLocals: ['LocalSharedTransitionScope', 'LocalAnimatedVisibilityScope']

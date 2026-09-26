@@ -3,6 +3,9 @@ package pt.aguiarvieira.xmuks.core.data.di
 import android.content.Context
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
+import coil3.ImageLoader
+import coil3.disk.DiskCache
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -13,12 +16,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
+import okio.Path.Companion.toOkioPath
 import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
 import pt.aguiarvieira.xmuks.core.data.auth.KeystoreSecretCipher
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
 import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
 import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker
+import pt.aguiarvieira.xmuks.core.data.connection.SyncController
+import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.AuthApi
@@ -34,6 +41,8 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DataModule {
+    private const val IMAGE_DISK_CACHE_BYTES = 256L * 1024 * 1024
+
     @Provides @Singleton
     fun appScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -97,6 +106,41 @@ object DataModule {
         store: CredentialStore,
         scope: CoroutineScope,
     ) = ForegroundConnection(context, connection, store.loggedIn, scope)
+
+    @Provides @Singleton
+    fun mediaUrls(store: CredentialStore) = MediaUrls { store.credentials()?.serverUrl }
+
+    @Provides @Singleton
+    fun roomListRepository(
+        database: XmuksDatabase,
+        media: MediaUrls,
+    ) = RoomListRepository(database, media)
+
+    @Provides @Singleton
+    fun syncController(
+        ingestor: SyncIngestor,
+        connection: ForegroundConnection,
+    ) = SyncController(ingestor, connection)
+
+    /**
+     * Coil loads media through the same authenticated client as the API (session cookie, token
+     * refresh). Disk cache sized for avatars and thumbnails; M6 adds the tiered media cache.
+     */
+    @Provides @Singleton
+    fun imageLoader(
+        @ApplicationContext context: Context,
+        @Named("api") api: OkHttpClient,
+    ): ImageLoader =
+        ImageLoader
+            .Builder(context)
+            .components { add(OkHttpNetworkFetcherFactory(callFactory = { api })) }
+            .diskCache {
+                DiskCache
+                    .Builder()
+                    .directory(context.cacheDir.resolve("images").toOkioPath())
+                    .maxSizeBytes(IMAGE_DISK_CACHE_BYTES)
+                    .build()
+            }.build()
 
     @Provides @Singleton
     fun sessionRepository(

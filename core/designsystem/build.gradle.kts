@@ -14,4 +14,5 @@ dependencies {
     api(libs.androidx.compose.foundation)
     api(libs.androidx.compose.animation)
     implementation(libs.material.kolor)
+    api(libs.coil.compose)
 }

@@ -1,0 +1,31 @@
+<resources>
+    <string name="tab_chats">Chats</string>
+    <string name="tab_dms">DMs</string>
+    <string name="tab_spaces">Spaces</string>
+    <string name="title_chats">Chats</string>
+    <string name="title_dms">Direct messages</string>
+    <string name="title_spaces">Spaces</string>
+    <string name="preview_you">You</string>
+    <string name="preview_sticker">Sticker</string>
+    <string name="preview_encrypted">Encrypted message</string>
+    <string name="preview_sender">%1$s: %2$s</string>
+    <string name="empty_chats">No chats yet</string>
+    <string name="empty_dms">No direct messages yet</string>
+    <string name="empty_spaces">You haven\'t joined any spaces</string>
+    <string name="empty_space">No rooms here</string>
+    <string name="space_all">All</string>
+    <string name="space_rooms">%1$d rooms</string>
+    <string name="back">Back</string>
+    <string name="account">Account</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_syncing">Syncing…</string>
+    <string name="status_catching_up">Catching up…</string>
+    <string name="status_offline">Offline · retrying</string>
+    <string name="status_auth_failed">Signed out: password rejected</string>
+    <string name="status_paused">Paused</string>
+    <string name="status_live">Connected</string>
+    <string name="log_out">Log out</string>
+    <string name="sign_in_again">Sign in again</string>
+    <string name="room_placeholder">The timeline arrives in the next milestone.</string>
+    <string name="unread_mentions">%1$d mentions</string>
+</resources>

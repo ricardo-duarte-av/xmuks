@@ -12,7 +12,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 import pt.aguiarvieira.xmuks.feature.login.LoginRoute
-import pt.aguiarvieira.xmuks.status.ConnectionRoute
+import pt.aguiarvieira.xmuks.navigation.XmuksNavHost
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
             XmuksTheme {
                 val loggedIn by session.loggedIn.collectAsStateWithLifecycle()
                 AnimatedContent(targetState = loggedIn, label = "session") { signedIn ->
-                    if (signedIn) ConnectionRoute() else LoginRoute()
+                    if (signedIn) XmuksNavHost() else LoginRoute()
                 }
             }
         }

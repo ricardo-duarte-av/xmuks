@@ -92,6 +92,10 @@ interface SyncDao {
 
     @Upsert suspend fun saveMeta(meta: SyncMetaEntity)
 
+    /** Makes the next connection ask for a full snapshot (pull-to-refresh, or a suspected gap). */
+    @Query("UPDATE sync_meta SET lastFullSyncAt = 0 WHERE id = 0")
+    suspend fun markFullSyncDue()
+
     /** Stream position only: never touches the catch-up timestamp, which only the ingestor advances. */
     @Query("UPDATE sync_meta SET runId = :runId, listenerId = :listenerId, lastRequestId = :lastRequestId WHERE id = 0")
     suspend fun updateStreamPosition(

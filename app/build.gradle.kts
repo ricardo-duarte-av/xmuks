@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.xmuks.android.compose)
     alias(libs.plugins.xmuks.hilt)
     alias(libs.plugins.xmuks.screenshots)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // Release signing: keystore.properties (local, gitignored) first, then environment variables (CI).
@@ -67,6 +68,7 @@ dependencies {
     implementation(projects.core.designsystem)
     implementation(projects.core.data)
     implementation(projects.feature.login)
+    implementation(projects.feature.roomlist)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
@@ -74,4 +76,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    implementation(libs.androidx.compose.material3.adaptive.navigation3)
+    implementation(libs.kotlinx.serialization.json)
 }

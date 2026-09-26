@@ -93,6 +93,7 @@ class LiveIngestTest {
                     job.cancel()
                     db.roomListDao().counts().first()
                 }
+            if (System.getenv("XMUKS_LIVE_DUMP") != null) dumpRoomList(db)
             println("$label: live+ingested in ${(System.nanoTime() - start) / 1_000_000} ms, catchup=$catchup, $rooms")
             db.close()
             return rooms.rooms + rooms.spaces to catchup
@@ -105,4 +106,49 @@ class LiveIngestTest {
         assertTrue("a restart with an intact cache must catch up, not re-download", secondCatchup)
         assertEquals(first, second)
     }
+
+    /** Local diagnostics only (XMUKS_LIVE_DUMP=1): what the room list would show for real data. */
+    private fun dumpRoomList(db: XmuksDatabase) =
+        runBlocking {
+            val repo =
+                pt.aguiarvieira.xmuks.core.data.rooms
+                    .RoomListRepository(
+                        db,
+                        pt.aguiarvieira.xmuks.core.data.media
+                            .MediaUrls { server }
+                    )
+            val chats = repo.chats().first()
+            val dms = repo.directMessages().first()
+            val spaces = repo.topLevelSpaces().first()
+            println("chats=${chats.size} dms=${dms.size} spaces=${spaces.size}")
+            println(
+                "chats without preview: ${chats.count {
+                    it.preview == pt.aguiarvieira.xmuks.core.data.rooms.Preview.None
+                }}"
+            )
+            println("previews with raw MXID sender: ${chats.count { it.previewSender?.startsWith("@") == true }}")
+            println("rooms named by ID: ${(chats + dms).count { it.name.startsWith("!") }}")
+            println("with avatar: ${(chats + dms).count { it.avatarUrl != null }}/${chats.size + dms.size}")
+            val rows = db.roomListDao().chats().first()
+            println(
+                "no-preview by type: " +
+                    rows
+                        .filter {
+                            it.previewText.isNullOrBlank()
+                        }.groupingBy { it.previewType ?: "<no event>" }
+                        .eachCount()
+            )
+            chats.take(8).forEach {
+                println(
+                    "  ${it.name.take(
+                        24
+                    )} | ${it.previewSender?.take(
+                        16
+                    )}: ${(it.preview as? pt.aguiarvieira.xmuks.core.data.rooms.Preview.Text)?.text?.take(
+                        30
+                    )} | ${it.unread}"
+                )
+            }
+            spaces.take(6).forEach { println("  [space] ${it.name.take(24)} rooms=${it.rooms} ${it.unread}") }
+        }
 }

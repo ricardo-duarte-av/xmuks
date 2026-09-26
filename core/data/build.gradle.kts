@@ -11,6 +11,8 @@ dependencies {
     api(projects.core.network)
     api(projects.core.database)
     implementation(libs.androidx.datastore.preferences)
+    api(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.robolectric)
