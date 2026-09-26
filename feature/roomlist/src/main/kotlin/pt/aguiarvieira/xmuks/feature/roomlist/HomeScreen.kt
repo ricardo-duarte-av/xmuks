@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -25,6 +27,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -152,10 +155,23 @@ fun HomeScreen(
                 )
             },
         ) {
-            when (state.tab) {
-                HomeTab.Chats -> RoomList(state.chats, now, R.string.empty_chats, onOpenRoom)
-                HomeTab.Dms -> RoomList(state.dms, now, R.string.empty_dms, onOpenRoom)
-                HomeTab.Spaces -> SpaceGrid(state.spaces, onOpenSpace)
+            // All tabs stay composed (only the selected one is drawn): switching is then just a
+            // page change instead of rebuilding a grid of avatars. Measured on a OnePlus 7: entering
+            // Spaces cost a ~45-90 ms frame when the grid was recomposed from scratch.
+            val pager = rememberPagerState(initialPage = state.tab.ordinal) { HomeTab.entries.size }
+            LaunchedEffect(state.tab) { pager.scrollToPage(state.tab.ordinal) }
+            HorizontalPager(
+                state = pager,
+                userScrollEnabled = false,
+                beyondViewportPageCount = HomeTab.entries.size - 1,
+                key = { HomeTab.entries[it] },
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                when (HomeTab.entries[page]) {
+                    HomeTab.Chats -> RoomList(state.chats, now, R.string.empty_chats, onOpenRoom)
+                    HomeTab.Dms -> RoomList(state.dms, now, R.string.empty_dms, onOpenRoom)
+                    HomeTab.Spaces -> SpaceGrid(state.spaces, onOpenSpace)
+                }
             }
         }
     }
