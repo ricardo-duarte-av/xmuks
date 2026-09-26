@@ -57,4 +57,17 @@ class HtmlParserTest {
         assertTrue(text.spanStyles.any { it.item.background == Color.DarkGray })
         assertTrue(text.spanStyles.any { it.item.color == Color(0xFFFF0000) })
     }
+
+    @Test
+    fun `block elements inside inline ones keep their own lines`() {
+        val blocks = parser.parse("""<div>Intro.<a href="https://x.org"><h2>Matrix APIs</h2></a>After</div>""")
+        val text = (blocks.single() as HtmlBlock.Paragraph).text
+        assertEquals("Intro.\nMatrix APIs\nAfter", text.text)
+    }
+
+    @Test
+    fun `tables and details flatten into paragraphs`() {
+        val blocks = parser.parse("<table><tr><td>a</td><td>b</td></tr></table><details><summary>more</summary>hidden</details>")
+        assertEquals(listOf("a", "b", "more", "hidden"), blocks.map { (it as HtmlBlock.Paragraph).text.text })
+    }
 }

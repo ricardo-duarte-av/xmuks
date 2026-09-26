@@ -93,7 +93,9 @@ class HtmlParser(
     /** The blocks an element makes, or null when it's inline and belongs to the running paragraph. */
     private fun block(el: Element): List<HtmlBlock>? =
         when (el.normalName()) {
-            "p", "div" -> {
+            // Containers. Table cells become lines of their own: a real table layout is more than a
+            // chat bubble can hold.
+            in CONTAINERS -> {
                 blocks(el.childNodes())
             }
 
@@ -135,6 +137,24 @@ class HtmlParser(
             is TextNode -> append(node.wholeText)
             is Element -> appendElement(node)
         }
+    }
+
+    /**
+     * A block element nested in inline context (say, a heading inside a link): its text keeps a line
+     * of its own, and headings stay bold.
+     */
+    private fun AnnotatedString.Builder.appendNestedBlock(el: Element) {
+        lineBreakIfNeeded()
+        if (el.normalName() in HEADINGS) {
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { children(el) }
+        } else {
+            children(el)
+        }
+        append('\n')
+    }
+
+    private fun AnnotatedString.Builder.lineBreakIfNeeded() {
+        if (length > 0 && toAnnotatedString().text.last() != '\n') append('\n')
     }
 
     private fun AnnotatedString.Builder.children(el: Element) = el.childNodes().forEach { append(it) }
@@ -187,10 +207,8 @@ class HtmlParser(
                 appendSpan(el)
             }
 
-            // Block elements nested in inline context: keep their text, separated by a line break.
-            "p", "div", "li", "blockquote", "pre" -> {
-                children(el)
-                append('\n')
+            in INLINE_BLOCKS -> {
+                appendNestedBlock(el)
             }
 
             else -> {
@@ -260,6 +278,32 @@ class HtmlParser(
 
     companion object {
         const val IMAGE_PREFIX = "img:"
+        private val CONTAINERS =
+            setOf(
+                "p",
+                "div",
+                "section",
+                "article",
+                "details",
+                "summary",
+                "figure",
+                "figcaption",
+                "table",
+                "thead",
+                "tbody",
+                "tfoot",
+                "tr",
+                "td",
+                "th",
+                "caption",
+            )
+
+        private val HEADINGS = setOf("h1", "h2", "h3", "h4", "h5", "h6")
+
+        /** Block elements that can turn up inside inline ones; each keeps a line of its own. */
+        private val INLINE_BLOCKS =
+            HEADINGS + setOf("p", "div", "li", "ul", "ol", "blockquote", "pre", "tr", "table", "details", "summary")
+
         private const val INLINE_TAG = "androidx.compose.foundation.text.inlineContent"
         private const val SMALL = 0.75f
         private const val HEX_RADIX = 16
