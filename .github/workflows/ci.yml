@@ -78,6 +78,11 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew :app:assembleDebug :app:assembleRelease :app:bundleRelease $GRADLE_ARGS
 
+      # Native libraries bind to Java members by name; R8 renaming them crashes release builds only
+      # (v0.0.4: zstd-jni, on the first stream read after login). Debug builds can't catch this.
+      - name: R8 kept JNI-bound classes intact
+        run: scripts/check-jni-mapping.sh app/build/outputs/mapping/release/mapping.txt
+
       - name: Upload reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4

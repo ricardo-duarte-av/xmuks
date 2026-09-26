@@ -5,6 +5,7 @@ plugins {
 
 android {
     namespace = "pt.aguiarvieira.xmuks.core.network"
+    defaultConfig.consumerProguardFiles("consumer-rules.pro")
 }
 
 dependencies {

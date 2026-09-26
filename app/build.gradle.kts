@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.xmuks.android.application)
     alias(libs.plugins.xmuks.android.compose)
     alias(libs.plugins.xmuks.hilt)
+    alias(libs.plugins.xmuks.screenshots)
 }
 
 // Release signing: keystore.properties (local, gitignored) first, then environment variables (CI).
