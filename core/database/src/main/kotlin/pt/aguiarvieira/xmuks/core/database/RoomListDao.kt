@@ -61,6 +61,12 @@ data class OwnProfileRow(
     val avatar: String?,
 )
 
+/** A member event we hold for a room (display name / avatar are in [content]). */
+data class MemberRow(
+    val userId: String,
+    val content: String,
+)
+
 /** Read side. Everything is a Flow: screens re-render whenever a sync transaction commits. */
 @Dao
 interface RoomListDao {
@@ -230,4 +236,16 @@ interface RoomListDao {
         """
     )
     fun spacesTabUnread(): Flow<TabUnreadRow>
+
+    /** Member events we already hold for [roomId] (preview senders): the seed for sender names. */
+    @Query(
+        """
+        SELECT s.stateKey AS userId, e.content AS content FROM room_state s JOIN events e ON e.rowId = s.eventRowId
+        WHERE s.roomId = :roomId AND s.type = 'm.room.member'
+        """,
+    )
+    suspend fun memberEvents(roomId: String): List<MemberRow>
+
+    @Query("SELECT content FROM account_data WHERE roomId = :roomId AND type = 'm.fully_read'")
+    fun fullyRead(roomId: String): Flow<String?>
 }

@@ -87,6 +87,11 @@ class TimelineStore(
 
     private val mutex = Mutex()
 
+    private val _typing = MutableStateFlow<Map<String, List<String>>>(emptyMap())
+
+    /** Room → users typing now (ephemeral; replaced wholesale by each typing notification). */
+    val typing: StateFlow<Map<String, List<String>>> = _typing.asStateFlow()
+
     /** Insertion order = recency (accessOrder), for least-recently-opened eviction. */
     private val rooms = LinkedHashMap<String, RoomTimeline>(16, 0.75f, true)
 
@@ -142,7 +147,10 @@ class TimelineStore(
         }
     }
 
-    override suspend fun clearAccountData() = mutex.withLock { rooms.clear() }
+    override suspend fun clearAccountData() {
+        mutex.withLock { rooms.clear() }
+        _typing.value = emptyMap()
+    }
 
     // --- internals --------------------------------------------------------------------------------
 

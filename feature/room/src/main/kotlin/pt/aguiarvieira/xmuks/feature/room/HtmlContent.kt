@@ -1,0 +1,223 @@
+package pt.aguiarvieira.xmuks.feature.room
+
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.core.net.toUri
+import coil3.compose.AsyncImage
+
+/** Renders gomuks' sanitised HTML. [mediaUrl] turns `mxc://` into a loadable URL. */
+@Composable
+fun HtmlContent(
+    html: String,
+    color: Color,
+    style: TextStyle,
+    mediaUrl: (String) -> String?,
+    modifier: Modifier = Modifier,
+) {
+    val colors = htmlColors()
+    val blocks = remember(html, colors) { HtmlParser(colors).parse(html) }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        blocks.forEach { Block(it, color, style, mediaUrl) }
+    }
+}
+
+/** Plain text with web links made tappable. */
+@Composable
+fun PlainContent(
+    body: String,
+    color: Color,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+) {
+    val link = MaterialTheme.colorScheme.primary
+    val text = remember(body, link) { linkify(body, link) }
+    Text(text, color = color, style = style, modifier = modifier)
+}
+
+@Composable
+private fun Block(
+    block: HtmlBlock,
+    color: Color,
+    style: TextStyle,
+    mediaUrl: (String) -> String?,
+) {
+    val colors = MaterialTheme.colorScheme
+    when (block) {
+        is HtmlBlock.Paragraph -> {
+            RichText(block.text, color, style, mediaUrl)
+        }
+
+        is HtmlBlock.Heading -> {
+            RichText(
+                block.text,
+                color,
+                style.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize =
+                        style.fontSize * headingScale(block.level)
+                ),
+                mediaUrl
+            )
+        }
+
+        is HtmlBlock.Quote -> {
+            Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+                Box(Modifier.width(3.dp).fillMaxHeight().background(colors.outline, RoundedCornerShape(2.dp)))
+                Column(Modifier.padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    block.blocks.forEach { Block(it, color.copy(alpha = QUOTE_ALPHA), style, mediaUrl) }
+                }
+            }
+        }
+
+        is HtmlBlock.Code -> {
+            Text(
+                block.code,
+                style = style.copy(fontFamily = FontFamily.Monospace),
+                color = color,
+                softWrap = false,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(colors.surfaceContainerHighest, RoundedCornerShape(8.dp))
+                        .horizontalScroll(rememberScrollState())
+                        .padding(8.dp),
+            )
+        }
+
+        is HtmlBlock.Bullets -> {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                block.items.forEachIndexed { index, item ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(if (block.ordered) "${block.start + index}." else "•", color = color, style = style)
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) { item.forEach { Block(it, color, style, mediaUrl) } }
+                    }
+                }
+            }
+        }
+
+        HtmlBlock.Rule -> {
+            HorizontalDivider()
+        }
+    }
+}
+
+/** Annotated text with inline images (custom emoji) sized to the line. */
+@Composable
+private fun RichText(
+    text: AnnotatedString,
+    color: Color,
+    style: TextStyle,
+    mediaUrl: (String) -> String?,
+) {
+    val images =
+        remember(text) {
+            text
+                .getStringAnnotations(0, text.length)
+                .map { it.item }
+                .filter { it.startsWith(HtmlParser.IMAGE_PREFIX) }
+                .distinct()
+        }
+    val inline =
+        images.associateWith { id ->
+            InlineTextContent(Placeholder(EMOJI_EM.em, EMOJI_EM.em, PlaceholderVerticalAlign.TextCenter)) {
+                AsyncImage(model = mediaUrl(id.removePrefix(HtmlParser.IMAGE_PREFIX)), contentDescription = it)
+            }
+        }
+    Text(text, color = color, style = style, inlineContent = inline)
+}
+
+@Composable
+private fun htmlColors(): HtmlColors {
+    val c = MaterialTheme.colorScheme
+    return remember(c) {
+        HtmlColors(
+            c.primary,
+            c.onSecondaryContainer,
+            c.secondaryContainer,
+            c.surfaceContainerHighest,
+            c.onSurfaceVariant
+        )
+    }
+}
+
+private fun headingScale(level: Int) = if (level <= 2) HEADING_LARGE else HEADING_SMALL
+
+private val URL = Regex("""https?://[^\s<>"']+[^\s<>"'.,;:!?)\]]""")
+
+internal fun linkify(
+    body: String,
+    linkColor: Color,
+): AnnotatedString =
+    buildAnnotatedString {
+        var last = 0
+        URL.findAll(body).forEach { match ->
+            append(body, last, match.range.first)
+            withStyle(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)) {
+                withLink(LinkAnnotation.Url(match.value)) { append(match.value) }
+            }
+            last = match.range.last + 1
+        }
+        append(body, last, body.length)
+    }
+
+/**
+ * Opens links without ever crashing: `matrix:` and other schemes no app handles are ignored (in-app
+ * navigation for them comes later), unlike the default handler which throws.
+ */
+class SafeUriHandler(
+    private val context: Context,
+) : UriHandler {
+    override fun openUri(uri: String) {
+        if (uri.startsWith("matrix:")) return
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, uri.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: ActivityNotFoundException) {
+            // Nothing can open it; stay put.
+        }
+    }
+}
+
+private const val EMOJI_EM = 1.3f
+private const val QUOTE_ALPHA = 0.8f
+private const val HEADING_LARGE = 1.3f
+private const val HEADING_SMALL = 1.1f

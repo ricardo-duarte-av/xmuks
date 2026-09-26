@@ -14,6 +14,12 @@ class MediaUrls(
 
     fun full(mxc: String?): String? = build(mxc) {}
 
+    /** Timeline media; gomuks decrypts `encrypted` files itself (it holds the keys from the event). */
+    fun media(
+        mxc: String?,
+        encrypted: Boolean,
+    ): String? = build(mxc) { if (encrypted) addQueryParameter("encrypted", "true") }
+
     private fun build(
         mxc: String?,
         extra: HttpUrl.Builder.() -> Unit,

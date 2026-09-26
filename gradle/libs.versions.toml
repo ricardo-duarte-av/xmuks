@@ -48,6 +48,7 @@ materialKolor = "5.0.1"
 okhttp = "5.5.0"
 zstdJni = "1.5.7-20"
 coil = "3.6.3"
+jsoup = "1.23.2"
 
 # --- Firebase (M6) ---
 firebaseBom = "34.19.0"
@@ -117,6 +118,7 @@ okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver3"
 okhttp-mockwebserver-junit4 = { group = "com.squareup.okhttp3", name = "mockwebserver3-junit4", version.ref = "okhttp" }
 zstd-jni = { group = "com.github.luben", name = "zstd-jni", version.ref = "zstdJni" }
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 
 # Firebase

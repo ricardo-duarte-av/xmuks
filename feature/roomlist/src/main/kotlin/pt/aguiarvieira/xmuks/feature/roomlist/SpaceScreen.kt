@@ -27,9 +27,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
-import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
-import pt.aguiarvieira.xmuks.core.designsystem.component.SharedKeys
-import pt.aguiarvieira.xmuks.core.designsystem.component.sharedElement
+import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
 
 @Composable
 fun SpaceRoute(
@@ -116,67 +114,6 @@ fun SpaceScreen(
             SharedScopes.space(spaceId),
             onOpenRoom,
             modifier = Modifier.padding(padding)
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun RoomRoute(
-    roomId: String,
-    sharedScope: String,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-    viewModel: RoomViewModel = hiltViewModel<RoomViewModel, RoomViewModel.Factory>(key = roomId) { it.create(roomId) },
-) {
-    val room by viewModel.room.collectAsStateWithLifecycle()
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                navigationIcon = { BackButton(onBack) },
-                title = {
-                    HeaderTitle(
-                        id = roomId,
-                        name = room?.name ?: "",
-                        avatarUrl = room?.avatarUrl,
-                        sharedScope = sharedScope,
-                    )
-                },
-            )
-        },
-    ) { padding ->
-        EmptyState(stringResource(R.string.room_placeholder), modifier = Modifier.padding(padding))
-    }
-}
-
-/** Avatar + name in an app bar: the landing spot of the list's shared elements. */
-@Composable
-internal fun HeaderTitle(
-    id: String,
-    name: String,
-    avatarUrl: String?,
-    sharedScope: String,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        RoomAvatar(
-            name = name,
-            id = id,
-            avatarUrl = avatarUrl,
-            size = 40.dp,
-            modifier = Modifier.sharedElement(SharedKeys.avatar(id, sharedScope)),
-        )
-        Text(
-            text = name,
-            style = MaterialTheme.typography.titleLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.sharedElement(SharedKeys.title(id, sharedScope)),
         )
     }
 }

@@ -26,7 +26,6 @@
     <string name="status_live">Connected</string>
     <string name="log_out">Log out</string>
     <string name="sign_in_again">Sign in again</string>
-    <string name="room_placeholder">The timeline arrives in the next milestone.</string>
     <string name="unread_mentions">%1$d mentions</string>
     <string name="search_chats">Search chats</string>
     <string name="search_dms">Search people</string>

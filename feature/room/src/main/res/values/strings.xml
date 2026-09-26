@@ -1,0 +1,26 @@
+<resources>
+    <string name="back">Back</string>
+    <string name="redacted">Message deleted</string>
+    <string name="undecryptable">Waiting for this message\'s encryption key</string>
+    <string name="unsupported">Unsupported message (%1$s)</string>
+    <string name="edited">edited</string>
+    <string name="reply_unavailable">Reply to a message that isn\'t loaded</string>
+    <string name="sticker">Sticker</string>
+    <string name="typing_one">%1$s is typing…</string>
+    <string name="typing_two">%1$s and %2$s are typing…</string>
+    <string name="typing_many">Several people are typing…</string>
+    <string name="empty_timeline">No messages yet</string>
+    <string name="change_joined">%1$s joined</string>
+    <string name="change_left">%1$s left</string>
+    <string name="change_invited">%1$s invited %2$s</string>
+    <string name="change_kicked">%1$s removed %2$s</string>
+    <string name="change_banned">%1$s banned %2$s</string>
+    <string name="change_renamed">%1$s is now %2$s</string>
+    <string name="change_avatar">%1$s changed their avatar</string>
+    <string name="change_room_name">%1$s renamed the room to %2$s</string>
+    <string name="change_room_topic">%1$s changed the topic</string>
+    <string name="change_room_avatar">%1$s changed the room avatar</string>
+    <string name="change_created">%1$s created the room</string>
+    <string name="change_encryption">%1$s enabled encryption</string>
+    <string name="send_failed">Not sent: %1$s</string>
+</resources>

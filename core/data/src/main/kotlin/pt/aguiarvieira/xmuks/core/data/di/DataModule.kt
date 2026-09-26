@@ -34,6 +34,7 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaCacheStrategy
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
+import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineStore
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.AuthApi
@@ -52,6 +53,7 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
+@Suppress("TooManyFunctions") // one provider per binding: splitting would only scatter the graph
 object DataModule {
     private const val IMAGE_DISK_CACHE_BYTES = 256L * 1024 * 1024
 
@@ -200,6 +202,14 @@ object DataModule {
         imageLoader: ImageLoader,
         scope: CoroutineScope,
     ) = LiveTasks(context, exec, ingestor, database, media, imageLoader, scope)
+
+    @Provides @Singleton
+    fun roomSessions(
+        timelines: TimelineStore,
+        exec: ExecClient,
+        database: XmuksDatabase,
+        scope: CoroutineScope,
+    ) = RoomSessions(timelines, exec, database, scope)
 
     @Provides @Singleton
     fun sessionRepository(

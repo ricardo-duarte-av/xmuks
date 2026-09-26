@@ -19,8 +19,8 @@ import androidx.navigation3.ui.NavDisplay
 import kotlinx.serialization.Serializable
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalAnimatedVisibilityScope
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalSharedTransitionScope
+import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
-import pt.aguiarvieira.xmuks.feature.roomlist.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
 
 @Serializable data object HomeKey : NavKey
