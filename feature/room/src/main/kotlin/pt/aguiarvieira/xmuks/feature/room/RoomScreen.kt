@@ -3,12 +3,19 @@ package pt.aguiarvieira.xmuks.feature.room
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imeAnimationTarget
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -38,9 +45,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -196,6 +208,8 @@ fun RoomScreen(
 ) {
     val scope = rememberCoroutineScope()
     val overlays = remember { OverlayState() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
     // After we send, the timeline follows to our message wherever it was scrolled.
     val followNext = remember { FollowRequest() }
     val liveList = rememberLazyListState()
@@ -240,18 +254,21 @@ fun RoomScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = { HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia) },
         bottomBar = {
-            ComposerCard(
-                composer.draft,
-                composer.mode,
-                {
-                    followNext.requested = true
-                    composer.onSend()
-                },
-                composer.onCancelMode,
-                commands = composer.commands,
-                onEmoji = { overlays.picker = PickerRequest(PickerMode.Emoji) },
-                onSticker = { overlays.picker = PickerRequest(PickerMode.Sticker) },
-            )
+            ComposerArea(overlays, composer, resolver) {
+                ComposerCard(
+                    composer.draft,
+                    composer.mode,
+                    {
+                        followNext.requested = true
+                        composer.onSend()
+                    },
+                    composer.onCancelMode,
+                    commands = composer.commands,
+                    onEmoji = { openPanel(overlays, PickerMode.Emoji, keyboard, focus) },
+                    onSticker = { openPanel(overlays, PickerMode.Sticker, keyboard, focus) },
+                    onFocus = { if (overlays.picker?.reactTo == null) overlays.picker = null },
+                )
+            }
         },
     ) { padding ->
         ScreenCard(

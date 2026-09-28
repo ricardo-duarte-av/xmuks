@@ -71,6 +71,26 @@ internal fun EmojiPickerSheet(
     onSubscribe: (ImagePack, Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        // Straight to full height: no half-open step.
+        sheetState = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded)),
+    ) {
+        EmojiPicker(mode, packs, recent, resolver, onPick, onSubscribe, Modifier.height(PICKER_HEIGHT))
+    }
+}
+
+/** The picker itself: in a sheet (reactions) or in place of the keyboard (the composer). */
+@Composable
+internal fun EmojiPicker(
+    mode: PickerMode,
+    packs: List<ImagePack>,
+    recent: List<String>,
+    resolver: MediaResolver,
+    onPick: (Picked) -> Unit,
+    onSubscribe: (ImagePack, Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val query = rememberTextFieldState()
     val q by remember { derivedStateOf { query.text.toString().trim() } }
     val sections = remember(mode, packs, recent, q) { sections(mode, packs, recent, q) }
@@ -82,58 +102,52 @@ internal fun EmojiPickerSheet(
             var index = 0
             sections.map { section -> index.also { index += 1 + section.items.size } }
         }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        // Straight to full height: no half-open step.
-        sheetState = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded))
-    ) {
-        Column(Modifier.padding(horizontal = 12.dp).height(PICKER_HEIGHT)) {
-            OutlinedTextField(
-                state = query,
-                placeholder = {
-                    Text(
-                        stringResource(
-                            if (mode ==
-                                PickerMode.Sticker
-                            ) {
-                                R.string.search_stickers
-                            } else {
-                                R.string.search_emoji
-                            }
-                        )
+    Column(modifier.padding(horizontal = 12.dp)) {
+        OutlinedTextField(
+            state = query,
+            placeholder = {
+                Text(
+                    stringResource(
+                        if (mode ==
+                            PickerMode.Sticker
+                        ) {
+                            R.string.search_stickers
+                        } else {
+                            R.string.search_emoji
+                        }
                     )
-                },
-                lineLimits = androidx.compose.foundation.text.input.TextFieldLineLimits.SingleLine,
-                shape = RoundedCornerShape(28.dp),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            if (q.isEmpty()) {
-                LazyRow(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    itemsIndexed(sections, key = { _, s -> s.id }) { i, section ->
-                        Box(
-                            Modifier
-                                .size(TAB)
-                                .clip(CircleShape)
-                                .clickable { scope.launch { grid.scrollToItem(headerIndex[i]) } },
-                            contentAlignment = Alignment.Center,
-                        ) { SectionIcon(section, resolver) }
-                    }
+                )
+            },
+            lineLimits = androidx.compose.foundation.text.input.TextFieldLineLimits.SingleLine,
+            shape = RoundedCornerShape(28.dp),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (q.isEmpty()) {
+            LazyRow(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                itemsIndexed(sections, key = { _, s -> s.id }) { i, section ->
+                    Box(
+                        Modifier
+                            .size(TAB)
+                            .clip(CircleShape)
+                            .clickable { scope.launch { grid.scrollToItem(headerIndex[i]) } },
+                        contentAlignment = Alignment.Center,
+                    ) { SectionIcon(section, resolver) }
                 }
             }
-            val cell = if (mode == PickerMode.Sticker) STICKER_CELL else EMOJI_CELL
-            LazyVerticalGrid(
-                state = grid,
-                columns = GridCells.Adaptive(cell),
-                contentPadding = PaddingValues(bottom = 24.dp),
-            ) {
-                sections.forEach { section ->
-                    item(key = "h:" + section.id, span = { GridItemSpan(maxLineSpan) }) {
-                        SectionHeader(section, onSubscribe)
-                    }
-                    section.items.forEachIndexed { i, picked ->
-                        item(key = section.id + ":" + i + ":" + picked.key) {
-                            Cell(picked, resolver) { onPick(picked) }
-                        }
+        }
+        val cell = if (mode == PickerMode.Sticker) STICKER_CELL else EMOJI_CELL
+        LazyVerticalGrid(
+            state = grid,
+            columns = GridCells.Adaptive(cell),
+            contentPadding = PaddingValues(bottom = 24.dp),
+        ) {
+            sections.forEach { section ->
+                item(key = "h:" + section.id, span = { GridItemSpan(maxLineSpan) }) {
+                    SectionHeader(section, onSubscribe)
+                }
+                section.items.forEachIndexed { i, picked ->
+                    item(key = section.id + ":" + i + ":" + picked.key) {
+                        Cell(picked, resolver) { onPick(picked) }
                     }
                 }
             }

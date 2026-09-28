@@ -24,6 +24,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -50,12 +51,12 @@ internal fun ComposerCard(
     commands: List<BotCommand> = emptyList(),
     onEmoji: () -> Unit = {},
     onSticker: () -> Unit = {},
+    /** The message box got focus (a tap into it): the keyboard is coming back. */
+    onFocus: () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
     ScreenCard(
-        modifier
-            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
-            .padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap),
+        modifier.padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap),
     ) {
         Column {
             ModeBanner(mode, onCancelMode)
@@ -73,7 +74,12 @@ internal fun ComposerCard(
                     textStyle = style,
                     cursorBrush = SolidColor(colors.primary),
                     lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = MAX_LINES),
-                    modifier = Modifier.weight(1f).padding(vertical = 12.dp),
+                    modifier =
+                        Modifier
+                            .weight(
+                                1f
+                            ).padding(vertical = 12.dp)
+                            .onFocusChanged { if (it.isFocused) onFocus() },
                     decorator = { field ->
                         Box {
                             if (state.text.isEmpty()) {
