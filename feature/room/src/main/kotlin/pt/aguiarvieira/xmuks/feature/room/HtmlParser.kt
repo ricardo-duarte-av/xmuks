@@ -143,8 +143,6 @@ class HtmlParser(
         return buildAnnotatedString { nodes.forEach { append(it) } }
     }
 
-'s never collapsed (inline code, image alt text). */
-
     private fun AnnotatedString.Builder.append(node: Node) {
         when (node) {
             is TextNode -> ws.text(this, node.wholeText)
