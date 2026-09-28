@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 import pt.aguiarvieira.xmuks.core.protocol.Event
+import pt.aguiarvieira.xmuks.core.protocol.LocalContent
 
 private const val HTML_FORMAT = "org.matrix.custom.html"
 
@@ -45,8 +46,36 @@ internal fun reactionsOf(
 ): List<Reaction> =
     event.reactions
         .orEmpty()
+        // gomuks keeps keys whose reactions were all redacted, at count 0.
+        .filterValues { it > 0 }
         .map { (key, count) -> Reaction(key, count, key in myReactions[event.eventId].orEmpty()) }
         .sortedByDescending { it.count }
+
+/** Marks text whose HTML is gomuks' linkified plain text (its line breaks are literal). */
+internal fun MessageContent.withPlainText(local: LocalContent?): MessageContent =
+    if (this is MessageContent.Text && local?.wasPlaintext == true && !local.sanitizedHtml.isNullOrBlank()) {
+        copy(plainText = true)
+    } else {
+        this
+    }
+
+/** join → join with a new name and/or avatar; null when nothing visible changed. */
+internal fun profileChange(
+    previous: JsonObject?,
+    content: JsonObject,
+): Change? {
+    val nameChanged = previous?.str("displayname") != content.str("displayname")
+    val avatarChanged = previous?.str("avatar_url") != content.str("avatar_url")
+    if (!nameChanged && !avatarChanged) return null
+    return Change.ProfileChanged(
+        oldName = previous?.str("displayname"),
+        newName = content.str("displayname"),
+        oldAvatar = previous?.str("avatar_url")?.takeIf { it.startsWith("mxc://") },
+        newAvatar = content.str("avatar_url")?.takeIf { it.startsWith("mxc://") },
+        nameChanged = nameChanged,
+        avatarChanged = avatarChanged,
+    )
+}
 
 internal fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
 

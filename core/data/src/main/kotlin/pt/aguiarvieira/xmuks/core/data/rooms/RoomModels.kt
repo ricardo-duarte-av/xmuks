@@ -27,6 +27,8 @@ data class RoomSummary(
     /** When the room last had activity (gomuks' sorting timestamp). */
     val timestamp: Long,
     val unread: Unread,
+    /** The avatar itself (for the full-size viewer); [avatarUrl] is its thumbnail. */
+    val avatarMxc: String? = null,
 )
 
 /** What the room list shows under the room name. */

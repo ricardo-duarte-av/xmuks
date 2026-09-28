@@ -13,8 +13,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.ContainedLoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -87,6 +90,7 @@ fun MediaViewer(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ZoomableImage(
     media: ViewerMedia,
@@ -104,6 +108,10 @@ private fun ZoomableImage(
             onClick = { onTap() },
             modifier = Modifier.fillMaxSize(),
         )
+        // The preview is up but the original is still downloading: say so.
+        if (!state.isImageDisplayed) {
+            ContainedLoadingIndicator(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(24.dp))
+        }
     }
 }
 

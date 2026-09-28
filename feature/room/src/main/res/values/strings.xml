@@ -17,12 +17,22 @@
     <string name="change_invited">%1$s invited %2$s</string>
     <string name="change_kicked">%1$s removed %2$s</string>
     <string name="change_banned">%1$s banned %2$s</string>
-    <string name="change_renamed">%1$s is now %2$s</string>
-    <string name="change_avatar">%1$s changed their avatar</string>
     <string name="change_room_name">%1$s renamed the room to %2$s</string>
     <string name="change_room_topic">%1$s changed the topic</string>
     <string name="change_room_avatar">%1$s changed the room avatar</string>
     <string name="change_created">%1$s created the room</string>
     <string name="change_encryption">%1$s enabled encryption</string>
     <string name="send_failed">Not sent: %1$s</string>
+    <plurals name="read_by">
+        <item quantity="one">Read by %2$s</item>
+        <item quantity="other">Read by %1$d people: %2$s</item>
+    </plurals>
+    <string name="change_profile_name">%1$s changed their name from %2$s</string>
+    <string name="change_profile_avatar">%1$s changed their avatar</string>
+    <string name="change_profile_avatar_set">%1$s set their avatar</string>
+    <string name="change_profile_avatar_removed">%1$s removed their avatar</string>
+    <string name="change_profile_both">%1$s changed their name from %2$s and their avatar</string>
+    <string name="avatar_from_to">from %1$s to %2$s</string>
+    <string name="jump_to_latest">Jump to latest</string>
+    <string name="context_failed">Couldn\'t load that message</string>
 </resources>

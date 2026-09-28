@@ -27,6 +27,7 @@ import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
 import pt.aguiarvieira.xmuks.core.network.ExecResult
 import pt.aguiarvieira.xmuks.core.protocol.Event
+import pt.aguiarvieira.xmuks.core.protocol.EventContextResponse
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 
 /**
@@ -54,11 +55,43 @@ class RoomSession(
     val snapshot: Flow<TimelineSnapshot> = flow { emitAll(store.observe(roomId)) }
 
     /** What the timeline shows; rebuilt off the main thread whenever the timeline or a profile changes. */
-    val items: Flow<List<TimelineItem>> =
-        combine(snapshot, profiles, dao.meta().map { it?.userId }.distinctUntilChanged()) { snap, known, me ->
+    val items: Flow<List<TimelineItem>> = itemsOf(snapshot)
+
+    /** Items for any snapshot of this room (the live one, or an event context), with its profiles. */
+    fun itemsOf(snapshots: Flow<TimelineSnapshot>): Flow<List<TimelineItem>> =
+        combine(snapshots, profiles, dao.meta().map { it?.userId }.distinctUntilChanged()) { snap, known, me ->
             resolveMissing(snap, known)
             TimelineItemBuilder(me).build(snap, known)
         }.flowOn(Dispatchers.Default)
+
+    /**
+     * A detached window around [eventId] (`get_event_context`) for jumping to something older than
+     * the loaded timeline. Not live and not kept; null when gomuks can't get it.
+     */
+    suspend fun eventContext(eventId: String): TimelineSnapshot? {
+        val params =
+            buildJsonObject {
+                put("room_id", JsonPrimitive(roomId))
+                put("event_id", JsonPrimitive(eventId))
+                put("limit", JsonPrimitive(CONTEXT_LIMIT))
+            }
+        val result = exec.exec("get_event_context", params, ExecMode.Read) as? ExecResult.Ok ?: return null
+        val response =
+            runCatching { GomuksJson.decodeFromJsonElement(EventContextResponse.serializer(), result.data) }.getOrNull()
+        val target = response?.event ?: return null
+        // Events gomuks hasn't stored carry rowid 0: give them unique stand-ins so they can be keyed.
+        var standIn = -1L
+        val keyed = { e: Event -> if (e.rowId != 0L) e else e.copy(rowId = standIn--) }
+        val events = (response.before.asReversed() + target + response.after).map(keyed)
+        val related = response.relatedEvents.map(keyed)
+        return TimelineSnapshot(
+            roomId = roomId,
+            events = events,
+            eventsByRowId = (related + events).associateBy { it.rowId },
+            hasMoreBefore = false,
+            loaded = true,
+        )
+    }
 
     /** Display names of whoever is typing (not us). */
     val typing: Flow<List<String>> =
@@ -161,6 +194,7 @@ class RoomSession(
 
     private companion object {
         const val MEMBER_BATCH = 50
+        const val CONTEXT_LIMIT = 30
     }
 }
 

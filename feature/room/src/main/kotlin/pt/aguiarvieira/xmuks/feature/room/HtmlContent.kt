@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,15 +54,21 @@ fun HtmlContent(
     modifier: Modifier = Modifier,
     lastLine: LastLine? = null,
     prefix: AnnotatedString? = null,
+    preserveWhitespace: Boolean = false,
+    onOpenImage: ((mxc: String, alt: String) -> Unit)? = null,
 ) {
+    val images = InlineImages(mediaUrl, onOpenImage)
     val colors = htmlColors()
-    val blocks = remember(html, colors, prefix) { withPrefix(HtmlParser(colors).parse(html), prefix) }
+    val blocks =
+        remember(html, colors, prefix, preserveWhitespace) {
+            withPrefix(HtmlParser(colors, preserveWhitespace).parse(html), prefix)
+        }
     // Only a closing paragraph has a last line a footer can share; quotes, lists and code don't.
     if (blocks.lastOrNull() !is HtmlBlock.Paragraph) lastLine?.clear()
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         blocks.forEachIndexed { index, block ->
             val last = if (index == blocks.lastIndex && block is HtmlBlock.Paragraph) lastLine else null
-            Block(block, color, style, mediaUrl, last)
+            Block(block, color, style, images, last)
         }
     }
 }
@@ -80,6 +87,12 @@ fun PlainContent(
     val text = remember(body, link, prefix) { prefix?.plus(linkify(body, link)) ?: linkify(body, link) }
     Text(text, color = color, style = style, modifier = modifier, onTextLayout = { lastLine?.update(it) })
 }
+
+/** How inline images (custom emoji) load, and what tapping one does. */
+internal class InlineImages(
+    val url: (String) -> String?,
+    val open: ((mxc: String, alt: String) -> Unit)?,
+)
 
 /** [prefix] runs into the first paragraph (an emote's "* Name"), or stands as its own line. */
 private fun withPrefix(
@@ -100,13 +113,13 @@ private fun Block(
     block: HtmlBlock,
     color: Color,
     style: TextStyle,
-    mediaUrl: (String) -> String?,
+    images: InlineImages,
     lastLine: LastLine? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     when (block) {
         is HtmlBlock.Paragraph -> {
-            RichText(block.text, color, style, mediaUrl, lastLine)
+            RichText(block.text, color, style, images, lastLine)
         }
 
         is HtmlBlock.Heading -> {
@@ -118,7 +131,7 @@ private fun Block(
                     fontSize =
                         style.fontSize * headingScale(block.level)
                 ),
-                mediaUrl
+                images
             )
         }
 
@@ -126,7 +139,7 @@ private fun Block(
             Row(modifier = Modifier.height(IntrinsicSize.Min)) {
                 Box(Modifier.width(3.dp).fillMaxHeight().background(colors.outline, RoundedCornerShape(2.dp)))
                 Column(Modifier.padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    block.blocks.forEach { Block(it, color.copy(alpha = QUOTE_ALPHA), style, mediaUrl) }
+                    block.blocks.forEach { Block(it, color.copy(alpha = QUOTE_ALPHA), style, images) }
                 }
             }
         }
@@ -153,7 +166,7 @@ private fun Block(
                         Text(if (block.ordered) "${block.start + index}." else "•", color = color, style = style)
                         Column(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) { item.forEach { Block(it, color, style, mediaUrl) } }
+                        ) { item.forEach { Block(it, color, style, images) } }
                     }
                 }
             }
@@ -171,10 +184,10 @@ private fun RichText(
     text: AnnotatedString,
     color: Color,
     style: TextStyle,
-    mediaUrl: (String) -> String?,
+    images: InlineImages,
     lastLine: LastLine? = null,
 ) {
-    val images =
+    val ids =
         remember(text) {
             text
                 .getStringAnnotations(0, text.length)
@@ -183,9 +196,15 @@ private fun RichText(
                 .distinct()
         }
     val inline =
-        images.associateWith { id ->
-            InlineTextContent(Placeholder(EMOJI_EM.em, EMOJI_EM.em, PlaceholderVerticalAlign.TextCenter)) {
-                AsyncImage(model = mediaUrl(id.removePrefix(HtmlParser.IMAGE_PREFIX)), contentDescription = it)
+        ids.associateWith { id ->
+            val mxc = id.removePrefix(HtmlParser.IMAGE_PREFIX)
+            InlineTextContent(Placeholder(EMOJI_EM.em, EMOJI_EM.em, PlaceholderVerticalAlign.TextCenter)) { alt ->
+                val open = images.open
+                AsyncImage(
+                    model = images.url(mxc),
+                    contentDescription = alt,
+                    modifier = if (open != null) Modifier.clickable { open(mxc, alt) } else Modifier,
+                )
             }
         }
     Text(text, color = color, style = style, inlineContent = inline, onTextLayout = { lastLine?.update(it) })

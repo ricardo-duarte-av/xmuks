@@ -64,7 +64,17 @@ data class HtmlColors(
  */
 class HtmlParser(
     private val colors: HtmlColors,
+    /**
+     * Plain-text messages (gomuks' `was_plaintext`, linkified into HTML) keep their whitespace and
+     * line breaks as typed — gomuks web shows them `pre-wrap`. Real HTML collapses whitespace the
+     * way a browser does, so source indentation and newlines never become line breaks.
+     */
+    private val preserveWhitespace: Boolean = false,
 ) {
+    /** Inline-run state: the last thing written was whitespace / a line break (or nothing yet). */
+    private var lastSpace = true
+    private var lastNewline = true
+
     fun parse(html: String): List<HtmlBlock> = blocks(Jsoup.parseBodyFragment(html).body().childNodes())
 
     private fun blocks(nodes: List<Node>): List<HtmlBlock> {
@@ -114,7 +124,7 @@ class HtmlParser(
                         start = el.attr("start").toIntOrNull() ?: 1,
                         items = el.children().filter { it.normalName() == "li" }.map { blocks(it.childNodes()) },
                     ),
-                )
+                ).filter { it.items.any(List<HtmlBlock>::isNotEmpty) } // "<ul>  </ul>" shows nothing
             }
 
             "h1", "h2", "h3", "h4", "h5", "h6" -> {
@@ -130,11 +140,51 @@ class HtmlParser(
             }
         }
 
-    private fun inlineText(nodes: List<Node>): AnnotatedString = buildAnnotatedString { nodes.forEach { append(it) } }
+    private fun inlineText(nodes: List<Node>): AnnotatedString {
+        lastSpace = true
+        lastNewline = true
+        return buildAnnotatedString { nodes.forEach { append(it) } }
+    }
+
+    private fun AnnotatedString.Builder.text(value: String) {
+        if (preserveWhitespace) {
+            append(value)
+            value.lastOrNull()?.let {
+                lastSpace = it.isWhitespace()
+                lastNewline = it == '\n'
+            }
+            return
+        }
+        for (c in value) {
+            if (c.isWhitespace()) {
+                if (!lastSpace) append(' ')
+                lastSpace = true
+            } else {
+                append(c)
+                lastSpace = false
+                lastNewline = false
+            }
+        }
+    }
+
+    /** Text that's never collapsed (inline code, image alt text). */
+    private fun AnnotatedString.Builder.verbatim(value: String) {
+        append(value)
+        if (value.isNotEmpty()) {
+            lastSpace = false
+            lastNewline = false
+        }
+    }
+
+    private fun AnnotatedString.Builder.newline() {
+        append('\n')
+        lastSpace = true
+        lastNewline = true
+    }
 
     private fun AnnotatedString.Builder.append(node: Node) {
         when (node) {
-            is TextNode -> append(node.wholeText)
+            is TextNode -> text(node.wholeText)
             is Element -> appendElement(node)
         }
     }
@@ -150,11 +200,11 @@ class HtmlParser(
         } else {
             children(el)
         }
-        append('\n')
+        newline()
     }
 
     private fun AnnotatedString.Builder.lineBreakIfNeeded() {
-        if (length > 0 && toAnnotatedString().text.last() != '\n') append('\n')
+        if (!lastNewline) newline()
     }
 
     private fun AnnotatedString.Builder.children(el: Element) = el.childNodes().forEach { append(it) }
@@ -162,7 +212,7 @@ class HtmlParser(
     private fun AnnotatedString.Builder.appendElement(el: Element) {
         when (el.normalName()) {
             "br" -> {
-                append('\n')
+                newline()
             }
 
             "b", "strong" -> {
@@ -183,7 +233,7 @@ class HtmlParser(
 
             "code" -> {
                 withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = colors.codeBackground)) {
-                    append(el.wholeText())
+                    verbatim(el.wholeText())
                 }
             }
 
@@ -244,10 +294,12 @@ class HtmlParser(
         val src = el.attr("src")
         val alt = el.attr("alt").ifBlank { el.attr("title") }.ifBlank { "🖼" }
         if (src.isBlank()) {
-            append(alt)
+            verbatim(alt)
             return
         }
         appendInlineContent("$IMAGE_PREFIX$src", alt)
+        lastSpace = false
+        lastNewline = false
     }
 
     private fun AnnotatedString.Builder.appendSpan(el: Element) {
@@ -269,10 +321,14 @@ class HtmlParser(
 
     private fun AnnotatedString.hasImages() = getStringAnnotations(INLINE_TAG, 0, length).isNotEmpty()
 
-    /** Strips leading/trailing line breaks left over from block boundaries. */
+    /**
+     * Strips what block boundaries leave at the edges: line breaks, and (for HTML, where spaces are
+     * collapsed anyway) the space before or after them.
+     */
     private fun AnnotatedString.trimNewlines(): AnnotatedString {
-        val start = text.indexOfFirst { it != '\n' }.takeIf { it >= 0 } ?: return AnnotatedString("")
-        val end = text.indexOfLast { it != '\n' } + 1
+        val edge: (Char) -> Boolean = if (preserveWhitespace) { c -> c == '\n' } else { c -> c == '\n' || c == ' ' }
+        val start = text.indexOfFirst { !edge(it) }.takeIf { it >= 0 } ?: return AnnotatedString("")
+        val end = text.indexOfLast { !edge(it) } + 1
         return subSequence(start, end)
     }
 

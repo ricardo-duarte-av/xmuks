@@ -16,6 +16,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.Change
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.Reaction
+import pt.aguiarvieira.xmuks.core.data.timeline.Reader
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyPreview
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TextKind
@@ -50,6 +51,7 @@ class RoomScreenshotTest {
         edited: Boolean = false,
         profileId: String? = null,
         profileName: String? = null,
+        readBy: List<Reader> = emptyList(),
     ) = TimelineItem.Message(
         key = "m${n++}",
         eventId = "\$e$n",
@@ -64,7 +66,7 @@ class RoomScreenshotTest {
         edited = edited,
         firstInGroup = first,
         lastInGroup = last,
-        readBy = emptyList(),
+        readBy = readBy,
         sendError = null,
     )
 
@@ -100,6 +102,7 @@ class RoomScreenshotTest {
                 reply = ReplyPreview("\$e1", SenderLabel("@ann:x", "Ann"), "Did the SSE keepalive fix land?"),
                 reactions = listOf(Reaction("🎉", 2, true), Reaction("👍", 1, false)),
                 edited = true,
+                readBy = listOf("Ann", "Bob", "Cat", "Dan").map { Reader("@${it.lowercase()}:x", it, null) },
             ),
             msg(MessageContent.Image(photo, "the view from here"), sender = "@bob:x", name = "Bob"),
             msg(MessageContent.File(photo.copy(size = 2_400_000), "gomuks-logs.tar.zst"), sender = "@bob:x", name = "Bob"),
@@ -109,7 +112,8 @@ class RoomScreenshotTest {
                 name = "Bob",
             ),
             msg(text("waves", kind = TextKind.Emote), sender = "@me:x", name = "Ricardo", me = true),
-            state("s2", "@ann:x", "Annie", Change.Renamed("Ann", "Annie")),
+            state("s2", "@ann:x", "Annie", Change.ProfileChanged("Ann", "Annie", null, null, nameChanged = true, avatarChanged = false)),
+            state("s4", "@cat:x", "Cat", Change.ProfileChanged(null, null, "mxc://x/a", "mxc://x/b", nameChanged = false, avatarChanged = true)),
             state("s3", "@mod:x", "Mod", Change.Kicked("Spammer", "spam")),
             msg(
                 text("[xmuks] ricardo-duarte-av pushed 1 commit to main", kind = TextKind.Notice),
@@ -142,14 +146,15 @@ class RoomScreenshotTest {
         roomId = "!r",
         sharedScope = "chats",
         room = room,
-        items = items,
+        timeline = TimelineState(items),
+        context = null,
         typing = typing,
-        loadingOlder = false,
-        hasMoreBefore = true,
         resolver = MediaResolver({ null }, { _, _ -> null }),
         onBack = {},
         onLoadOlder = {},
         onOpenMedia = {},
+        onShowContext = {},
+        onLeaveContext = {},
     )
 
     @Test

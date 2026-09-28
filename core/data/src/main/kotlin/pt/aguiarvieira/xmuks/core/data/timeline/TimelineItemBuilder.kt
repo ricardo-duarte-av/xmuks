@@ -26,10 +26,7 @@ class TimelineItemBuilder(
         val byEventId = snapshot.eventsByRowId.values.associateBy { it.eventId }
         val members = profiles + membersFromTimeline(snapshot.events)
         val myReactions = myReactions(snapshot.eventsByRowId.values)
-        val readers =
-            snapshot.receiptsByEventId.mapValues { (_, list) ->
-                list.filter { it.receiptType == "m.read" }.map { it.userId }
-            }
+        val readers = readersByEvent(snapshot) { it.isShown() }
 
         val out = ArrayList<TimelineItem>(snapshot.events.size + DAY_SEPARATOR_SLACK)
         var previous: Event? = null
@@ -42,7 +39,7 @@ class TimelineItemBuilder(
 
             val item =
                 if (event.stateKey != null) {
-                    stateChange(event, members, myReactions)
+                    stateChange(event, members, myReactions, readers)
                 } else {
                     message(event, snapshot, byEventId, members, myReactions, readers)
                 }
@@ -86,7 +83,8 @@ class TimelineItemBuilder(
     ): TimelineItem.Message {
         val edit = event.lastEditRowId?.let(snapshot.eventsByRowId::get)
         val content = (edit?.effectiveContent?.obj("m.new_content")) ?: event.effectiveContent
-        val html = htmlOf((edit ?: event).localContent?.sanitizedHtml, content)
+        val local = (edit ?: event).localContent
+        val html = htmlOf(local?.sanitizedHtml, content)
         val perMessage = content.obj(PER_MESSAGE_PROFILE) ?: content.obj(PER_MESSAGE_PROFILE_STABLE)
         val profile = members[event.sender]
         return TimelineItem.Message(
@@ -97,13 +95,13 @@ class TimelineItemBuilder(
             senderAvatarMxc = perMessage?.str("avatar_url")?.takeIf { it.startsWith("mxc://") } ?: profile?.avatarMxc,
             fromMe = event.sender == me,
             timestamp = event.timestamp,
-            content = contentOf(event, content, html, (edit ?: event).localContent?.bigEmoji == true),
+            content = contentOf(event, content, html, local?.bigEmoji == true).withPlainText(local),
             reply = replyOf(content, event, byEventId, members),
             reactions = reactionsOf(event, myReactions),
             edited = edit != null,
             firstInGroup = true,
             lastInGroup = true,
-            readBy = readers[event.eventId].orEmpty().filter { it != me && it != event.sender },
+            readBy = readers[event.eventId].orEmpty().toReaders(me, event.sender, members),
             sendError = event.sendError?.takeIf { it.isNotBlank() && it != NOT_SENT },
         )
     }
@@ -246,6 +244,7 @@ class TimelineItemBuilder(
         event: Event,
         members: Map<String, MemberProfile>,
         myReactions: Map<String, Set<String>>,
+        readers: Map<String, List<String>>,
     ): TimelineItem.StateChange? {
         val content = event.effectiveContent
         val actor = members[event.sender]?.displayName ?: localpart(event.sender)
@@ -268,6 +267,7 @@ class TimelineItemBuilder(
             change = change,
             timestamp = event.timestamp,
             reactions = reactionsOf(event, myReactions),
+            readBy = readers[event.eventId].orEmpty().toReaders(me, event.sender, members),
         )
     }
 
@@ -282,23 +282,7 @@ class TimelineItemBuilder(
         val was = previous?.str("membership")
         return when (content.str("membership")) {
             "join" -> {
-                when {
-                    was != "join" -> {
-                        Change.Joined
-                    }
-
-                    previous.str("displayname") != content.str("displayname") -> {
-                        Change.Renamed(previous.str("displayname"), content.str("displayname"))
-                    }
-
-                    previous.str("avatar_url") != content.str("avatar_url") -> {
-                        Change.ChangedAvatar
-                    }
-
-                    else -> {
-                        null
-                    }
-                }
+                if (was != "join") Change.Joined else profileChange(previous, content)
             }
 
             "invite" -> {

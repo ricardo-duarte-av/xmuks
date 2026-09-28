@@ -1,17 +1,18 @@
-name: Record screenshots
+name: Fix up branch
 
-# Re-records the Roborazzi goldens (src/test/screenshots) on a branch and commits them back, so UI
-# changes never need a local build. Run it from the Actions tab or:
+# Formats the code (spotlessApply: ktlint) and re-records the Roborazzi goldens on a branch, commits
+# whatever changed, then starts CI on it — so nothing ever needs a local build. Run it with:
 #   gh workflow run screenshots.yml --ref <branch>
-# A push made with GITHUB_TOKEN doesn't start CI, so afterwards run: gh workflow run ci.yml --ref <branch>
+# (The file keeps its old name: workflow_dispatch finds workflows by the default branch's file names.)
 on:
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
-  group: screenshots-${{ github.ref }}
+  group: fixup-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -20,14 +21,14 @@ env:
   SDK_PACKAGES: "platform-tools platforms;android-37.1 build-tools;37.0.0"
 
 jobs:
-  record:
-    name: Record and commit goldens
+  fixup:
+    name: Format, record goldens, commit, start CI
     runs-on: ubuntu-latest
     steps:
       - name: Refuse main
         if: github.ref == 'refs/heads/main'
         run: |
-          echo "::error::Record on a work branch; main only takes goldens through a merge."
+          echo "::error::Fix up a work branch; main only changes through a merge."
           exit 1
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -43,22 +44,43 @@ jobs:
           key: robolectric-${{ hashFiles('gradle/libs.versions.toml', '**/src/test/resources/robolectric.properties') }}
           restore-keys: robolectric-
 
-      - name: Record
+      - name: Format
+        run: ./gradlew spotlessApply --stacktrace
+
+      # Recording compiles the code: if that fails, the formatting still gets committed and the job
+      # fails at the end with the compiler's messages in this step's log.
+      - name: Record screenshots
+        id: record
+        continue-on-error: true
         run: ./gradlew recordRoborazziDebug -PwarningsAsErrors=true --stacktrace
 
-      - name: Commit changed goldens
+      - name: Commit changes
         run: |
-          git add -A '**/src/test/screenshots/**'
+          git add -A -- '*.kt' '*.kts' '**/src/test/screenshots/**'
           if git diff --cached --quiet; then
-            echo "Goldens unchanged."
+            echo "Nothing to commit."
             exit 0
           fi
           git diff --cached --stat
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit -m "Record screenshot goldens"
+            commit -m "Fix up: format and record screenshot goldens"
           git push
 
+      - name: Start CI
+        if: steps.record.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref "${GITHUB_REF_NAME}"
+
       - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
         with:
           name: screenshots
           path: "**/src/test/screenshots/**"
+          if-no-files-found: ignore
+
+      - name: Fail if recording failed
+        if: steps.record.outcome != 'success'
+        run: |
+          echo "::error::Recording failed (compile or test error) — see the 'Record screenshots' step."
+          exit 1

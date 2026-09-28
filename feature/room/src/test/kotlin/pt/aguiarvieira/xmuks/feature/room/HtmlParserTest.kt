@@ -70,4 +70,20 @@ class HtmlParserTest {
         val blocks = parser.parse("<table><tr><td>a</td><td>b</td></tr></table><details><summary>more</summary>hidden</details>")
         assertEquals(listOf("a", "b", "more", "hidden"), blocks.map { (it as HtmlBlock.Paragraph).text.text })
     }
+
+    @Test
+    fun `html whitespace collapses like a browser, and empty lists vanish`() {
+        val html =
+            "<strong>[<a href=\"https://x.org\">repo</a>]</strong> <a href=\"https://x.org/u\">user</a>      pushed\n" +
+                "        <a href=\"https://x.org/c\">0 commits</a>\n    to\n v1.1.80 (new tag)<ul>  </ul>"
+        val blocks = parser.parse(html)
+        assertEquals(1, blocks.size)
+        assertEquals("[repo] user pushed 0 commits to v1.1.80 (new tag)", (blocks.single() as HtmlBlock.Paragraph).text.text)
+    }
+
+    @Test
+    fun `plain text keeps its line breaks`() {
+        val blocks = HtmlParser(colors, preserveWhitespace = true).parse("line one\n  line two")
+        assertEquals("line one\n  line two", (blocks.single() as HtmlBlock.Paragraph).text.text)
+    }
 }

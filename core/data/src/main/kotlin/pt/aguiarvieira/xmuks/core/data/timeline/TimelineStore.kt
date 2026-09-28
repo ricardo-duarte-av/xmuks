@@ -120,7 +120,8 @@ class TimelineStore(
             room.loadingOlder = false
             if (page != null) {
                 room.addPage(page)
-                room.hasMoreBefore = page.hasMore
+                // An empty page can't move the cursor: asking again would loop.
+                room.hasMoreBefore = page.hasMore && page.events.isNotEmpty()
             }
             room.publish()
         }

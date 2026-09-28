@@ -70,11 +70,12 @@ import java.util.Date
 fun MessageRow(
     message: TimelineItem.Message,
     resolver: MediaResolver,
-    onOpenMedia: (ViewerMedia) -> Unit,
+    actions: TimelineActions,
     modifier: Modifier = Modifier,
+    highlighted: Boolean = false,
 ) {
     if (message.isEmote) {
-        EmoteRow(message, resolver, modifier)
+        EmoteRow(message, resolver, actions, modifier, highlighted)
         return
     }
     val mine = message.fromMe
@@ -84,24 +85,26 @@ fun MessageRow(
         modifier =
             modifier
                 .fillMaxWidth()
+                .highlight(highlighted)
                 .padding(horizontal = EDGE, vertical = 0.dp)
                 .padding(top = if (message.firstInGroup) GROUP_GAP else MESSAGE_GAP),
         horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
     ) {
-        if (!mine && message.firstInGroup) Header(message, resolver)
-        val open = { media: Media, kind: ViewerMedia.Kind -> onOpenMedia(viewerMedia(message, media, kind, resolver)) }
+        if (!mine && message.firstInGroup) Header(message, resolver, actions.openMedia)
+        val open = { media: Media, kind: ViewerMedia.Kind -> actions.openMedia(viewerMedia(message, media, kind, resolver)) }
         Column(
             horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
             modifier = Modifier.maxWidthFraction(BUBBLE_FRACTION),
         ) {
             if (message.content.isBare()) {
-                Content(message, resolver, MaterialTheme.colorScheme.onSurface, open)
+                Content(message, resolver, MaterialTheme.colorScheme.onSurface, open, actions)
                 Footer(message, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(horizontal = 4.dp))
             } else {
-                Bubble(message) { color -> BubbleContent(message, resolver, color, open) }
+                Bubble(message) { color -> BubbleContent(message, resolver, color, open, actions) }
             }
             if (message.reactions.isNotEmpty()) Reactions(message.reactions, resolver, Modifier.padding(top = 4.dp))
         }
+        if (message.readBy.isNotEmpty()) ReadReceipts(message.readBy, resolver, Modifier.align(Alignment.End))
     }
 }
 
@@ -111,17 +114,18 @@ private fun BubbleContent(
     resolver: MediaResolver,
     color: Color,
     open: (Media, ViewerMedia.Kind) -> Unit,
+    actions: TimelineActions,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 12.dp, vertical = BUBBLE_PADDING_V),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        message.reply?.let { Reply(it, color) }
+        message.reply?.let { reply -> Reply(reply, color, onClick = { actions.jumpTo(reply.eventId) }) }
         // Text-like content shares its last line with the time when there's room; media (which
         // never reports a last line) keeps the time below.
         val lastLine = remember(message.content) { LastLine() }
         ContentWithFooter(lastLine, footer = { Footer(message, color.copy(alpha = FOOTER_ALPHA)) }) {
-            Content(message, resolver, color, open, lastLine)
+            Content(message, resolver, color, open, actions, lastLine)
         }
     }
 }
@@ -195,12 +199,15 @@ private fun Content(
     resolver: MediaResolver,
     color: Color,
     onOpen: (Media, ViewerMedia.Kind) -> Unit,
+    actions: TimelineActions,
     lastLine: LastLine? = null,
 ) {
     val style = MaterialTheme.typography.bodyLarge
     when (val c = message.content) {
         is MessageContent.Text -> {
-            TextContent(c, message.label.shownName, color, resolver, lastLine)
+            TextContent(c, color, resolver, lastLine) { mxc, alt ->
+                resolver.image(mxc, alt, message.senderName)?.let(actions.openMedia)
+            }
         }
 
         is MessageContent.Image -> {
@@ -213,7 +220,7 @@ private fun Content(
             AsyncImage(
                 model = resolver.media(c.media.mxc, c.media.encrypted),
                 contentDescription = c.body.ifBlank { stringResource(R.string.sticker) },
-                modifier = Modifier.size(STICKER_SIZE),
+                modifier = Modifier.size(STICKER_SIZE).clickable { onOpen(c.media, ViewerMedia.Kind.Image) },
             )
         }
 
@@ -260,30 +267,28 @@ private fun Content(
 @Composable
 private fun TextContent(
     c: MessageContent.Text,
-    sender: String,
     color: Color,
     resolver: MediaResolver,
     lastLine: LastLine? = null,
+    onOpenImage: (mxc: String, alt: String) -> Unit,
 ) {
-    val style =
-        when {
-            c.bigEmoji -> MaterialTheme.typography.displaySmall
-            else -> MaterialTheme.typography.bodyLarge
-        }
+    val style = if (c.bigEmoji) MaterialTheme.typography.displaySmall else MaterialTheme.typography.bodyLarge
     val tint = if (c.kind == TextKind.Notice) color.copy(alpha = NOTICE_ALPHA) else color
-    val emoteStyle = if (c.kind == TextKind.Emote) style.copy(fontStyle = FontStyle.Italic) else style
     val html = c.html
-    val emote = c.kind == TextKind.Emote
-    val media = { mxc: String -> resolver.media(mxc, false) }
-    when {
-        html != null && emote -> HtmlContent("* ${escape(sender)} $html", tint, emoteStyle, media, lastLine = lastLine)
-        html != null -> HtmlContent(html, tint, emoteStyle, media, lastLine = lastLine)
-        emote -> PlainContent("* $sender ${c.body}", tint, emoteStyle, lastLine = lastLine)
-        else -> PlainContent(c.body, tint, emoteStyle, lastLine = lastLine)
+    if (html != null) {
+        HtmlContent(
+            html,
+            tint,
+            style,
+            { resolver.media(it, false) },
+            lastLine = lastLine,
+            preserveWhitespace = c.plainText,
+            onOpenImage = onOpenImage,
+        )
+    } else {
+        PlainContent(c.body, tint, style, lastLine = lastLine)
     }
 }
-
-private fun escape(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 @Composable
 private fun MediaImage(
@@ -390,12 +395,14 @@ private fun Quiet(
 internal fun Reply(
     reply: ReplyPreview,
     color: Color,
+    onClick: () -> Unit = {},
 ) {
     Row(
         modifier =
             Modifier
                 .height(IntrinsicSize.Min)
                 .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onClick)
                 .background(color.copy(alpha = REPLY_BG_ALPHA)),
     ) {
         val sender = reply.sender

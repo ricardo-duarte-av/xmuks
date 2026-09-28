@@ -28,8 +28,8 @@ sealed interface TimelineItem {
         /** First/last of a run of messages from the same sender (and per-message profile). */
         val firstInGroup: Boolean,
         val lastInGroup: Boolean,
-        /** Users whose read receipt sits on this message (not us, not the sender). */
-        val readBy: List<String>,
+        /** People whose read receipt sits on this message (not us, not the sender), newest first. */
+        val readBy: List<Reader>,
         val sendError: String?,
     ) : TimelineItem {
         /** The label as plain text ("profile via sender", or the sender's name). */
@@ -50,6 +50,7 @@ sealed interface TimelineItem {
         val change: Change,
         val timestamp: Long,
         val reactions: List<Reaction> = emptyList(),
+        val readBy: List<Reader> = emptyList(),
     ) : TimelineItem
 
     data class DaySeparator(
@@ -77,12 +78,15 @@ sealed interface Change {
         val reason: String?,
     ) : Change
 
-    data class Renamed(
-        val from: String?,
-        val to: String?,
+    /** A member changed their display name and/or avatar (both can change in one event). */
+    data class ProfileChanged(
+        val oldName: String?,
+        val newName: String?,
+        val oldAvatar: String?,
+        val newAvatar: String?,
+        val nameChanged: Boolean,
+        val avatarChanged: Boolean,
     ) : Change
-
-    data object ChangedAvatar : Change
 
     data class RoomName(
         val name: String?,
@@ -106,6 +110,8 @@ sealed interface MessageContent {
         val html: String?,
         val kind: TextKind,
         val bigEmoji: Boolean,
+        /** [html] is gomuks' linkified plain text: its whitespace and line breaks are meant literally. */
+        val plainText: Boolean = false,
     ) : MessageContent
 
     data class Image(
@@ -191,6 +197,13 @@ data class SenderLabel(
     /** The name the message is attributed to: avatar initials, emotes. */
     val shownName: String get() = profileName ?: senderName
 }
+
+/** Someone whose read receipt is on an event. */
+data class Reader(
+    val userId: String,
+    val name: String,
+    val avatarMxc: String?,
+)
 
 data class Reaction(
     val key: String,

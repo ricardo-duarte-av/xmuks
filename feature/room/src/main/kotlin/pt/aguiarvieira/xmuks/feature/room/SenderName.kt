@@ -1,5 +1,9 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -77,6 +81,7 @@ internal const val ASCENT_GAP = 0.23f
 internal fun Header(
     message: TimelineItem.Message,
     resolver: MediaResolver,
+    onOpenMedia: (ViewerMedia) -> Unit,
 ) {
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(bottom = 4.dp)) {
         RoomAvatar(
@@ -84,6 +89,10 @@ internal fun Header(
             message.label.profileId ?: message.sender,
             resolver.avatar(message.senderAvatarMxc),
             size = AVATAR_SIZE,
+            modifier =
+                Modifier.clip(CircleShape).clickable {
+                    resolver.image(message.senderAvatarMxc, message.senderName)?.let(onOpenMedia)
+                },
         )
         Spacer(Modifier.width(8.dp))
         // No leading above the line, and the font's own room above its ascenders taken back.

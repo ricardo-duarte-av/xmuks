@@ -16,6 +16,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineSnapshot
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 import pt.aguiarvieira.xmuks.core.protocol.LocalContent
+import pt.aguiarvieira.xmuks.core.protocol.Receipt
 import java.time.ZoneOffset
 
 class TimelineItemBuilderTest {
@@ -170,7 +171,7 @@ class TimelineItemBuilderTest {
                 ev(sender = "@mod:x", type = "m.room.member", stateKey = "@ann:x", content = """{"membership":"leave","reason":"spam"}"""),
             ).filterIsInstance<TimelineItem.StateChange>()
         assertEquals(Change.Joined, items[0].change)
-        assertEquals(Change.Renamed("Ann", "Annie"), items[1].change)
+        assertEquals(Change.ProfileChanged("Ann", "Annie", null, null, nameChanged = true, avatarChanged = false), items[1].change)
         assertEquals(Change.Kicked("Annie", "spam"), items[2].change)
     }
 
@@ -217,5 +218,56 @@ class TimelineItemBuilderTest {
         assertEquals("@ann:x", change.actor)
         assertEquals("mxc://x/ann", change.actorAvatarMxc)
         assertEquals(listOf("👋"), change.reactions.map { it.key })
+    }
+
+    @Test
+    fun `reactions whose count dropped to zero are not shown`() {
+        val msg = ev { copy(reactions = mapOf("🟢 build" to 1, "🔵 build" to 0)) }
+        assertEquals(listOf("🟢 build"), build(msg).messages().single().reactions.map { it.key })
+    }
+
+    @Test
+    fun `a receipt on a hidden event counts for the shown event before it, once per user`() {
+        val first = ev()
+        val second = ev()
+        val reaction = ev(type = "m.reaction", content = """{"m.relates_to":{"rel_type":"m.annotation","event_id":"${second.eventId}","key":"👍"}}""")
+        fun receipt(user: String, on: Event, ts: Long) = Receipt(userId = user, receiptType = "m.read", eventId = on.eventId, timestamp = ts)
+        val snapshot =
+            TimelineSnapshot(
+                "!r",
+                events = listOf(first, second, reaction),
+                eventsByRowId = listOf(first, second, reaction).associateBy { it.rowId },
+                receiptsByEventId =
+                    mapOf(
+                        first.eventId to listOf(receipt("@ann:x", first, 1)),
+                        reaction.eventId to listOf(receipt("@cat:x", reaction, 2), receipt("@me:x", reaction, 2)),
+                    ),
+                loaded = true,
+            )
+        val msgs = builder.build(snapshot, emptyMap()).messages()
+        assertEquals(listOf("@ann:x"), msgs[0].readBy.map { it.userId })
+        assertEquals(listOf("@cat:x"), msgs[1].readBy.map { it.userId }) // not us
+    }
+
+    @Test
+    fun `linkified plain text keeps its line breaks, real html doesn't`() {
+        val plain =
+            ev(content = """{"msgtype":"m.text","body":"a.b\nc"}""") {
+                copy(localContent = LocalContent(sanitizedHtml = "a.b\nc", wasPlaintext = true))
+            }
+        val html = ev(content = """{"msgtype":"m.text","body":"x","format":"org.matrix.custom.html","formatted_body":"<b>x</b>"}""")
+        val msgs = build(plain, html).messages().map { it.content as MessageContent.Text }
+        assertEquals(listOf(true, false), msgs.map { it.plainText })
+    }
+
+    @Test
+    fun `avatar and name changes are one profile change`() {
+        val change =
+            build(
+                ev(sender = "@ann:x", type = "m.room.member", stateKey = "@ann:x", content = """{"membership":"join","displayname":"Annie","avatar_url":"mxc://x/new"}""") {
+                    copy(unsigned = json("""{"prev_content":{"membership":"join","displayname":"Ann","avatar_url":"mxc://x/old"}}"""))
+                },
+            ).filterIsInstance<TimelineItem.StateChange>().single().change
+        assertEquals(Change.ProfileChanged("Ann", "Annie", "mxc://x/old", "mxc://x/new", nameChanged = true, avatarChanged = true), change)
     }
 }

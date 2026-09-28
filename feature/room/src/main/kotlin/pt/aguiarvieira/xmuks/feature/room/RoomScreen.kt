@@ -1,19 +1,22 @@
 package pt.aguiarvieira.xmuks.feature.room
 
-import androidx.compose.animation.AnimatedVisibility
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.ContainedLoadingIndicator
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
@@ -22,27 +25,31 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
-import pt.aguiarvieira.xmuks.core.data.timeline.Change
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
@@ -64,112 +71,225 @@ fun RoomRoute(
     val typing by viewModel.typing.collectAsStateWithLifecycle()
     val loadingOlder by viewModel.loadingOlder.collectAsStateWithLifecycle()
     val hasMoreBefore by viewModel.hasMoreBefore.collectAsStateWithLifecycle()
+    val loadedEvents by viewModel.loadedEvents.collectAsStateWithLifecycle()
+    val context by viewModel.context.collectAsStateWithLifecycle()
     val resolver = remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media) }
-    val context = LocalContext.current
-    val uriHandler = remember(context) { SafeUriHandler(context) }
+    val androidContext = LocalContext.current
+    val uriHandler = remember(androidContext) { SafeUriHandler(androidContext) }
     CompositionLocalProvider(LocalUriHandler provides uriHandler) {
         RoomScreen(
             roomId = roomId,
             sharedScope = sharedScope,
             room = room,
-            items = items,
+            timeline = TimelineState(items, loadingOlder, hasMoreBefore, loadedEvents),
+            context = context,
             typing = typing,
-            loadingOlder = loadingOlder,
-            hasMoreBefore = hasMoreBefore,
             resolver = resolver,
             onBack = onBack,
             onLoadOlder = viewModel::loadOlder,
             onOpenMedia = onOpenMedia,
+            onShowContext = viewModel::showContext,
+            onLeaveContext = viewModel::leaveContext,
             modifier = modifier,
         )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** The live timeline as the screen needs it; [items] newest first, null until the first page. */
+data class TimelineState(
+    val items: List<TimelineItem>?,
+    val loadingOlder: Boolean = false,
+    val hasMoreBefore: Boolean = true,
+    /** Raw events loaded, shown or not: moves with every page. */
+    val loadedEvents: Int = 0,
+)
+
+/**
+ * The room as three cards on a tinted ground: the header, the timeline and (from M5) the composer.
+ * Jumping to an event scrolls to it when it's loaded, or opens a window around it
+ * (`get_event_context`) with a way back to the live timeline.
+ */
 @Composable
 fun RoomScreen(
     roomId: String,
     sharedScope: String,
     room: RoomSummary?,
-    items: List<TimelineItem>?,
+    timeline: TimelineState,
+    context: ContextView?,
     typing: List<String>,
-    loadingOlder: Boolean,
-    hasMoreBefore: Boolean,
     resolver: MediaResolver,
     onBack: () -> Unit,
     onLoadOlder: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
+    onShowContext: (String) -> Unit,
+    onLeaveContext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scope = rememberCoroutineScope()
+    val liveList = rememberLazyListState()
+    val contextList = remember(context?.eventId) { LazyListState() }
+    var highlighted by remember { mutableStateOf<String?>(null) }
+    val shown by rememberUpdatedState(if (context != null) context.items else timeline.items)
+    val list by rememberUpdatedState(if (context != null) contextList else liveList)
+    val showContext by rememberUpdatedState(onShowContext)
+    val actions =
+        remember(onOpenMedia) {
+            TimelineActions(openMedia = onOpenMedia) { eventId ->
+                val index = shown?.indexOfEvent(eventId) ?: -1
+                if (index >= 0) {
+                    highlighted = eventId
+                    scope.launch { list.animateScrollToItem(index) }
+                } else {
+                    showContext(eventId)
+                }
+            }
+        }
+    JumpEffects(context, contextList, onLeaveContext) { highlighted = it }
+    LaunchedEffect(highlighted) {
+        if (highlighted != null) {
+            delay(HIGHLIGHT_MS)
+            highlighted = null
+        }
+    }
+    BackHandler(enabled = context != null, onBack = onLeaveContext)
+
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            painterResource(R.drawable.ic_arrow_back),
-                            contentDescription = stringResource(R.string.back)
-                        )
-                    }
-                },
-                title = {
-                    HeaderTitle(
-                        id = roomId,
-                        name = room?.name.orEmpty(),
-                        avatarUrl = room?.avatarUrl,
-                        sharedScope = sharedScope,
-                        subtitle = typingText(typing),
-                    )
-                },
-            )
-        },
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        topBar = { HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia) },
     ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
-            when {
-                items == null -> {
-                    Loading(Modifier.align(Alignment.Center))
-                }
+        Card(Modifier.padding(padding).padding(start = CARD_GAP, end = CARD_GAP, bottom = CARD_GAP).fillMaxSize()) {
+            if (context != null) {
+                ContextTimeline(context, contextList, resolver, actions, highlighted, onLeaveContext)
+            } else {
+                LiveTimeline(timeline, liveList, resolver, actions, highlighted, onLoadOlder)
+            }
+        }
+    }
+}
 
-                items.isEmpty() && !hasMoreBefore -> {
-                    Text(
-                        stringResource(R.string.empty_timeline),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.align(Alignment.Center),
-                    )
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HeaderCard(
+    roomId: String,
+    sharedScope: String,
+    room: RoomSummary?,
+    typing: List<String>,
+    resolver: MediaResolver,
+    onBack: () -> Unit,
+    onOpenMedia: (ViewerMedia) -> Unit,
+) {
+    Card(Modifier.statusBarsPadding().padding(CARD_GAP)) {
+        TopAppBar(
+            windowInsets = WindowInsets(0),
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.back))
                 }
+            },
+            title = {
+                HeaderTitle(
+                    id = roomId,
+                    name = room?.name.orEmpty(),
+                    avatarUrl = room?.avatarUrl,
+                    sharedScope = sharedScope,
+                    subtitle = typingText(typing),
+                    onAvatarClick = { resolver.image(room?.avatarMxc, room?.name)?.let(onOpenMedia) },
+                )
+            },
+        )
+    }
+}
 
-                else -> {
-                    Timeline(items, loadingOlder, hasMoreBefore, resolver, onLoadOlder, onOpenMedia)
-                }
+@Composable
+private fun Card(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) = Surface(
+    modifier = modifier,
+    shape = RoundedCornerShape(CARD_RADIUS),
+    color = MaterialTheme.colorScheme.surface,
+    content = content,
+)
+
+@Composable
+private fun LiveTimeline(
+    timeline: TimelineState,
+    list: LazyListState,
+    resolver: MediaResolver,
+    actions: TimelineActions,
+    highlighted: String?,
+    onLoadOlder: () -> Unit,
+) {
+    val items = timeline.items
+    Box(Modifier.fillMaxSize()) {
+        when {
+            items == null -> {
+                Loading(Modifier.align(Alignment.Center))
+            }
+
+            items.isEmpty() && !timeline.hasMoreBefore -> {
+                Text(
+                    stringResource(R.string.empty_timeline),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+
+            else -> {
+                LoadOlderNearTop(list, timeline, onLoadOlder)
+                Timeline(items, list, resolver, actions, highlighted, loadingOlder = timeline.loadingOlder)
             }
         }
     }
 }
 
 @Composable
+private fun ContextTimeline(
+    context: ContextView,
+    list: LazyListState,
+    resolver: MediaResolver,
+    actions: TimelineActions,
+    highlighted: String?,
+    onLeaveContext: () -> Unit,
+) {
+    Box(Modifier.fillMaxSize()) {
+        val items = context.items
+        if (items == null) {
+            Loading(Modifier.align(Alignment.Center))
+        } else {
+            Timeline(items, list, resolver, actions, highlighted, loadingOlder = false)
+        }
+        ExtendedFloatingActionButton(
+            onClick = onLeaveContext,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+        ) { Text(stringResource(R.string.jump_to_latest)) }
+    }
+}
+
+@Composable
 private fun Timeline(
     items: List<TimelineItem>,
-    loadingOlder: Boolean,
-    hasMoreBefore: Boolean,
+    list: LazyListState,
     resolver: MediaResolver,
-    onLoadOlder: () -> Unit,
-    onOpenMedia: (ViewerMedia) -> Unit,
+    actions: TimelineActions,
+    highlighted: String?,
+    loadingOlder: Boolean,
 ) {
-    val state = rememberLazyListState()
-    LoadOlderNearTop(state, hasMoreBefore, onLoadOlder)
     // Newest first + reverseLayout: the list sits on the bottom and new messages push up from there.
     LazyColumn(
-        state = state,
+        state = list,
         reverseLayout = true,
-        contentPadding = PaddingValues(bottom = 8.dp, top = 8.dp),
-        modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+        contentPadding = PaddingValues(vertical = 8.dp),
+        modifier = Modifier.fillMaxSize(),
     ) {
         items(items, key = { it.key }, contentType = { it::class }) { item ->
+            val lit = item.eventId != null && item.eventId == highlighted
             when (item) {
-                is TimelineItem.Message -> MessageRow(item, resolver, onOpenMedia, Modifier.animateItem())
-                is TimelineItem.StateChange -> StateChangeRow(item, resolver, Modifier.animateItem())
+                is TimelineItem.Message -> MessageRow(item, resolver, actions, Modifier.animateItem(), lit)
+                is TimelineItem.StateChange -> StateChangeRow(item, resolver, actions, Modifier.animateItem(), lit)
                 is TimelineItem.DaySeparator -> DayRow(item.day, Modifier.animateItem())
             }
         }
@@ -181,25 +301,63 @@ private fun Timeline(
     }
 }
 
-/** Asks for the previous page once the oldest loaded items come within reach. */
+/**
+ * Asks for the previous page while the oldest loaded items are within reach — re-checked after
+ * every page (keyed on the raw event count), since a page of only hidden events (reactions,
+ * redactions, edits) adds nothing visible and wouldn't otherwise move the list.
+ */
 @Composable
 private fun LoadOlderNearTop(
-    state: LazyListState,
-    hasMoreBefore: Boolean,
+    list: LazyListState,
+    timeline: TimelineState,
     onLoadOlder: () -> Unit,
 ) {
     val load by rememberUpdatedState(onLoadOlder)
-    LaunchedEffect(state, hasMoreBefore) {
-        if (!hasMoreBefore) return@LaunchedEffect
+    LaunchedEffect(list, timeline.hasMoreBefore, timeline.loadingOlder, timeline.loadedEvents) {
+        if (!timeline.hasMoreBefore || timeline.loadingOlder) return@LaunchedEffect
         snapshotFlow {
-            val info = state.layoutInfo
+            val info = list.layoutInfo
             val last = info.visibleItemsInfo.lastOrNull()?.index ?: return@snapshotFlow false
             last >= info.totalItemsCount - PREFETCH_DISTANCE
-        }.distinctUntilChanged()
-            .filter { it }
-            .collect { load() }
+        }.first { it }
+        load()
     }
 }
+
+/** Once a context window is in, scroll to its event and light it up; if it failed, say so and go back. */
+@Composable
+private fun JumpEffects(
+    context: ContextView?,
+    list: LazyListState,
+    onLeaveContext: () -> Unit,
+    highlight: (String) -> Unit,
+) {
+    val androidContext = LocalContext.current
+    val failedText = stringResource(R.string.context_failed)
+    LaunchedEffect(context?.eventId, context?.items != null, context?.failed) {
+        val view = context ?: return@LaunchedEffect
+        if (view.failed) {
+            Toast.makeText(androidContext, failedText, Toast.LENGTH_SHORT).show()
+            onLeaveContext()
+            return@LaunchedEffect
+        }
+        val index = view.items?.indexOfEvent(view.eventId) ?: return@LaunchedEffect
+        if (index >= 0) {
+            list.scrollToItem(index)
+            highlight(view.eventId)
+        }
+    }
+}
+
+private val TimelineItem.eventId: String?
+    get() =
+        when (this) {
+            is TimelineItem.Message -> eventId
+            is TimelineItem.StateChange -> eventId
+            is TimelineItem.DaySeparator -> null
+        }
+
+private fun List<TimelineItem>.indexOfEvent(eventId: String) = indexOfFirst { it.eventId == eventId }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -233,3 +391,6 @@ private fun typingText(typing: List<String>): String? =
     }
 
 private const val PREFETCH_DISTANCE = 10
+private const val HIGHLIGHT_MS = 1_600L
+private val CARD_GAP = 8.dp
+private val CARD_RADIUS = 28.dp

@@ -81,6 +81,7 @@ class RoomListRepository(
             roomId = roomId,
             name = name ?: roomId,
             avatarUrl = media.avatar(avatar),
+            avatarMxc = avatar,
             isDirect = dmUserId != null,
             encrypted = encrypted,
             // Without the sender's member state, `@alice:example.org` reads better as `alice`.

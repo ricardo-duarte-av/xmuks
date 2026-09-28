@@ -1,6 +1,9 @@
 package pt.aguiarvieira.xmuks.core.designsystem.component
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +23,7 @@ fun HeaderTitle(
     sharedScope: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    onAvatarClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier,
@@ -31,7 +35,10 @@ fun HeaderTitle(
             id = id,
             avatarUrl = avatarUrl,
             size = 40.dp,
-            modifier = Modifier.sharedElement(SharedKeys.avatar(id, sharedScope)),
+            modifier =
+                Modifier
+                    .sharedElement(SharedKeys.avatar(id, sharedScope))
+                    .then(if (onAvatarClick != null) Modifier.clip(CircleShape).clickable(onClick = onAvatarClick) else Modifier),
         )
         Column {
             Text(
