@@ -208,6 +208,7 @@ private fun profileAvatars(
                 name,
                 mxc.orEmpty(),
                 resolver.avatar(mxc),
+                size = INLINE_AVATAR_SIZE,
                 modifier = Modifier.clip(CircleShape).clickable { resolver.image(mxc, name)?.let(actions.openMedia) },
             )
         }
@@ -279,6 +280,9 @@ private const val NEW_AVATAR = '\u0003'
 private const val OLD_ID = "avatar:old"
 private const val NEW_ID = "avatar:new"
 private const val INLINE_AVATAR = 1.35f
+
+/** Fills the 1.35 em placeholder at body-medium size, so the initials scale with it. */
+private val INLINE_AVATAR_SIZE = 18.dp
 private val AVATAR = 20.dp
 private val AVATAR_NUDGE = 2.dp
 private val GAP = 8.dp

@@ -71,9 +71,7 @@ class HtmlParser(
      */
     private val preserveWhitespace: Boolean = false,
 ) {
-    /** Inline-run state: the last thing written was whitespace / a line break (or nothing yet). */
-    private var lastSpace = true
-    private var lastNewline = true
+    private val ws = WhitespaceWriter(preserveWhitespace)
 
     fun parse(html: String): List<HtmlBlock> = blocks(Jsoup.parseBodyFragment(html).body().childNodes())
 
@@ -141,50 +139,15 @@ class HtmlParser(
         }
 
     private fun inlineText(nodes: List<Node>): AnnotatedString {
-        lastSpace = true
-        lastNewline = true
+        ws.reset()
         return buildAnnotatedString { nodes.forEach { append(it) } }
     }
 
-    private fun AnnotatedString.Builder.text(value: String) {
-        if (preserveWhitespace) {
-            append(value)
-            value.lastOrNull()?.let {
-                lastSpace = it.isWhitespace()
-                lastNewline = it == '\n'
-            }
-            return
-        }
-        for (c in value) {
-            if (c.isWhitespace()) {
-                if (!lastSpace) append(' ')
-                lastSpace = true
-            } else {
-                append(c)
-                lastSpace = false
-                lastNewline = false
-            }
-        }
-    }
-
-    /** Text that's never collapsed (inline code, image alt text). */
-    private fun AnnotatedString.Builder.verbatim(value: String) {
-        append(value)
-        if (value.isNotEmpty()) {
-            lastSpace = false
-            lastNewline = false
-        }
-    }
-
-    private fun AnnotatedString.Builder.newline() {
-        append('\n')
-        lastSpace = true
-        lastNewline = true
-    }
+'s never collapsed (inline code, image alt text). */
 
     private fun AnnotatedString.Builder.append(node: Node) {
         when (node) {
-            is TextNode -> text(node.wholeText)
+            is TextNode -> ws.text(this, node.wholeText)
             is Element -> appendElement(node)
         }
     }
@@ -194,17 +157,13 @@ class HtmlParser(
      * of its own, and headings stay bold.
      */
     private fun AnnotatedString.Builder.appendNestedBlock(el: Element) {
-        lineBreakIfNeeded()
+        ws.lineBreakIfNeeded(this)
         if (el.normalName() in HEADINGS) {
             withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { children(el) }
         } else {
             children(el)
         }
-        newline()
-    }
-
-    private fun AnnotatedString.Builder.lineBreakIfNeeded() {
-        if (!lastNewline) newline()
+        ws.newline(this)
     }
 
     private fun AnnotatedString.Builder.children(el: Element) = el.childNodes().forEach { append(it) }
@@ -212,7 +171,7 @@ class HtmlParser(
     private fun AnnotatedString.Builder.appendElement(el: Element) {
         when (el.normalName()) {
             "br" -> {
-                newline()
+                ws.newline(this)
             }
 
             "b", "strong" -> {
@@ -233,7 +192,7 @@ class HtmlParser(
 
             "code" -> {
                 withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = colors.codeBackground)) {
-                    verbatim(el.wholeText())
+                    ws.verbatim(this, el.wholeText())
                 }
             }
 
@@ -294,12 +253,11 @@ class HtmlParser(
         val src = el.attr("src")
         val alt = el.attr("alt").ifBlank { el.attr("title") }.ifBlank { "🖼" }
         if (src.isBlank()) {
-            verbatim(alt)
+            ws.verbatim(this, alt)
             return
         }
         appendInlineContent("$IMAGE_PREFIX$src", alt)
-        lastSpace = false
-        lastNewline = false
+        ws.wroteContent()
     }
 
     private fun AnnotatedString.Builder.appendSpan(el: Element) {

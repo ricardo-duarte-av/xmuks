@@ -334,17 +334,19 @@ private fun JumpEffects(
 ) {
     val androidContext = LocalContext.current
     val failedText = stringResource(R.string.context_failed)
+    val leave by rememberUpdatedState(onLeaveContext)
+    val light by rememberUpdatedState(highlight)
     LaunchedEffect(context?.eventId, context?.items != null, context?.failed) {
         val view = context ?: return@LaunchedEffect
         if (view.failed) {
             Toast.makeText(androidContext, failedText, Toast.LENGTH_SHORT).show()
-            onLeaveContext()
+            leave()
             return@LaunchedEffect
         }
         val index = view.items?.indexOfEvent(view.eventId) ?: return@LaunchedEffect
         if (index >= 0) {
             list.scrollToItem(index)
-            highlight(view.eventId)
+            light(view.eventId)
         }
     }
 }

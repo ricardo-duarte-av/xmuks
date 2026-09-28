@@ -47,6 +47,12 @@ jobs:
       - name: Format
         run: ./gradlew spotlessApply --stacktrace
 
+      # Report-only here (CI enforces it): findings show in this run instead of one round trip later.
+      - name: Detekt
+        id: detekt
+        continue-on-error: true
+        run: ./gradlew detekt --stacktrace
+
       # Recording compiles the code: if that fails, the formatting still gets committed and the job
       # fails at the end with the compiler's messages in this step's log.
       - name: Record screenshots
@@ -67,7 +73,7 @@ jobs:
           git push
 
       - name: Start CI
-        if: steps.record.outcome == 'success'
+        if: steps.record.outcome == 'success' && steps.detekt.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run ci.yml --ref "${GITHUB_REF_NAME}"
@@ -79,8 +85,8 @@ jobs:
           path: "**/src/test/screenshots/**"
           if-no-files-found: ignore
 
-      - name: Fail if recording failed
-        if: steps.record.outcome != 'success'
+      - name: Fail if detekt or recording failed
+        if: steps.record.outcome != 'success' || steps.detekt.outcome != 'success'
         run: |
-          echo "::error::Recording failed (compile or test error) — see the 'Record screenshots' step."
+          echo "::error::detekt: ${{ steps.detekt.outcome }}, recording: ${{ steps.record.outcome }} — see those steps."
           exit 1
