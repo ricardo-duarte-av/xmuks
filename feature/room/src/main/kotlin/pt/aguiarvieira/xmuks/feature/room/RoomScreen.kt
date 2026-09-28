@@ -138,7 +138,7 @@ fun RoomScreen(
                 val index = shown?.indexOfEvent(eventId) ?: -1
                 if (index >= 0) {
                     highlighted = eventId
-                    scope.launch { list.animateScrollToItem(index) }
+                    scope.launch { list.animateScrollToItem(index, list.focusOffset()) }
                 } else {
                     showContext(eventId)
                 }
@@ -345,11 +345,17 @@ private fun JumpEffects(
         }
         val index = view.items?.indexOfEvent(view.eventId) ?: return@LaunchedEffect
         if (index >= 0) {
-            list.scrollToItem(index)
+            list.scrollToItem(index, list.focusOffset())
             light(view.eventId)
         }
     }
 }
+
+/**
+ * Where a jumped-to item should sit: a third of the way up rather than on the bottom edge (in this
+ * reversed list, "scroll to item" puts it at the start, i.e. the bottom). Negative = further up.
+ */
+private fun LazyListState.focusOffset() = -(layoutInfo.viewportSize.height / FOCUS_FRACTION)
 
 private val TimelineItem.eventId: String?
     get() =
@@ -394,5 +400,6 @@ private fun typingText(typing: List<String>): String? =
 
 private const val PREFETCH_DISTANCE = 10
 private const val HIGHLIGHT_MS = 1_600L
+private const val FOCUS_FRACTION = 3
 private val CARD_GAP = 8.dp
 private val CARD_RADIUS = 28.dp
