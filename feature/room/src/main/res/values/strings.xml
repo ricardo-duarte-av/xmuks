@@ -64,4 +64,11 @@
     <string name="delete">Delete</string>
     <string name="delete_title">Delete this message?</string>
     <string name="delete_text">It will be removed for everyone in the room.</string>
+    <string name="search_emoji">Search emoji</string>
+    <string name="search_stickers">Search stickers</string>
+    <string name="subscribe_pack">Subscribe</string>
+    <string name="unsubscribe_pack">Unsubscribe</string>
+    <string name="add_reaction">Add reaction</string>
+    <string name="emoji">Emoji</string>
+    <string name="sticker_button">Stickers</string>
 </resources>

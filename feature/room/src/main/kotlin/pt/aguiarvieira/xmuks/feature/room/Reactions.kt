@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import pt.aguiarvieira.xmuks.core.data.timeline.Reaction
@@ -21,6 +23,8 @@ internal fun Reactions(
     reactions: List<Reaction>,
     resolver: MediaResolver,
     modifier: Modifier = Modifier,
+    /** Tapping a reaction: join in, or take ours back. */
+    onToggle: ((key: String) -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     FlowRow(
@@ -33,6 +37,7 @@ internal fun Reactions(
                 shape = CircleShape,
                 color = if (r.mine) colors.secondaryContainer else colors.surfaceContainerHigh,
                 border = if (r.mine) androidx.compose.foundation.BorderStroke(1.dp, colors.primary) else null,
+                modifier = if (onToggle != null) Modifier.clip(CircleShape).clickable { onToggle(r.key) } else Modifier,
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),

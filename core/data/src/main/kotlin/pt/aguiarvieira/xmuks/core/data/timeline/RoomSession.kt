@@ -23,6 +23,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
+import pt.aguiarvieira.xmuks.core.data.emoji.RoomEmoji
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.outbox.toTimelineItems
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
@@ -89,6 +90,9 @@ class RoomSession(
 
     /** Everything this session sends: messages, deletions, receipts, typing. */
     val writer = RoomWriter(roomId, exec, outbox)
+
+    /** Emoji and sticker packs usable here, recent emoji, reacting. */
+    val emoji = RoomEmoji(roomId, state, dao, exec, writer)
 
     /**
      * Every version of [eventId], oldest first: the original, then each edit gomuks has

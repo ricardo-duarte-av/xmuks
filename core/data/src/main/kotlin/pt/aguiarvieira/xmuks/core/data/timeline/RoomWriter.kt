@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
+import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
@@ -101,6 +102,73 @@ class RoomWriter(
                 )
             },
         )
+    }
+
+    /**
+     * Reacts to [target] with [key] — an emoji, or an `mxc://` URI for a custom one (then with its
+     * [shortcode], like gomuks web) — through the outbox.
+     */
+    suspend fun react(
+        target: String,
+        key: String,
+        shortcode: String? = null,
+    ) {
+        val content =
+            buildJsonObject {
+                put(
+                    "m.relates_to",
+                    buildJsonObject {
+                        put("rel_type", JsonPrimitive("m.annotation"))
+                        put("event_id", JsonPrimitive(target))
+                        put("key", JsonPrimitive(key))
+                    },
+                )
+                if (shortcode != null) put("com.beeper.reaction.shortcode", JsonPrimitive(":$shortcode:"))
+            }
+        outbox.enqueue(
+            roomId,
+            "send_event",
+            buildJsonObject {
+                put("room_id", JsonPrimitive(roomId))
+                put("type", JsonPrimitive("m.reaction"))
+                put("content", content)
+            },
+        )
+    }
+
+    /** Sends a sticker from a pack (gomuks turns an m.sticker msgtype into an m.sticker event). */
+    suspend fun sendSticker(image: PackImage) {
+        outbox.sendMessage(
+            roomId,
+            buildJsonObject {
+                put("room_id", JsonPrimitive(roomId))
+                put("text", JsonPrimitive(""))
+                put(
+                    "base_content",
+                    buildJsonObject {
+                        put("msgtype", JsonPrimitive("m.sticker"))
+                        put("body", JsonPrimitive(image.body))
+                        put("url", JsonPrimitive(image.mxc))
+                        put("info", image.info ?: JsonObject(emptyMap()))
+                    },
+                )
+            },
+        )
+    }
+
+    /** Sets account data ([room] null = global); last write wins, so no outbox needed. */
+    suspend fun setAccountData(
+        type: String,
+        content: JsonObject,
+        room: Boolean = false,
+    ) {
+        val params =
+            buildJsonObject {
+                if (room) put("room_id", JsonPrimitive(roomId))
+                put("type", JsonPrimitive(type))
+                put("content", content)
+            }
+        exec.exec("set_account_data", params, ExecMode.Write)
     }
 
     /** Deletes (redacts) [eventId] for everyone, through the outbox like any other send. */

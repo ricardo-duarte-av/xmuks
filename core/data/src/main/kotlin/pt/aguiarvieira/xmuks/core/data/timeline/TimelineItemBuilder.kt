@@ -79,7 +79,7 @@ class TimelineItemBuilder(
         snapshot: TimelineSnapshot,
         byEventId: Map<String, Event>,
         members: Map<String, MemberProfile>,
-        myReactions: Map<String, Set<String>>,
+        myReactions: Map<String, Map<String, String>>,
         readers: Map<String, List<Receipt>>,
     ): TimelineItem.Message {
         val edit = event.lastEditRowId?.let(snapshot.eventsByRowId::get)
@@ -246,7 +246,7 @@ class TimelineItemBuilder(
     private fun stateChange(
         event: Event,
         members: Map<String, MemberProfile>,
-        myReactions: Map<String, Set<String>>,
+        myReactions: Map<String, Map<String, String>>,
         readers: Map<String, List<Receipt>>,
     ): TimelineItem.StateChange? {
         val content = event.effectiveContent
@@ -317,17 +317,17 @@ class TimelineItemBuilder(
                     MemberProfile(it.effectiveContent.str("displayname"), it.effectiveContent.str("avatar_url"))
             }
 
-    /** Event ID → reaction keys we sent to it, from the reaction events we happen to hold. */
-    private fun myReactions(events: Collection<Event>): Map<String, Set<String>> =
+    /** Our reactions, from the reaction events we happen to hold: target event → key → our event. */
+    private fun myReactions(events: Collection<Event>): Map<String, Map<String, String>> =
         events
             .filter { it.sender == me && it.effectiveType == "m.reaction" && it.redactedBy == null }
             .mapNotNull { r ->
                 val relates = r.effectiveContent.obj("m.relates_to") ?: return@mapNotNull null
                 val target = relates.str("event_id") ?: return@mapNotNull null
                 val key = relates.str("key") ?: return@mapNotNull null
-                target to key
-            }.groupBy({ it.first }, { it.second })
-            .mapValues { it.value.toSet() }
+                Triple(target, key, r.eventId)
+            }.groupBy({ it.first }) { it.second to it.third }
+            .mapValues { it.value.toMap() }
 
     private companion object {
         const val GROUP_GAP_MS = 5 * 60 * 1000L

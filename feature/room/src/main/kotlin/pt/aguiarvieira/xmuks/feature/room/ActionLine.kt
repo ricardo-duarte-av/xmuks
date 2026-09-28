@@ -57,6 +57,7 @@ private fun ActionLine(
     highlighted: Boolean,
     footer: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    onReaction: ((String) -> Unit)? = null,
     text: @Composable (LastLine) -> Unit,
 ) {
     Column(
@@ -92,7 +93,14 @@ private fun ActionLine(
                 )
             }
         }
-        if (reactions.isNotEmpty()) Reactions(reactions, resolver, Modifier.padding(start = AVATAR + GAP, top = 4.dp))
+        if (reactions.isNotEmpty()) {
+            Reactions(
+                reactions,
+                resolver,
+                Modifier.padding(start = AVATAR + GAP, top = 4.dp),
+                onReaction
+            )
+        }
     }
 }
 
@@ -121,6 +129,7 @@ internal fun EmoteRow(
         actions = actions,
         highlighted = highlighted,
         footer = { Footer(message, MaterialTheme.colorScheme.onSurfaceVariant) },
+        onReaction = { actions.onReaction(message, it) },
         modifier =
             modifier.combinedClickable(
                 interactionSource = null,

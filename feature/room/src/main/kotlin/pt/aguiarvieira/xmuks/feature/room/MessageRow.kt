@@ -101,7 +101,9 @@ fun MessageRow(
         }
         BubbleRow(message, resolver, actions, open)
         if (message.reactions.isNotEmpty()) {
-            Reactions(message.reactions, resolver, Modifier.maxWidthFraction(BUBBLE_FRACTION).padding(top = 4.dp))
+            Reactions(message.reactions, resolver, Modifier.maxWidthFraction(BUBBLE_FRACTION).padding(top = 4.dp)) {
+                actions.onReaction(message, it)
+            }
         }
     }
 }

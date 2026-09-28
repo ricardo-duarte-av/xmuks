@@ -42,14 +42,16 @@ internal fun senderLabel(
 /** gomuks' aggregated reactions, most-used first, ours marked. */
 internal fun reactionsOf(
     event: Event,
-    myReactions: Map<String, Set<String>>,
-): List<Reaction> =
-    event.reactions
+    myReactions: Map<String, Map<String, String>>,
+): List<Reaction> {
+    val mine = myReactions[event.eventId].orEmpty()
+    return event.reactions
         .orEmpty()
         // gomuks keeps keys whose reactions were all redacted, at count 0.
         .filterValues { it > 0 }
-        .map { (key, count) -> Reaction(key, count, key in myReactions[event.eventId].orEmpty()) }
+        .map { (key, count) -> Reaction(key, count, key in mine, mine[key]) }
         .sortedByDescending { it.count }
+}
 
 /** Marks text whose HTML is gomuks' linkified plain text (its line breaks are literal). */
 internal fun MessageContent.withPlainText(local: LocalContent?): MessageContent =

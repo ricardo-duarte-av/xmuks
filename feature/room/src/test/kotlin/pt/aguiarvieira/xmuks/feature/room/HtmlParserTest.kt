@@ -86,4 +86,21 @@ class HtmlParserTest {
         val blocks = HtmlParser(colors, preserveWhitespace = true).parse("line one\n  line two")
         assertEquals("line one\n  line two", (blocks.single() as HtmlBlock.Paragraph).text.text)
     }
+
+    @Test
+    fun `gomuks inline images - hidden fallback skipped, media path back to mxc`() {
+        val html =
+            "<a class=\"hicli-inline-img-fallback\" style=\"display: none;\" href=\"_gomuks/media/x.org/abc?encrypted=false\">:shiggy:</a>" +
+                "<img alt=\":shiggy:\" src=\"_gomuks/media/x.org/abc?encrypted=false\" class=\"hicli-custom-emoji\"> custom emoji"
+        val text = (parser.parse(html).single() as HtmlBlock.Paragraph).text
+        assertEquals(
+            "mxc://x.org/abc",
+            text
+                .getStringAnnotations(0, text.length)
+                .single()
+                .item
+                .removePrefix(HtmlParser.IMAGE_PREFIX)
+        )
+        assertTrue(!text.text.contains(":shiggy::shiggy:"))
+    }
 }

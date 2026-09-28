@@ -57,6 +57,8 @@ class TimelineActions(
     val onUnsent: (TimelineItem.Message) -> Unit = {},
     /** Long press: what can be done with this message (reply, edit, copy…). */
     val onMessageMenu: (TimelineItem.Message) -> Unit = {},
+    /** Tapping a reaction under a message. */
+    val onReaction: (TimelineItem.Message, String) -> Unit = { _, _ -> },
 )
 
 /** Briefly tints the row a jump landed on, so the eye finds it. */

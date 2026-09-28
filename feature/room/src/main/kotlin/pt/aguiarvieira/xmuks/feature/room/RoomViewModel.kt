@@ -97,6 +97,9 @@ class RoomViewModel
         /** What's being written. Survives rotation with the view model; kept per open room. */
         val draft = TextFieldState()
 
+        /** Reacting, stickers, recent emoji and pack subscriptions. */
+        val emoji = EmojiActions(viewModelScope, session, WHILE_VISIBLE)
+
         /** Whether the next send is a new message, a reply or an edit. */
         val modes = ComposeModes(draft)
 
@@ -109,24 +112,25 @@ class RoomViewModel
             if (text.isEmpty()) return
             if (sendCommand(text)) return
             val mode = modes.mode.value
+            val outgoing = emoji.expandShortcodes(text)
             draft.clearText()
             modes.mode.value = ComposeMode.New
             stopTyping()
             viewModelScope.launch {
                 when (mode) {
                     ComposeMode.New -> {
-                        session.writer.send(text)
+                        session.writer.send(outgoing)
                     }
 
                     is ComposeMode.Reply -> {
                         session.writer.send(
-                            text,
+                            outgoing,
                             replyTo = ReplyTarget(mode.message.eventId, mode.message.sender)
                         )
                     }
 
                     is ComposeMode.Edit -> {
-                        session.writer.send(text, editing = mode.message.eventId)
+                        session.writer.send(outgoing, editing = mode.message.eventId)
                     }
                 }
             }

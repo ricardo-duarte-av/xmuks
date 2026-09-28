@@ -1,22 +1,32 @@
 package pt.aguiarvieira.xmuks.feature.room
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 
@@ -33,6 +43,9 @@ internal fun MessageMenu(
     onHistory: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
+    quickReactions: List<String> = emptyList(),
+    onReact: (String) -> Unit = {},
+    onMoreReactions: () -> Unit = {},
 ) {
     @Suppress("DEPRECATION") // The suspend Clipboard API needs ClipEntry plumbing for plain text.
     val clipboard = LocalClipboardManager.current
@@ -40,6 +53,7 @@ internal fun MessageMenu(
     val text = (message.content as? MessageContent.Text)?.body
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
+            if (sent) QuickReactions(quickReactions, onReact, onMoreReactions)
             if (sent) Item(R.drawable.ic_reply, R.string.reply) { onReply() }
             if (sent && message.editSource != null) Item(R.drawable.ic_edit, R.string.edit) { onEdit() }
             if (sent && message.edited) Item(R.drawable.ic_history, R.string.view_edits) { onHistory() }
@@ -69,3 +83,33 @@ private fun Item(
     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
     modifier = Modifier.clickable(onClick = onClick),
 ) { Text(stringResource(label)) }
+
+/** The most used emoji, one tap to react, and the full picker behind "+". */
+@Composable
+private fun QuickReactions(
+    emoji: List<String>,
+    onReact: (String) -> Unit,
+    onMore: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        emoji.forEach { e ->
+            Box(Modifier.size(QUICK).clip(CircleShape).clickable { onReact(e) }, contentAlignment = Alignment.Center) {
+                Text(e, fontSize = 24.sp)
+            }
+        }
+        FilledTonalIconButton(onClick = onMore, modifier = Modifier.size(QUICK)) {
+            Icon(
+                painterResource(R.drawable.ic_add_reaction),
+                contentDescription = stringResource(R.string.add_reaction)
+            )
+        }
+    }
+}
+
+/** Shown until recent emoji exist: the usual first reactions. */
+internal val DEFAULT_QUICK_REACTIONS = listOf("👍", "❤️", "😂", "😮", "😢", "🙏")
+private val QUICK = 44.dp

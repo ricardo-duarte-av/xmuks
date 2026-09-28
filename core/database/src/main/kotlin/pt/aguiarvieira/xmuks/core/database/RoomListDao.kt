@@ -248,4 +248,11 @@ interface RoomListDao {
 
     @Query("SELECT content FROM account_data WHERE roomId = :roomId AND type = 'm.fully_read'")
     fun fullyRead(roomId: String): Flow<String?>
+
+    /** One account data event's content ([roomId] "" = global), live. */
+    @Query("SELECT content FROM account_data WHERE roomId = :roomId AND type = :type")
+    fun accountData(
+        roomId: String,
+        type: String,
+    ): Flow<String?>
 }

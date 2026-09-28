@@ -233,6 +233,8 @@ data class Reaction(
     val key: String,
     val count: Int,
     val mine: Boolean,
+    /** Our own reaction event with this key, when it's loaded (what un-reacting redacts). */
+    val myEventId: String? = null,
 ) {
     /** Custom emoji (image) reactions use an mxc URI as their key. */
     val isImage: Boolean get() = key.startsWith("mxc://")

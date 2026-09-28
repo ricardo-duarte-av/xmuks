@@ -50,6 +50,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
+import pt.aguiarvieira.xmuks.core.data.emoji.ImagePack
+import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
@@ -79,6 +81,8 @@ fun RoomRoute(
     val mode by viewModel.modes.current.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
     val commands by viewModel.commands.collectAsStateWithLifecycle()
+    val packs by viewModel.emoji.packs.collectAsStateWithLifecycle()
+    val recent by viewModel.emoji.recent.collectAsStateWithLifecycle()
     val resolver = remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media) }
     val androidContext = LocalContext.current
     val uriHandler = remember(androidContext) { SafeUriHandler(androidContext) }
@@ -112,6 +116,16 @@ fun RoomRoute(
                     onHideHistory = viewModel::hideHistory,
                     onDelete = viewModel::delete,
                     commands = commands,
+                    emoji =
+                        EmojiState(
+                            packs = packs,
+                            recent = recent,
+                            onReact = viewModel.emoji::react,
+                            onToggle = viewModel.emoji::toggle,
+                            onSticker = viewModel.emoji::sendSticker,
+                            onUsed = viewModel.emoji::used,
+                            onSubscribe = viewModel.emoji::setSubscribed,
+                        ),
                 ),
             modifier = modifier,
         )
@@ -135,6 +149,18 @@ class ComposerActions(
     val onHideHistory: () -> Unit = {},
     val onDelete: (TimelineItem.Message) -> Unit = {},
     val commands: List<BotCommand> = emptyList(),
+    val emoji: EmojiState = EmojiState(),
+)
+
+/** What the emoji/sticker pickers show, and what picking does. */
+class EmojiState(
+    val packs: List<ImagePack> = emptyList(),
+    val recent: List<String> = emptyList(),
+    val onReact: (TimelineItem.Message, Picked) -> Unit = { _, _ -> },
+    val onToggle: (TimelineItem.Message, String) -> Unit = { _, _ -> },
+    val onSticker: (PackImage) -> Unit = {},
+    val onUsed: (Picked) -> Unit = {},
+    val onSubscribe: (ImagePack, Boolean) -> Unit = { _, _ -> },
 )
 
 /** The live timeline as the screen needs it; [items] newest first, null until the first page. */
@@ -169,9 +195,7 @@ fun RoomScreen(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    var unsent by remember { mutableStateOf<TimelineItem.Message?>(null) }
-    var menuFor by remember { mutableStateOf<TimelineItem.Message?>(null) }
-    var deleting by remember { mutableStateOf<TimelineItem.Message?>(null) }
+    val overlays = remember { OverlayState() }
     // After we send, the timeline follows to our message wherever it was scrolled.
     val followNext = remember { FollowRequest() }
     val liveList = rememberLazyListState()
@@ -184,8 +208,9 @@ fun RoomScreen(
         remember(onOpenMedia) {
             TimelineActions(
                 openMedia = onOpenMedia,
-                onUnsent = { unsent = it },
-                onMessageMenu = { menuFor = it },
+                onUnsent = { overlays.unsent = it },
+                onMessageMenu = { overlays.menuFor = it },
+                onReaction = composer.emoji.onToggle,
                 jumpTo = { eventId ->
                     val index = shown?.indexOfEvent(eventId) ?: -1
                     if (index >= 0) {
@@ -205,53 +230,7 @@ fun RoomScreen(
         }
     }
     BackHandler(enabled = context != null, onBack = onLeaveContext)
-    menuFor?.let { message ->
-        MessageMenu(
-            message,
-            onReply = {
-                composer.onReply(message)
-                menuFor = null
-            },
-            onEdit = {
-                composer.onEdit(message)
-                menuFor = null
-            },
-            onHistory = {
-                composer.onShowHistory(message)
-                menuFor = null
-            },
-            onDelete = {
-                deleting = message
-                menuFor = null
-            },
-            onDismiss = { menuFor = null },
-        )
-    }
-    deleting?.let { message ->
-        DeleteDialog(
-            onConfirm = {
-                composer.onDelete(message)
-                deleting = null
-            },
-            onDismiss = { deleting = null },
-        )
-    }
-    composer.history?.let { MessageHistorySheet(it, resolver, composer.onHideHistory) }
-    unsent?.let { message ->
-        val id = message.localId ?: return@let
-        UnsentDialog(
-            message,
-            onResend = {
-                composer.onResend(id)
-                unsent = null
-            },
-            onDiscard = {
-                composer.onDiscard(id)
-                unsent = null
-            },
-            onDismiss = { unsent = null },
-        )
-    }
+    RoomOverlays(overlays, composer, resolver)
 
     Scaffold(
         modifier = modifier,
@@ -270,6 +249,8 @@ fun RoomScreen(
                 },
                 composer.onCancelMode,
                 commands = composer.commands,
+                onEmoji = { overlays.picker = PickerRequest(PickerMode.Emoji) },
+                onSticker = { overlays.picker = PickerRequest(PickerMode.Sticker) },
             )
         },
     ) { padding ->

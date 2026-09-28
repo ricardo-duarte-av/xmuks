@@ -146,7 +146,9 @@ class HtmlParser(
     private fun AnnotatedString.Builder.append(node: Node) {
         when (node) {
             is TextNode -> ws.text(this, node.wholeText)
-            is Element -> appendElement(node)
+
+            // gomuks pairs each inline image with a hidden fallback link: never shown.
+            is Element -> if (!node.attr("style").replace(" ", "").contains("display:none")) appendElement(node)
         }
     }
 
@@ -248,7 +250,7 @@ class HtmlParser(
 
     /** Inline image (custom emoji); rendered by the caller through InlineTextContent. */
     private fun AnnotatedString.Builder.appendImage(el: Element) {
-        val src = el.attr("src")
+        val src = toMxc(el.attr("src"))
         val alt = el.attr("alt").ifBlank { el.attr("title") }.ifBlank { "🖼" }
         if (src.isBlank()) {
             ws.verbatim(this, alt)
@@ -256,6 +258,16 @@ class HtmlParser(
         }
         appendInlineContent("$IMAGE_PREFIX$src", alt)
         ws.wroteContent()
+    }
+
+    /**
+     * gomuks rewrites inline images to its own media path (`_gomuks/media/{server}/{id}?…`); back to
+     * the `mxc://` the rest of the app resolves. Anything else is left alone.
+     */
+    private fun toMxc(src: String): String {
+        val path = src.substringBefore('?').removePrefix("/").takeIf { it.startsWith(GOMUKS_MEDIA) } ?: return src
+        val (server, id) = path.removePrefix(GOMUKS_MEDIA).split('/', limit = 2).takeIf { it.size == 2 } ?: return src
+        return "mxc://$server/$id"
     }
 
     private fun AnnotatedString.Builder.appendSpan(el: Element) {
@@ -318,6 +330,7 @@ class HtmlParser(
 
         private const val INLINE_TAG = "androidx.compose.foundation.text.inlineContent"
         private const val SMALL = 0.75f
+        private const val GOMUKS_MEDIA = "_gomuks/media/"
         private const val HEX_RADIX = 16
         private val HEX_COLOR = Regex("#[0-9a-fA-F]{6}")
     }
