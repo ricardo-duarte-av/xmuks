@@ -76,7 +76,16 @@ internal fun EmojiPickerSheet(
         // Straight to full height: no half-open step.
         sheetState = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded)),
     ) {
-        EmojiPicker(mode, packs, recent, resolver, onPick, onSubscribe, Modifier.height(PICKER_HEIGHT))
+        EmojiPicker(
+            mode,
+            packs,
+            recent,
+            resolver,
+            onPick,
+            onSubscribe,
+            Modifier.height(PICKER_HEIGHT),
+            allowFreeform = true
+        )
     }
 }
 
@@ -90,6 +99,8 @@ internal fun EmojiPicker(
     onPick: (Picked) -> Unit,
     onSubscribe: (ImagePack, Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    /** Reactions may be any text: offer the search text itself, like gomuks web. */
+    allowFreeform: Boolean = false,
 ) {
     val query = rememberTextFieldState()
     val q by remember { derivedStateOf { query.text.toString().trim() } }
@@ -122,6 +133,11 @@ internal fun EmojiPicker(
             shape = RoundedCornerShape(28.dp),
             modifier = Modifier.fillMaxWidth(),
         )
+        if (allowFreeform && q.isNotEmpty()) {
+            TextButton(onClick = { onPick(Picked.Unicode(q)) }, modifier = Modifier.padding(top = 4.dp)) {
+                Text(stringResource(R.string.react_with, q), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
         if (q.isEmpty()) {
             LazyRow(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 itemsIndexed(sections, key = { _, s -> s.id }) { i, section ->

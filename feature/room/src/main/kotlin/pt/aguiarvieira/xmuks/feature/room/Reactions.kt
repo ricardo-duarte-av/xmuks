@@ -53,11 +53,14 @@ internal fun Reactions(
                     } else {
                         Text(r.key.take(MAX_REACTION_CHARS), style = MaterialTheme.typography.bodyMedium)
                     }
-                    Text(
-                        r.count.toString(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.onSurfaceVariant
-                    )
+                    // A lone reaction is just the emoji; the count shows from the second one.
+                    if (r.count > 1) {
+                        Text(
+                            r.count.toString(),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
