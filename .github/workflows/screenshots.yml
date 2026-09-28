@@ -1,0 +1,64 @@
+name: Record screenshots
+
+# Re-records the Roborazzi goldens (src/test/screenshots) on a branch and commits them back, so UI
+# changes never need a local build. Run it from the Actions tab or:
+#   gh workflow run screenshots.yml --ref <branch>
+# A push made with GITHUB_TOKEN doesn't start CI, so afterwards run: gh workflow run ci.yml --ref <branch>
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "21"
+  CMDLINE_TOOLS_URL: https://dl.google.com/android/repository/commandlinetools-linux-14742923_latest.zip
+  SDK_PACKAGES: "platform-tools platforms;android-37.1 build-tools;37.0.0"
+
+jobs:
+  record:
+    name: Record and commit goldens
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "::error::Record on a work branch; main only takes goldens through a merge."
+          exit 1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: ./.github/actions/android-sdk
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Cache Robolectric runtime jars
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ hashFiles('gradle/libs.versions.toml', '**/src/test/resources/robolectric.properties') }}
+          restore-keys: robolectric-
+
+      - name: Record
+        run: ./gradlew recordRoborazziDebug -PwarningsAsErrors=true --stacktrace
+
+      - name: Commit changed goldens
+        run: |
+          git add -A '**/src/test/screenshots/**'
+          if git diff --cached --quiet; then
+            echo "Goldens unchanged."
+            exit 0
+          fi
+          git diff --cached --stat
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Record screenshot goldens"
+          git push
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: "**/src/test/screenshots/**"
