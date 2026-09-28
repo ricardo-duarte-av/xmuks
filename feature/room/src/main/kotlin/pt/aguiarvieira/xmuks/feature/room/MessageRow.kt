@@ -97,19 +97,10 @@ fun MessageRow(
             ->
             actions.openMedia(viewerMedia(message, media, kind, resolver))
         }
-        Column(
-            horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
-            modifier = Modifier.maxWidthFraction(BUBBLE_FRACTION),
-        ) {
-            if (message.content.isBare()) {
-                Content(message, resolver, MaterialTheme.colorScheme.onSurface, open, actions)
-                Footer(message, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(horizontal = 4.dp))
-            } else {
-                Bubble(message) { color -> BubbleContent(message, resolver, color, open, actions) }
-            }
-            if (message.reactions.isNotEmpty()) Reactions(message.reactions, resolver, Modifier.padding(top = 4.dp))
+        BubbleRow(message, resolver, actions, open)
+        if (message.reactions.isNotEmpty()) {
+            Reactions(message.reactions, resolver, Modifier.maxWidthFraction(BUBBLE_FRACTION).padding(top = 4.dp))
         }
-        if (message.readBy.isNotEmpty()) ReadReceipts(message.readBy, resolver, Modifier.align(Alignment.End))
     }
 }
 
@@ -135,34 +126,41 @@ private fun BubbleContent(
     }
 }
 
-private fun viewerMedia(
-    message: TimelineItem.Message,
-    media: Media,
-    kind: ViewerMedia.Kind,
-    resolver: MediaResolver,
-) = ViewerMedia(
-    kind = kind,
-    url = resolver.media(media.mxc, media.encrypted).orEmpty(),
-    previewUrl = timelineSource(media, kind, resolver),
-    blurhash = media.blurhash,
-    width = media.width,
-    height = media.height,
-    title = message.senderName,
-    subtitle = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(message.timestamp)),
-    sharedKey = SharedKeys.media(message.eventId),
-)
-
 /**
- * What the timeline loads: the sender's thumbnail when there is one (gomuks only makes avatar
- * thumbnails itself), else the original for images — Coil downsamples it to the bubble.
+ * The bubble (or bare content) with its read receipts: they share its row, level with its bottom
+ * edge — at the far right for others' messages, just left of the bubble for ours.
  */
-private fun timelineSource(
-    media: Media,
-    kind: ViewerMedia.Kind,
+@Composable
+private fun BubbleRow(
+    message: TimelineItem.Message,
     resolver: MediaResolver,
-): String? =
-    media.thumbnailMxc?.let { resolver.media(it, media.thumbnailEncrypted) }
-        ?: resolver.media(media.mxc, media.encrypted).takeIf { kind == ViewerMedia.Kind.Image }
+    actions: TimelineActions,
+    open: (Media, ViewerMedia.Kind) -> Unit,
+) {
+    val mine = message.fromMe
+    val receipts = message.readBy
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (mine) Arrangement.End else Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        if (mine && receipts.isNotEmpty()) ReadReceipts(receipts, resolver, Modifier.padding(end = RECEIPT_GAP))
+        // Without receipts beside it a bubble still leaves the far side free.
+        val cap = if (receipts.isEmpty()) Modifier.maxWidthFraction(BUBBLE_FRACTION) else Modifier
+        Column(
+            horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
+            modifier = Modifier.weight(1f, fill = false).then(cap),
+        ) {
+            if (message.content.isBare()) {
+                Content(message, resolver, MaterialTheme.colorScheme.onSurface, open, actions)
+                Footer(message, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(horizontal = 4.dp))
+            } else {
+                Bubble(message) { color -> BubbleContent(message, resolver, color, open, actions) }
+            }
+        }
+        if (!mine && receipts.isNotEmpty()) ReadReceipts(receipts, resolver, Modifier.padding(start = RECEIPT_GAP))
+    }
+}
 
 /** Big emoji and stickers stand on their own, without a bubble. */
 private fun MessageContent.isBare() = (this is MessageContent.Text && bigEmoji) || this is MessageContent.Sticker
@@ -432,6 +430,7 @@ internal fun Reply(
 
 /** Screen edge to bubble, both sides. */
 private val EDGE = 12.dp
+private val RECEIPT_GAP = 6.dp
 private val GROUP_GAP = 8.dp
 private val MESSAGE_GAP = 2.dp
 private val BUBBLE_PADDING_V = 6.dp

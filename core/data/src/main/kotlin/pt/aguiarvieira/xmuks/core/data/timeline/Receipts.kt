@@ -4,7 +4,7 @@ import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.Receipt
 
 /**
- * Who has read up to where: event ID → user IDs, newest reader first. Each user appears once, at
+ * Who has read up to where: event ID → receipts (user + time), newest reader first. Each user appears once, at
  * their newest main-timeline `m.read` receipt. A receipt on an event the timeline doesn't show
  * (a reaction, an edit, a redaction…) counts for the nearest shown event before it. Receipts move
  * live: [TimelineStore] keeps only each user's newest receipt, so a new one replaces the old.
@@ -12,31 +12,34 @@ import pt.aguiarvieira.xmuks.core.protocol.Receipt
 internal fun readersByEvent(
     snapshot: TimelineSnapshot,
     isShown: (Event) -> Boolean,
-): Map<String, List<String>> {
+): Map<String, List<Receipt>> {
     if (snapshot.receiptsByEventId.isEmpty()) return emptyMap()
-    val placed = ArrayList<Pair<String, List<String>>>()
+    val placed = ArrayList<Pair<String, List<Receipt>>>()
     var lastShown: String? = null
     for (event in snapshot.events) {
         if (isShown(event)) lastShown = event.eventId
-        val users = snapshot.receiptsByEventId[event.eventId]?.filter(Receipt::isMainRead)?.map { it.userId }
+        val users = snapshot.receiptsByEventId[event.eventId]?.filter(Receipt::isMainRead)
         val target = lastShown
         if (!users.isNullOrEmpty() && target != null) placed += target to users
     }
-    val out = LinkedHashMap<String, MutableList<String>>()
+    val out = LinkedHashMap<String, MutableList<Receipt>>()
     val seen = HashSet<String>()
-    for ((target, users) in placed.asReversed()) {
-        users.forEach { if (seen.add(it)) out.getOrPut(target) { ArrayList() } += it }
+    for ((target, receipts) in placed.asReversed()) {
+        receipts.sortedByDescending { it.timestamp }.forEach {
+            if (seen.add(it.userId)) out.getOrPut(target) { ArrayList() } += it
+        }
     }
     return out
 }
 
-internal fun List<String>.toReaders(
+internal fun List<Receipt>.toReaders(
     me: String?,
     sender: String,
     members: Map<String, MemberProfile>,
 ): List<Reader> =
-    filter { it != me && it != sender }.map {
-        Reader(it, members[it]?.displayName ?: localpart(it), members[it]?.avatarMxc)
+    filter { it.userId != me && it.userId != sender }.map {
+        val user = it.userId
+        Reader(user, members[user]?.displayName ?: localpart(user), members[user]?.avatarMxc, it.timestamp)
     }
 
 private fun Receipt.isMainRead() = receiptType == "m.read" && (threadId.isNullOrEmpty() || threadId == "main")

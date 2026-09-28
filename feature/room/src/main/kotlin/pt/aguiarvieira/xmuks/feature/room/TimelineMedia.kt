@@ -1,0 +1,40 @@
+package pt.aguiarvieira.xmuks.feature.room
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import pt.aguiarvieira.xmuks.core.data.timeline.Media
+import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
+import pt.aguiarvieira.xmuks.core.designsystem.component.SharedKeys
+import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
+import java.text.DateFormat
+import java.util.Date
+
+internal fun viewerMedia(
+    message: TimelineItem.Message,
+    media: Media,
+    kind: ViewerMedia.Kind,
+    resolver: MediaResolver,
+) = ViewerMedia(
+    kind = kind,
+    url = resolver.media(media.mxc, media.encrypted).orEmpty(),
+    previewUrl = timelineSource(media, kind, resolver),
+    blurhash = media.blurhash,
+    width = media.width,
+    height = media.height,
+    title = message.senderName,
+    subtitle = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(message.timestamp)),
+    sharedKey = SharedKeys.media(message.eventId),
+)
+
+/**
+ * What the timeline loads: the sender's thumbnail when there is one (gomuks only makes avatar
+ * thumbnails itself), else the original for images — Coil downsamples it to the bubble.
+ */
+internal fun timelineSource(
+    media: Media,
+    kind: ViewerMedia.Kind,
+    resolver: MediaResolver,
+): String? =
+    media.thumbnailMxc?.let { resolver.media(it, media.thumbnailEncrypted) }
+        ?: resolver.media(media.mxc, media.encrypted).takeIf { kind == ViewerMedia.Kind.Image }

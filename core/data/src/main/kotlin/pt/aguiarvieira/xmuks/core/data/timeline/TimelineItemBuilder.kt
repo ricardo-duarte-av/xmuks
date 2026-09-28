@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 import pt.aguiarvieira.xmuks.core.protocol.Event
+import pt.aguiarvieira.xmuks.core.protocol.Receipt
 import java.time.Instant
 import java.time.ZoneId
 
@@ -79,7 +80,7 @@ class TimelineItemBuilder(
         byEventId: Map<String, Event>,
         members: Map<String, MemberProfile>,
         myReactions: Map<String, Set<String>>,
-        readers: Map<String, List<String>>,
+        readers: Map<String, List<Receipt>>,
     ): TimelineItem.Message {
         val edit = event.lastEditRowId?.let(snapshot.eventsByRowId::get)
         val content = (edit?.effectiveContent?.obj("m.new_content")) ?: event.effectiveContent
@@ -244,7 +245,7 @@ class TimelineItemBuilder(
         event: Event,
         members: Map<String, MemberProfile>,
         myReactions: Map<String, Set<String>>,
-        readers: Map<String, List<String>>,
+        readers: Map<String, List<Receipt>>,
     ): TimelineItem.StateChange? {
         val content = event.effectiveContent
         val actor = members[event.sender]?.displayName ?: localpart(event.sender)

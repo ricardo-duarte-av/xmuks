@@ -121,6 +121,7 @@ class RoomScreenshotTest {
                 name = "GitHub Bot",
                 profileId = "185400624",
                 profileName = "ricardo-duarte-av",
+                readBy = listOf(Reader("@ann:x", "Ann", null), Reader("@cat:x", "Cat", null)),
             ),
             msg(text("🚀", big = true), sender = "@me:x", name = "Me", me = true),
             msg(MessageContent.Redacted),

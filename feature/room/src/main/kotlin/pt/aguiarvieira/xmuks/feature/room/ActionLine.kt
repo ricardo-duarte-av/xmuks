@@ -81,10 +81,17 @@ private fun ActionLine(
             }
             Spacer(Modifier.width(GAP))
             val lastLine = remember { LastLine() }
-            ContentWithFooter(lastLine, footer = footer) { text(lastLine) }
+            Box(Modifier.weight(1f)) { ContentWithFooter(lastLine, footer = footer) { text(lastLine) } }
+            // Receipts share the line's row, at the far right, level with its last line.
+            if (readBy.isNotEmpty()) {
+                ReadReceipts(
+                    readBy,
+                    resolver,
+                    Modifier.align(Alignment.Bottom).padding(start = GAP)
+                )
+            }
         }
         if (reactions.isNotEmpty()) Reactions(reactions, resolver, Modifier.padding(start = AVATAR + GAP, top = 4.dp))
-        if (readBy.isNotEmpty()) ReadReceipts(readBy, resolver, Modifier.align(Alignment.End))
     }
 }
 

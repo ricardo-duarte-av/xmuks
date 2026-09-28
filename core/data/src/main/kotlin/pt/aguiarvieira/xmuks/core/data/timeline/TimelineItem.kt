@@ -203,6 +203,8 @@ data class Reader(
     val userId: String,
     val name: String,
     val avatarMxc: String?,
+    /** When they read it (the receipt's timestamp). */
+    val timestamp: Long = 0,
 )
 
 data class Reaction(

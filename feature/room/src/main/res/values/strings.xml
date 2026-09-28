@@ -35,4 +35,5 @@
     <string name="avatar_from_to">from %1$s to %2$s</string>
     <string name="jump_to_latest">Jump to latest</string>
     <string name="context_failed">Couldn\'t load that message</string>
+    <string name="read_by_title">Read by</string>
 </resources>
