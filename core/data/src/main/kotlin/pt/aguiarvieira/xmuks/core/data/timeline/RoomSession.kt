@@ -22,6 +22,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.outbox.toTimelineItems
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
@@ -71,6 +72,19 @@ class RoomSession(
             } else {
                 live + unsent.toTimelineItems(me, meta.displayName ?: localpart(me))
             }
+        }
+
+    /**
+     * The commands usable here: gomuks' built-ins, the text prefixes it understands, and those
+     * the room's bots publish in state (refreshed with the room state on every open).
+     */
+    val commands: Flow<List<BotCommand>> =
+        state.map { events ->
+            val bots =
+                events
+                    .filter { it.type == BotCommand.STATE_TYPE && it.redactedBy == null }
+                    .mapNotNull { BotCommand.parse(it.content, it.sender) }
+            BUILT_IN_COMMANDS + bots
         }
 
     /** Everything this session sends: messages, deletions, receipts, typing. */
@@ -255,6 +269,7 @@ class RoomSession(
     private companion object {
         const val MEMBER_BATCH = 50
         const val CONTEXT_LIMIT = 30
+        val BUILT_IN_COMMANDS by lazy { BotCommand.builtIns() + BotCommand.textPrefixes }
     }
 }
 

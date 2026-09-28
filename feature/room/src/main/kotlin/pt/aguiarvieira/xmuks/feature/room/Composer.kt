@@ -29,6 +29,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
@@ -46,6 +47,7 @@ internal fun ComposerCard(
     onSend: () -> Unit,
     onCancelMode: () -> Unit,
     modifier: Modifier = Modifier,
+    commands: List<BotCommand> = emptyList(),
 ) {
     val colors = MaterialTheme.colorScheme
     ScreenCard(
@@ -55,6 +57,7 @@ internal fun ComposerCard(
     ) {
         Column {
             ModeBanner(mode, onCancelMode)
+            CommandHints(state, commands)
             Row(
                 modifier = Modifier.padding(start = 20.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.Bottom,

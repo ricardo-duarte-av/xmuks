@@ -1,0 +1,814 @@
+[
+ {
+  "command": "meow",
+  "parameters": [
+   {
+    "key": "meow",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Meow"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Meow"
+    }
+   ]
+  }
+ },
+ {
+  "command": "version",
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Get the running version of the gomuks backend"
+    }
+   ]
+  }
+ },
+ {
+  "command": "join",
+  "aliases": [
+   "open",
+   "jump"
+  ],
+  "parameters": [
+   {
+    "key": "room_reference",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Room identifier"
+      }
+     ]
+    }
+   },
+   {
+    "key": "reason",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "optional": true,
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Reason for joining"
+      }
+     ]
+    }
+   },
+   {
+    "key": "via",
+    "schema": {
+     "schema_type": "array",
+     "items": {
+      "schema_type": "primitive",
+      "type": "server_name"
+     }
+    },
+    "optional": true,
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Via server"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Jump to the join room view by ID, alias or link"
+    }
+   ]
+  },
+  "fi.mau.tail_parameter": "reason"
+ },
+ {
+  "command": "leave",
+  "aliases": [
+   "part"
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Leave the current room"
+    }
+   ]
+  }
+ },
+ {
+  "command": "invite",
+  "parameters": [
+   {
+    "key": "user_id",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "user_id"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "User ID"
+      }
+     ]
+    }
+   },
+   {
+    "key": "reason",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "optional": true,
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Reason for invite"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Invite a user to the current room"
+    }
+   ]
+  },
+  "fi.mau.tail_parameter": "reason"
+ },
+ {
+  "command": "kick",
+  "parameters": [
+   {
+    "key": "user_id",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "user_id"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "User ID"
+      }
+     ]
+    }
+   },
+   {
+    "key": "reason",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "optional": true,
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Reason for kick"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Kick a user from the current room"
+    }
+   ]
+  },
+  "fi.mau.tail_parameter": "reason"
+ },
+ {
+  "command": "ban",
+  "parameters": [
+   {
+    "key": "user_id",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "user_id"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "User ID"
+      }
+     ]
+    }
+   },
+   {
+    "key": "reason",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "optional": true,
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Reason for ban"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Ban a user from the current room"
+    }
+   ]
+  },
+  "fi.mau.tail_parameter": "reason"
+ },
+ {
+  "command": "myroomnick",
+  "aliases": [
+   "roomnick"
+  ],
+  "parameters": [
+   {
+    "key": "name",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "New display name"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Set your display name in the current room"
+    }
+   ]
+  }
+ },
+ {
+  "command": "myroomavatar",
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Set your avatar in the current room"
+    }
+   ]
+  }
+ },
+ {
+  "command": "globalnick",
+  "aliases": [
+   "globalname"
+  ],
+  "parameters": [
+   {
+    "key": "name",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "New display name"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Set your global display name"
+    }
+   ]
+  }
+ },
+ {
+  "command": "globalavatar",
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Set your global avatar"
+    }
+   ]
+  }
+ },
+ {
+  "command": "roomname",
+  "parameters": [
+   {
+    "key": "name",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "New display name"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Set the current room name"
+    }
+   ]
+  }
+ },
+ {
+  "command": "roomavatar",
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Set the current room avatar"
+    }
+   ]
+  }
+ },
+ {
+  "command": "redact",
+  "parameters": [
+   {
+    "key": "event_id",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "event_id"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Event ID or link"
+      }
+     ]
+    }
+   },
+   {
+    "key": "reason",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "optional": true,
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Reason for redaction"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Redact an event"
+    }
+   ]
+  },
+  "fi.mau.tail_parameter": "reason"
+ },
+ {
+  "command": "raw",
+  "parameters": [
+   {
+    "key": "event_type",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Event type"
+      }
+     ]
+    }
+   },
+   {
+    "key": "json",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Event content as JSON"
+      }
+     ]
+    },
+    "fi.mau.default_value": "{}"
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Send a raw timeline event to the current room"
+    }
+   ]
+  }
+ },
+ {
+  "command": "unencryptedraw",
+  "parameters": [
+   {
+    "key": "event_type",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Event type"
+      }
+     ]
+    }
+   },
+   {
+    "key": "json",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Event content as JSON"
+      }
+     ]
+    },
+    "fi.mau.default_value": "{}"
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Send an unencrypted raw timeline event to the current room"
+    }
+   ]
+  }
+ },
+ {
+  "command": "rawstate",
+  "parameters": [
+   {
+    "key": "event_type",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Event type"
+      }
+     ]
+    }
+   },
+   {
+    "key": "state_key",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "State key"
+      }
+     ]
+    }
+   },
+   {
+    "key": "json",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Event content as JSON"
+      }
+     ]
+    },
+    "fi.mau.default_value": "{}"
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Send a raw state event to the current room"
+    }
+   ]
+  }
+ },
+ {
+  "command": "discardsession",
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Discard the outbound Megolm session in the current room"
+    }
+   ]
+  }
+ },
+ {
+  "command": "devtools",
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Open the room state explorer"
+    }
+   ]
+  }
+ },
+ {
+  "command": "alias add",
+  "aliases": [
+   "alias create"
+  ],
+  "parameters": [
+   {
+    "key": "name",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Room alias name to add (without the # and domain)"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Add a room alias to the current room. Does not update the canonical alias event."
+    }
+   ]
+  }
+ },
+ {
+  "command": "alias del",
+  "aliases": [
+   "alias remove",
+   "alias rm",
+   "alias delete"
+  ],
+  "parameters": [
+   {
+    "key": "name",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "Room alias name to remove (without the # and domain)"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Remove a room alias from the current room. Does not update the canonical alias event."
+    }
+   ]
+  }
+ },
+ {
+  "command": "converttodm",
+  "parameters": [
+   {
+    "key": "other_user",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "user_id"
+    },
+    "optional": true,
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "The other user in the DM"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Mark the current room as a DM"
+    }
+   ]
+  },
+  "fi.mau.tail_parameter": "other_user"
+ },
+ {
+  "command": "converttoroom",
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Remove marking the current room as a DM"
+    }
+   ]
+  }
+ },
+ {
+  "command": "powerlevel",
+  "parameters": [
+   {
+    "key": "thing",
+    "schema": {
+     "schema_type": "union",
+     "variants": [
+      {
+       "schema_type": "primitive",
+       "type": "string"
+      },
+      {
+       "schema_type": "primitive",
+       "type": "user_id"
+      }
+     ]
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "The user ID, event type or top-level key of the power level to change."
+      }
+     ]
+    }
+   },
+   {
+    "key": "value",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "integer"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "The new power level for the thing"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Change a power level in the current room"
+    }
+   ]
+  }
+ },
+ {
+  "command": "poll",
+  "parameters": [
+   {
+    "key": "question",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "string"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "The question to ask in the poll"
+      }
+     ]
+    }
+   },
+   {
+    "key": "max_selections",
+    "schema": {
+     "schema_type": "primitive",
+     "type": "integer"
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "The maximum number of answers a user can select. Defaults to 1."
+      }
+     ]
+    },
+    "fi.mau.default_value": 1
+   },
+   {
+    "key": "options",
+    "schema": {
+     "schema_type": "array",
+     "items": {
+      "schema_type": "primitive",
+      "type": "string"
+     }
+    },
+    "description": {
+     "m.text": [
+      {
+       "mimetype": "text/plain",
+       "body": "The possible answers to the poll"
+      }
+     ]
+    }
+   }
+  ],
+  "description": {
+   "m.text": [
+    {
+     "mimetype": "text/plain",
+     "body": "Create a new poll"
+    }
+   ]
+  }
+ }
+]

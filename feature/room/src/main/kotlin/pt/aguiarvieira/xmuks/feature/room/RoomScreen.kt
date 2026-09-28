@@ -49,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
@@ -75,8 +76,9 @@ fun RoomRoute(
     val hasMoreBefore by viewModel.hasMoreBefore.collectAsStateWithLifecycle()
     val loadedEvents by viewModel.loadedEvents.collectAsStateWithLifecycle()
     val context by viewModel.context.collectAsStateWithLifecycle()
-    val mode by viewModel.mode.collectAsStateWithLifecycle()
+    val mode by viewModel.modes.current.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
+    val commands by viewModel.commands.collectAsStateWithLifecycle()
     val resolver = remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media) }
     val androidContext = LocalContext.current
     val uriHandler = remember(androidContext) { SafeUriHandler(androidContext) }
@@ -101,14 +103,15 @@ fun RoomRoute(
                     onResend = viewModel::resend,
                     onDiscard = viewModel::discard,
                     mode = mode,
-                    onReply = viewModel::reply,
-                    onEdit = viewModel::edit,
-                    onCancelMode = viewModel::cancelMode,
+                    onReply = viewModel.modes::reply,
+                    onEdit = viewModel.modes::edit,
+                    onCancelMode = viewModel.modes::cancel,
                     onMarkRead = viewModel::markRead,
                     history = history,
                     onShowHistory = viewModel::showHistory,
                     onHideHistory = viewModel::hideHistory,
                     onDelete = viewModel::delete,
+                    commands = commands,
                 ),
             modifier = modifier,
         )
@@ -131,6 +134,7 @@ class ComposerActions(
     val onShowHistory: (TimelineItem.Message) -> Unit = {},
     val onHideHistory: () -> Unit = {},
     val onDelete: (TimelineItem.Message) -> Unit = {},
+    val commands: List<BotCommand> = emptyList(),
 )
 
 /** The live timeline as the screen needs it; [items] newest first, null until the first page. */
@@ -257,10 +261,16 @@ fun RoomScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = { HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia) },
         bottomBar = {
-            ComposerCard(composer.draft, composer.mode, {
-                followNext.requested = true
-                composer.onSend()
-            }, composer.onCancelMode)
+            ComposerCard(
+                composer.draft,
+                composer.mode,
+                {
+                    followNext.requested = true
+                    composer.onSend()
+                },
+                composer.onCancelMode,
+                commands = composer.commands,
+            )
         },
     ) { padding ->
         ScreenCard(

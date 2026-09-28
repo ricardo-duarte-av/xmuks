@@ -30,7 +30,10 @@ fun List<OutboxEntity>.toTimelineItems(
         // An edit shows on its original once gomuks has it; it isn't a message of its own.
         if (relates?.string("rel_type") == "m.replace") return@mapNotNull null
         val replyTo = (relates?.get("m.in_reply_to") as? JsonObject)?.string("event_id")
-        val text = params.string("text").orEmpty()
+        // A command's text is empty: show what was typed (its body).
+        val text =
+            params.string("text")?.takeIf { it.isNotEmpty() }
+                ?: (params["base_content"] as? JsonObject)?.string("body").orEmpty()
         val emote = text.startsWith(EMOTE_PREFIX)
         TimelineItem.Message(
             key = "o:${entry.localId}",

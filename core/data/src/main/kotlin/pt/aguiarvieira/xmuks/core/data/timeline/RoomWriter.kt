@@ -1,8 +1,10 @@
 package pt.aguiarvieira.xmuks.core.data.timeline
 
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
@@ -61,6 +63,46 @@ class RoomWriter(
 
     suspend fun discard(localId: String) = outbox.discard(localId)
 
+    /**
+     * Runs a structured command (MSC4391): a message addressed to the command's source — gomuks
+     * itself for its built-ins, else the bot — carrying typed [arguments]. [typed] is what the user
+     * wrote, kept as the body so other clients show something readable.
+     */
+    suspend fun sendCommand(
+        command: BotCommand,
+        arguments: JsonObject,
+        typed: String,
+    ) {
+        outbox.sendMessage(
+            roomId,
+            buildJsonObject {
+                put("room_id", JsonPrimitive(roomId))
+                put("text", JsonPrimitive(""))
+                put(
+                    "base_content",
+                    buildJsonObject {
+                        put("msgtype", JsonPrimitive("m.text"))
+                        put("body", JsonPrimitive(typed))
+                        put(
+                            COMMAND_KEY,
+                            buildJsonObject {
+                                put("command", JsonPrimitive(command.command))
+                                put("arguments", arguments)
+                            },
+                        )
+                    },
+                )
+                put(
+                    "mentions",
+                    buildJsonObject {
+                        put("user_ids", JsonArray(listOf(JsonPrimitive(command.source))))
+                        put("room", JsonPrimitive(false))
+                    },
+                )
+            },
+        )
+    }
+
     /** Deletes (redacts) [eventId] for everyone, through the outbox like any other send. */
     suspend fun redact(eventId: String) {
         outbox.enqueue(
@@ -94,3 +136,5 @@ class RoomWriter(
         exec.exec("set_typing", params, ExecMode.Write)
     }
 }
+
+private const val COMMAND_KEY = "org.matrix.msc4391.command"

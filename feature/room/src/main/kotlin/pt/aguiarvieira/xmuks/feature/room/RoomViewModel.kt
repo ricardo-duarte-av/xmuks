@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
+import pt.aguiarvieira.xmuks.core.data.commands.CommandParser
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
@@ -95,18 +97,20 @@ class RoomViewModel
         /** What's being written. Survives rotation with the view model; kept per open room. */
         val draft = TextFieldState()
 
-        private val _mode = MutableStateFlow<ComposeMode>(ComposeMode.New)
-
         /** Whether the next send is a new message, a reply or an edit. */
-        val mode: StateFlow<ComposeMode> = _mode
+        val modes = ComposeModes(draft)
+
+        /** Slash commands usable in this room (gomuks' built-ins, text prefixes, the room's bots). */
+        val commands: StateFlow<List<BotCommand>> = session.commands.stateIn(viewModelScope, WHILE_VISIBLE, emptyList())
 
         /** Hands the draft to the outbox (it survives the app dying) and clears the field. */
         fun send() {
             val text = draft.text.toString().trim()
             if (text.isEmpty()) return
-            val mode = _mode.value
+            if (sendCommand(text)) return
+            val mode = modes.mode.value
             draft.clearText()
-            _mode.value = ComposeMode.New
+            modes.mode.value = ComposeMode.New
             stopTyping()
             viewModelScope.launch {
                 when (mode) {
@@ -128,48 +132,33 @@ class RoomViewModel
             }
         }
 
-        fun reply(message: TimelineItem.Message) {
-            if (_mode.value is ComposeMode.Edit) draft.clearText()
-            _mode.value = ComposeMode.Reply(message)
+        /**
+         * A structured command (a gomuks built-in, or a room bot's): sent with typed arguments to
+         * whoever runs it. Text prefixes (`/me`, `/rainbow`…) and unknown commands go as text, for
+         * gomuks to handle or refuse.
+         */
+        private fun sendCommand(text: String): Boolean {
+            if (!text.startsWith("/") || text.startsWith("//")) return false
+            val command = CommandParser.match(text, commands.value)?.takeUnless { it.textPrefix } ?: return false
+            val arguments = CommandParser.parse(command, text) ?: return false
+            draft.clearText()
+            modes.mode.value = ComposeMode.New
+            stopTyping()
+            viewModelScope.launch { session.writer.sendCommand(command, arguments, text) }
+            return true
         }
 
-        /** Puts one of our messages back in the composer to be edited. */
-        fun edit(message: TimelineItem.Message) {
-            val source = message.editSource ?: return
-            _mode.value = ComposeMode.Edit(message)
-            draft.setTextAndPlaceCursorAtEnd(source)
-        }
-
-        fun cancelMode() {
-            if (_mode.value is ComposeMode.Edit) draft.clearText()
-            _mode.value = ComposeMode.New
-        }
-
-        private val _history = MutableStateFlow<HistoryView?>(null)
+        private val historyLoader = HistoryLoader(viewModelScope, session)
 
         /** A message's edit history, or a deleted message's content, being shown. */
-        val history: StateFlow<HistoryView?> = _history
+        val history: StateFlow<HistoryView?> = historyLoader.shown
 
-        fun showHistory(message: TimelineItem.Message) {
-            val deleted = message.content == MessageContent.Redacted
-            _history.value = HistoryView(deleted, versions = null)
-            viewModelScope.launch {
-                val versions =
-                    if (deleted) {
-                        listOfNotNull(session.deletedContent(message.eventId))
-                    } else {
-                        session.editHistory(message.eventId).orEmpty()
-                    }
-                if (_history.value != null) _history.value = HistoryView(deleted, versions)
-            }
-        }
+        fun showHistory(message: TimelineItem.Message) = historyLoader.show(message)
+
+        fun hideHistory() = historyLoader.hide()
 
         fun delete(message: TimelineItem.Message) {
             viewModelScope.launch { session.writer.redact(message.eventId) }
-        }
-
-        fun hideHistory() {
-            _history.value = null
         }
 
         private var lastMarked: String? = null
