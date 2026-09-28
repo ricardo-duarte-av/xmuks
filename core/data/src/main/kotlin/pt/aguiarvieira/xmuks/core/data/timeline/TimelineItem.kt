@@ -31,6 +31,10 @@ sealed interface TimelineItem {
         /** People whose read receipt sits on this message (not us, not the sender), newest first. */
         val readBy: List<Reader>,
         val sendError: String?,
+        /** Our own messages: where the send stands. */
+        val sendState: SendState = SendState.Sent,
+        /** Set for messages still in our outbox: what resend/discard act on. */
+        val localId: String? = null,
     ) : TimelineItem {
         /** The label as plain text ("profile via sender", or the sender's name). */
         val senderName: String get() = label.text
@@ -196,6 +200,19 @@ data class SenderLabel(
 
     /** The name the message is attributed to: avatar initials, emotes. */
     val shownName: String get() = profileName ?: senderName
+}
+
+enum class SendState {
+    Sent,
+
+    /** In our outbox, or accepted by gomuks and on its way to the homeserver. */
+    Sending,
+
+    /** Nothing was sent (gomuks rejected it, or the homeserver did): can be resent. */
+    Failed,
+
+    /** No answer in time: it may or may not have been sent. Only the user can resend it. */
+    Unknown,
 }
 
 /** Someone whose read receipt is on an event. */

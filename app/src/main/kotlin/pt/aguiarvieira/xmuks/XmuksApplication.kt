@@ -6,6 +6,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import dagger.hilt.android.HiltAndroidApp
 import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
+import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -16,11 +17,15 @@ class XmuksApplication :
 
     @Inject lateinit var imageLoader: ImageLoader
 
+    @Inject lateinit var outbox: Outbox
+
     /** Every Coil image in the app loads through gomuks' authenticated client. */
     override fun newImageLoader(context: PlatformContext): ImageLoader = imageLoader
 
     override fun onCreate() {
         super.onCreate()
         connection.install()
+        // Messages left unsent by a previous run go out as soon as the app is up.
+        outbox.start()
     }
 }

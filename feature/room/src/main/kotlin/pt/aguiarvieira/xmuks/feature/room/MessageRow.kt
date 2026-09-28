@@ -54,6 +54,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.Reaction
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyPreview
+import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TextKind
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
@@ -139,8 +140,14 @@ private fun BubbleRow(
 ) {
     val mine = message.fromMe
     val receipts = message.readBy
+    // Ours that didn't go out: tap to resend or discard.
+    val stuck =
+        message.localId != null && (message.sendState == SendState.Failed || message.sendState == SendState.Unknown)
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier.fillMaxWidth().then(
+                if (stuck) Modifier.clickable { actions.onUnsent(message) } else Modifier
+            ),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom,
     ) {

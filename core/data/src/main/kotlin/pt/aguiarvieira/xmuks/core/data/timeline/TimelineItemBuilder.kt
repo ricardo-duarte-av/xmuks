@@ -104,6 +104,7 @@ class TimelineItemBuilder(
             lastInGroup = true,
             readBy = readers[event.eventId].orEmpty().toReaders(me, event.sender, members),
             sendError = event.sendError?.takeIf { it.isNotBlank() && it != NOT_SENT },
+            sendState = event.sendState(),
         )
     }
 

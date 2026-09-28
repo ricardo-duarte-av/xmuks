@@ -10,6 +10,7 @@ import org.junit.Test
 import pt.aguiarvieira.xmuks.core.data.timeline.Change
 import pt.aguiarvieira.xmuks.core.data.timeline.MemberProfile
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
+import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItemBuilder
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineSnapshot
@@ -281,5 +282,16 @@ class TimelineItemBuilderTest {
                 },
             ).filterIsInstance<TimelineItem.StateChange>().single().change
         assertEquals(Change.ProfileChanged("Ann", "Annie", "mxc://x/old", "mxc://x/new", nameChanged = true, avatarChanged = true), change)
+    }
+
+    @Test
+    fun `a local echo is sending until it has a real event ID, a real send error fails it`() {
+        val echo = ev(sender = "@me:x") { copy(eventId = "~hicli-txn", sendError = "not sent") }
+        val sent = ev(sender = "@me:x") { copy(sendError = "not sent") }
+        val failed = ev(sender = "@me:x") { copy(eventId = "~hicli-txn2", sendError = "M_FORBIDDEN") }
+        assertEquals(
+            listOf(SendState.Sending, SendState.Sent, SendState.Failed),
+            build(echo, sent, failed).messages().map { it.sendState },
+        )
     }
 }

@@ -36,4 +36,15 @@
     <string name="jump_to_latest">Jump to latest</string>
     <string name="context_failed">Couldn\'t load that message</string>
     <string name="read_by_title">Read by</string>
+    <string name="sending">Sending</string>
+    <string name="not_sent">Not sent</string>
+    <string name="maybe_not_sent">May not have been sent</string>
+    <string name="composer_hint">Message</string>
+    <string name="send">Send</string>
+    <string name="unsent_failed_title">Message not sent</string>
+    <string name="unsent_unknown_title">May not have been sent</string>
+    <string name="unsent_unknown_text">The server didn\'t confirm this message in time, so it may already be in the room. Sending it again could post it twice.</string>
+    <string name="resend">Send again</string>
+    <string name="discard">Discard</string>
+    <string name="cancel">Cancel</string>
 </resources>

@@ -23,7 +23,7 @@ internal fun Project.configureKotlinAndroid(commonExtension: CommonExtension) {
 internal fun Project.configureRobolectricJvm() {
     tasks.withType<Test>().configureEach {
         // Opt-in live tests read these; as inputs, changing the target server re-runs them.
-        listOf("XMUKS_LIVE_SERVER", "XMUKS_LIVE_USER").forEach { name ->
+        listOf("XMUKS_LIVE_SERVER", "XMUKS_LIVE_USER", "XMUKS_LIVE_SEND_ROOM").forEach { name ->
             inputs.property(name, providers.environmentVariable(name).orElse(""))
         }
         jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")

@@ -68,15 +68,25 @@ class TimelineStore(
 
         /** (user, type, thread) → receipt. */
         val receipts = HashMap<Triple<String, String, String>, Receipt>()
+
+        /**
+         * Our own messages gomuks accepted but sync hasn't delivered yet (its local echoes, by
+         * rowid): shown after the timeline until their row arrives. Survive reloads — they're not
+         * in any page gomuks would serve until then.
+         */
+        val echoes = LinkedHashMap<Long, Event>()
         var hasMoreBefore = true
         var loaded = false
         var loadingOlder = false
 
         fun publish() {
+            val timeline = rows.values.mapNotNull(events::get)
+            val inTimeline = rows.values.toHashSet()
+            val waiting = echoes.values.filter { it.rowId !in inTimeline }
             state.value =
                 state.value.copy(
-                    events = rows.values.mapNotNull(events::get),
-                    eventsByRowId = HashMap(events),
+                    events = timeline + waiting,
+                    eventsByRowId = HashMap(events).apply { waiting.forEach { put(it.rowId, it) } },
                     receiptsByEventId = receipts.values.groupBy { it.eventId },
                     hasMoreBefore = hasMoreBefore,
                     loaded = loaded,
@@ -134,6 +144,10 @@ class TimelineStore(
                 applySync(event.sync)
             }
 
+            is GomuksEvent.SendComplete -> {
+                event.event?.let { onSendComplete(it) }
+            }
+
             is GomuksEvent.EventsDecrypted -> {
                 mutex.withLock {
                     val room = rooms[event.roomId] ?: return
@@ -145,6 +159,25 @@ class TimelineStore(
             else -> {
                 return
             }
+        }
+    }
+
+    /** gomuks accepted one of our messages: show its local echo until sync delivers the real row. */
+    suspend fun addLocalEcho(event: Event) {
+        mutex.withLock {
+            val room = room(event.roomId)
+            room.echoes[event.rowId] = event
+            room.publish()
+        }
+    }
+
+    /** A send finished (sent, or failed with `send_error`): update whichever copy we hold. */
+    private suspend fun onSendComplete(event: Event) {
+        mutex.withLock {
+            val room = rooms[event.roomId] ?: return
+            if (room.echoes.containsKey(event.rowId)) room.echoes[event.rowId] = event
+            if (room.events.containsKey(event.rowId)) room.events[event.rowId] = event
+            room.publish()
         }
     }
 
@@ -186,7 +219,10 @@ class TimelineStore(
                     return@forEach
                 }
                 syncRoom.events.forEach { room.events[it.rowId] = it }
-                syncRoom.timeline.forEach { room.rows[it.timelineRowId] = it.eventRowId }
+                syncRoom.timeline.forEach {
+                    room.rows[it.timelineRowId] = it.eventRowId
+                    room.echoes.remove(it.eventRowId) // the real row is in: the echo has served
+                }
                 room.addReceipts(syncRoom.receipts.values.flatten())
                 room.publish()
             }
@@ -211,6 +247,7 @@ class TimelineStore(
     private fun RoomTimeline.addPage(page: PaginationResponse) {
         (page.events + page.relatedEvents).forEach { events[it.rowId] = it }
         page.events.forEach { if (it.timelineRowId != 0L) rows[it.timelineRowId] = it.rowId }
+        echoes.keys.removeAll(rows.values.toSet())
         addReceipts(page.receipts.values.flatten())
     }
 

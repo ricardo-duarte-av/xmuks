@@ -1,5 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
@@ -86,6 +88,25 @@ class RoomViewModel
                         }
                     }
                 }.stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        /** What's being written. Survives rotation with the view model; kept per open room. */
+        val draft = TextFieldState()
+
+        /** Hands the draft to the outbox (it survives the app dying) and clears the field. */
+        fun send() {
+            val text = draft.text.toString().trim()
+            if (text.isEmpty()) return
+            draft.clearText()
+            viewModelScope.launch { session.send(text) }
+        }
+
+        fun resend(localId: String) {
+            viewModelScope.launch { session.resend(localId) }
+        }
+
+        fun discard(localId: String) {
+            viewModelScope.launch { session.discard(localId) }
+        }
 
         fun showContext(eventId: String) {
             contextTarget.value = eventId

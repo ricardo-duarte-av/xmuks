@@ -77,6 +77,17 @@ internal fun profileChange(
     )
 }
 
+/**
+ * gomuks' view of our own event: a local echo still sending (its ID is gomuks' `~transaction`
+ * placeholder until the homeserver assigns one), failed (a real send_error), or done.
+ */
+internal fun Event.sendState(): SendState =
+    when {
+        !sendError.isNullOrBlank() && sendError != "not sent" -> SendState.Failed
+        pending || eventId.startsWith("~") -> SendState.Sending
+        else -> SendState.Sent
+    }
+
 internal fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
 
 internal fun JsonObject.obj(key: String) = get(key) as? JsonObject

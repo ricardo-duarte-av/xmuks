@@ -22,6 +22,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
+import pt.aguiarvieira.xmuks.core.data.outbox.toTimelineItems
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
@@ -40,6 +42,7 @@ class RoomSession(
     private val store: TimelineStore,
     private val exec: ExecClient,
     private val database: XmuksDatabase,
+    private val outbox: Outbox,
     private val scope: CoroutineScope,
 ) {
     private val dao = database.roomListDao()
@@ -54,8 +57,36 @@ class RoomSession(
 
     val snapshot: Flow<TimelineSnapshot> = flow { emitAll(store.observe(roomId)) }
 
-    /** What the timeline shows; rebuilt off the main thread whenever the timeline or a profile changes. */
-    val items: Flow<List<TimelineItem>> = itemsOf(snapshot)
+    /**
+     * What the timeline shows; rebuilt off the main thread whenever the timeline or a profile
+     * changes. Messages still in our outbox come last: they're newer than anything gomuks has.
+     */
+    val items: Flow<List<TimelineItem>> =
+        combine(itemsOf(snapshot), outbox.observe(roomId), dao.meta()) { live, unsent, meta ->
+            val me = meta?.userId
+            if (unsent.isEmpty() ||
+                me == null
+            ) {
+                live
+            } else {
+                live + unsent.toTimelineItems(me, meta.displayName ?: localpart(me))
+            }
+        }
+
+    /** Sends [text] (markdown; gomuks renders it) through the durable outbox. */
+    suspend fun send(text: String) {
+        outbox.sendMessage(
+            roomId,
+            buildJsonObject {
+                put("room_id", JsonPrimitive(roomId))
+                put("text", JsonPrimitive(text))
+            },
+        )
+    }
+
+    suspend fun resend(localId: String) = outbox.resend(localId)
+
+    suspend fun discard(localId: String) = outbox.discard(localId)
 
     /** Items for any snapshot of this room (the live one, or an event context), with its profiles. */
     fun itemsOf(snapshots: Flow<TimelineSnapshot>): Flow<List<TimelineItem>> =
@@ -203,7 +234,8 @@ class RoomSessions(
     private val store: TimelineStore,
     private val exec: ExecClient,
     private val database: XmuksDatabase,
+    private val outbox: Outbox,
     private val scope: CoroutineScope,
 ) {
-    fun open(roomId: String) = RoomSession(roomId, store, exec, database, scope)
+    fun open(roomId: String) = RoomSession(roomId, store, exec, database, outbox, scope)
 }

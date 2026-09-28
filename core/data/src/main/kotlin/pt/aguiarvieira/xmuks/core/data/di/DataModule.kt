@@ -32,11 +32,13 @@ import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.media.MediaCacheStrategy
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineStore
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
+import pt.aguiarvieira.xmuks.core.database.outbox.OutboxDatabase
 import pt.aguiarvieira.xmuks.core.network.AuthApi
 import pt.aguiarvieira.xmuks.core.network.AuthInterceptor
 import pt.aguiarvieira.xmuks.core.network.CompressionInterceptor
@@ -91,7 +93,8 @@ object DataModule {
         ingestor: SyncIngestor,
         stats: StreamStatsTracker,
         timelines: TimelineStore,
-    ): Set<AccountScoped> = setOf(ingestor, stats, timelines)
+        outbox: Outbox,
+    ): Set<AccountScoped> = setOf(ingestor, stats, timelines, outbox)
 
     /** Session-only timelines, paged from gomuks with `paginate` and kept live by the stream. */
     @Provides @Singleton
@@ -208,8 +211,23 @@ object DataModule {
         timelines: TimelineStore,
         exec: ExecClient,
         database: XmuksDatabase,
+        outbox: Outbox,
         scope: CoroutineScope,
-    ) = RoomSessions(timelines, exec, database, scope)
+    ) = RoomSessions(timelines, exec, database, outbox, scope)
+
+    /** Unsent messages: their own database, which (unlike the cache) survives schema changes. */
+    @Provides @Singleton
+    fun outboxDatabase(
+        @ApplicationContext context: Context,
+    ) = OutboxDatabase.build(context)
+
+    @Provides @Singleton
+    fun outbox(
+        database: OutboxDatabase,
+        exec: ExecClient,
+        timelines: TimelineStore,
+        scope: CoroutineScope,
+    ) = Outbox(database.outboxDao(), exec::execOnce, timelines::addLocalEcho, scope)
 
     @Provides @Singleton
     fun sessionRepository(

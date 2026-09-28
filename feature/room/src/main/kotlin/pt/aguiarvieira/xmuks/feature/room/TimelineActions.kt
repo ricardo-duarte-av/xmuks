@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import pt.aguiarvieira.xmuks.core.data.timeline.Reader
+import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
@@ -52,6 +53,8 @@ class TimelineActions(
     val openMedia: (ViewerMedia) -> Unit,
     /** Show this event: scroll to it if loaded, else load a window around it. */
     val jumpTo: (eventId: String) -> Unit,
+    /** One of our messages that didn't go out: offer to resend or discard it. */
+    val onUnsent: (TimelineItem.Message) -> Unit = {},
 )
 
 /** Briefly tints the row a jump landed on, so the eye finds it. */

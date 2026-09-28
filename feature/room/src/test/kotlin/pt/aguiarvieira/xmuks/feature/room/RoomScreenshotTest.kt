@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
@@ -18,6 +19,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.Reaction
 import pt.aguiarvieira.xmuks.core.data.timeline.Reader
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyPreview
+import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TextKind
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
@@ -52,6 +54,7 @@ class RoomScreenshotTest {
         profileId: String? = null,
         profileName: String? = null,
         readBy: List<Reader> = emptyList(),
+        sendState: SendState = SendState.Sent,
     ) = TimelineItem.Message(
         key = "m${n++}",
         eventId = "\$e$n",
@@ -67,6 +70,8 @@ class RoomScreenshotTest {
         firstInGroup = first,
         lastInGroup = last,
         readBy = readBy,
+        sendState = sendState,
+        localId = if (sendState == SendState.Sent) null else "local$n",
         sendError = null,
     )
 
@@ -125,6 +130,8 @@ class RoomScreenshotTest {
             ),
             msg(text("🚀", big = true), sender = "@me:x", name = "Me", me = true),
             msg(MessageContent.Redacted),
+            msg(text("on its way"), sender = "@me:x", name = "Me", me = true, sendState = SendState.Sending),
+            msg(text("did this arrive?"), sender = "@me:x", name = "Me", me = true, sendState = SendState.Unknown),
         )
 
     private val room =
@@ -156,6 +163,7 @@ class RoomScreenshotTest {
         onOpenMedia = {},
         onShowContext = {},
         onLeaveContext = {},
+        composer = ComposerActions(TextFieldState(), {}, {}, {}),
     )
 
     @Test

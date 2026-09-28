@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -91,10 +92,19 @@ fun RoomRoute(
             onOpenMedia = onOpenMedia,
             onShowContext = viewModel::showContext,
             onLeaveContext = viewModel::leaveContext,
+            composer = ComposerActions(viewModel.draft, viewModel::send, viewModel::resend, viewModel::discard),
             modifier = modifier,
         )
     }
 }
+
+/** The composer's text and what sending, resending and discarding do. */
+class ComposerActions(
+    val draft: TextFieldState,
+    val onSend: () -> Unit,
+    val onResend: (localId: String) -> Unit,
+    val onDiscard: (localId: String) -> Unit,
+)
 
 /** The live timeline as the screen needs it; [items] newest first, null until the first page. */
 data class TimelineState(
@@ -124,9 +134,11 @@ fun RoomScreen(
     onOpenMedia: (ViewerMedia) -> Unit,
     onShowContext: (String) -> Unit,
     onLeaveContext: () -> Unit,
+    composer: ComposerActions,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
+    var unsent by remember { mutableStateOf<TimelineItem.Message?>(null) }
     val liveList = rememberLazyListState()
     val contextList = remember(context?.eventId) { LazyListState() }
     var highlighted by remember { mutableStateOf<String?>(null) }
@@ -135,15 +147,19 @@ fun RoomScreen(
     val showContext by rememberUpdatedState(onShowContext)
     val actions =
         remember(onOpenMedia) {
-            TimelineActions(openMedia = onOpenMedia) { eventId ->
-                val index = shown?.indexOfEvent(eventId) ?: -1
-                if (index >= 0) {
-                    highlighted = eventId
-                    scope.launch { list.animateScrollToItem(index, list.focusOffset()) }
-                } else {
-                    showContext(eventId)
-                }
-            }
+            TimelineActions(
+                openMedia = onOpenMedia,
+                onUnsent = { unsent = it },
+                jumpTo = { eventId ->
+                    val index = shown?.indexOfEvent(eventId) ?: -1
+                    if (index >= 0) {
+                        highlighted = eventId
+                        scope.launch { list.animateScrollToItem(index, list.focusOffset()) }
+                    } else {
+                        showContext(eventId)
+                    }
+                },
+            )
         }
     JumpEffects(context, contextList, onLeaveContext) { highlighted = it }
     LaunchedEffect(highlighted) {
@@ -153,11 +169,30 @@ fun RoomScreen(
         }
     }
     BackHandler(enabled = context != null, onBack = onLeaveContext)
+    unsent?.let { message ->
+        val id = message.localId ?: return@let
+        UnsentDialog(
+            message,
+            onResend = {
+                composer.onResend(id)
+                unsent = null
+            },
+            onDiscard = {
+                composer.onDiscard(id)
+                unsent = null
+            },
+            onDismiss = { unsent = null },
+        )
+    }
 
     Scaffold(
         modifier = modifier,
         containerColor = ScreenCards.ground,
+        // Each card handles its own insets: the header the status bar, the composer the
+        // navigation bar and the keyboard.
+        contentWindowInsets = WindowInsets(0),
         topBar = { HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia) },
+        bottomBar = { ComposerCard(composer.draft, composer.onSend) },
     ) { padding ->
         ScreenCard(
             Modifier

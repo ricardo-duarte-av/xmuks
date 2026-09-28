@@ -119,6 +119,8 @@ data class Event(
     @SerialName("relation_type") val relationType: String? = null,
     @SerialName("decryption_error") val decryptionError: String? = null,
     @SerialName("send_error") val sendError: String? = null,
+    /** A local echo gomuks hasn't finished sending yet. */
+    val pending: Boolean = false,
     /** Reaction key → count, aggregated by gomuks. Keys may be `mxc://` URIs (custom emoji). */
     val reactions: Map<String, Int>? = null,
     @SerialName("last_edit_rowid") val lastEditRowId: Long? = null,

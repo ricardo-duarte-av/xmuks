@@ -89,6 +89,34 @@ class ExecClient(
         }
     }
 
+    /**
+     * One attempt under a caller-owned envelope, no retries: for the outbox, which keeps [txnId]
+     * and [startTs] across attempts (and app restarts) and decides itself when to try again.
+     * gomuks collapses repeats of the same [txnId] while [startTs] is under ~2.5 minutes old.
+     */
+    suspend fun execOnce(
+        command: String,
+        data: JsonElement,
+        txnId: String,
+        startTs: Long,
+    ): ExecResult {
+        val base = server() ?: return ExecResult.NetworkError(IOException("Not logged in"))
+        val url =
+            base
+                .gomuks("exec", command)
+                .newBuilder()
+                .addQueryParameter("txn_id", txnId)
+                .addQueryParameter("start_ts", startTs.toString())
+                .build()
+        val request =
+            Request
+                .Builder()
+                .url(url)
+                .post(data.toString().toRequestBody(JSON))
+                .build()
+        return withContext(io) { once(request) }
+    }
+
     private suspend fun once(request: Request): ExecResult =
         try {
             http.newCall(request).await().use { response ->
