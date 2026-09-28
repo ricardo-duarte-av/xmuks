@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -43,8 +44,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
@@ -99,10 +102,20 @@ fun MessageRow(
             modifier = Modifier.widthIn(max = BUBBLE_MAX),
         ) {
             if (!mine && message.firstInGroup) {
+                // Top of the name's letters = top of the avatar: no leading above the line, and the
+                // font's own room above its ascenders taken back.
+                val nameStyle =
+                    MaterialTheme.typography.labelLarge.copy(
+                        lineHeightStyle =
+                            LineHeightStyle(
+                                LineHeightStyle.Alignment.Top,
+                                LineHeightStyle.Trim.FirstLineTop
+                            ),
+                    )
                 SenderName(
                     message.label,
-                    MaterialTheme.typography.labelLarge,
-                    Modifier.padding(start = 12.dp, top = NAME_NUDGE, bottom = 2.dp),
+                    nameStyle,
+                    Modifier.padding(start = 12.dp, bottom = 2.dp).raise(nameStyle.fontSize * ASCENT_GAP),
                 )
             }
             val open = {
@@ -503,8 +516,6 @@ private fun Reactions(
 private val AVATAR_SLOT = 32.dp
 private val AVATAR_GAP = 6.dp
 
-/** Centres the name line on the avatar's upper half, so the two read as one header. */
-private val NAME_NUDGE = 6.dp
 private val BUBBLE_MAX = 320.dp
 private val BUBBLE_RADIUS = 20.dp
 private val GROUPED_RADIUS = 6.dp

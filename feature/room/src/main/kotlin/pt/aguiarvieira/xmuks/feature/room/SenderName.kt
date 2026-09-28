@@ -5,6 +5,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -12,6 +13,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.TextUnit
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
 
@@ -42,3 +44,14 @@ internal fun SenderName(
         }
     Text(text, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = modifier)
 }
+
+/** Moves the content up by [by], taking the same height out of the layout. */
+internal fun Modifier.raise(by: TextUnit): Modifier =
+    layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        val shift = by.roundToPx().coerceAtMost(placeable.height)
+        layout(placeable.width, placeable.height - shift) { placeable.place(0, -shift) }
+    }
+
+/** Google Sans Flex's space above its ascenders, as a fraction of the font size (measured). */
+internal const val ASCENT_GAP = 0.23f
