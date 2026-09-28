@@ -26,10 +26,15 @@ internal fun senderLabel(
     perMessage: JsonObject?,
     sender: String,
     members: Map<String, MemberProfile>,
-): String {
+): SenderLabel {
     val senderName = members[sender]?.displayName?.takeIf { it.isNotBlank() } ?: localpart(sender)
-    val shown = perMessage?.str("displayname")?.takeIf { it.isNotBlank() } ?: return senderName
-    return "$shown via $senderName"
+    val shown = perMessage?.str("displayname")?.takeIf { it.isNotBlank() }
+    return SenderLabel(
+        sender,
+        senderName,
+        profileId = perMessage?.str("id")?.takeIf { shown != null },
+        profileName = shown
+    )
 }
 
 internal fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')

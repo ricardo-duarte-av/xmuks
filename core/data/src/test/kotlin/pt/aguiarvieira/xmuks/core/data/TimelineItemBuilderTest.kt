@@ -97,6 +97,7 @@ class TimelineItemBuilderTest {
                 profiles = profiles,
             ).messages()
         assertEquals(listOf("Cat via Bob in this room", "Bob in this room", "stranger"), items.map { it.senderName })
+        assertEquals(listOf("cat", null, null), items.map { it.label.profileId })
         assertEquals(listOf("mxc://x/cat", "mxc://x/bob", null), items.map { it.senderAvatarMxc })
     }
 

@@ -98,7 +98,7 @@ class TimelineItemBuilder(
             key = "e:${event.rowId}",
             eventId = event.eventId,
             sender = event.sender,
-            senderName = senderLabel(perMessage, event.sender, members),
+            label = senderLabel(perMessage, event.sender, members),
             senderAvatarMxc = perMessage?.str("avatar_url")?.takeIf { it.startsWith("mxc://") } ?: profile?.avatarMxc,
             fromMe = event.sender == me,
             timestamp = event.timestamp,
@@ -228,13 +228,13 @@ class TimelineItemBuilder(
     ): ReplyPreview? {
         val relatesTo = content.obj("m.relates_to") ?: event.content.obj("m.relates_to") ?: return null
         val target = relatesTo.obj("m.in_reply_to")?.str("event_id") ?: return null
-        val original = byEventId[target] ?: return ReplyPreview(target, senderName = null, text = null)
+        val original = byEventId[target] ?: return ReplyPreview(target, sender = null, text = null)
         val originalProfile =
             original.effectiveContent.obj(PER_MESSAGE_PROFILE)
                 ?: original.effectiveContent.obj(PER_MESSAGE_PROFILE_STABLE)
         return ReplyPreview(
             eventId = target,
-            senderName = senderLabel(originalProfile, original.sender, members),
+            sender = senderLabel(originalProfile, original.sender, members),
             text = original.localContent?.previewText ?: original.effectiveContent.str("body"),
         )
     }

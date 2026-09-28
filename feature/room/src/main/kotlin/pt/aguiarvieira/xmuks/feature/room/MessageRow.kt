@@ -38,20 +38,27 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.Reaction
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyPreview
+import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TextKind
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.SharedKeys
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.core.designsystem.component.sharedElement
+import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
 import pt.aguiarvieira.xmuks.core.designsystem.util.Blurhash
 import java.text.DateFormat
 import java.util.Date
@@ -65,70 +72,61 @@ fun MessageRow(
 ) {
     val mine = message.fromMe
     val bare = message.content.isBare()
-    Column(
+    // The avatar lines up with the sender's name at the top of the group.
+    Row(
         modifier =
-            modifier.fillMaxWidth().padding(
-                start = 8.dp,
-                end = 12.dp,
-                top = if (message.firstInGroup) 8.dp else 2.dp
-            )
+            modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 12.dp, top = if (message.firstInGroup) 8.dp else 2.dp),
+        horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Top,
     ) {
-        if (!mine && message.firstInGroup) {
-            Text(
-                message.senderName,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = AVATAR_SLOT + AVATAR_GAP + 12.dp, bottom = 2.dp),
-            )
+        if (!mine) {
+            Box(Modifier.width(AVATAR_SLOT)) {
+                if (message.firstInGroup) {
+                    RoomAvatar(
+                        message.label.shownName,
+                        message.label.profileId ?: message.sender,
+                        resolver.avatar(message.senderAvatarMxc),
+                        size = AVATAR_SLOT,
+                    )
+                }
+            }
+            Spacer(Modifier.width(AVATAR_GAP))
         }
-        // The avatar sits beside the top of the group's first bubble.
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
-            verticalAlignment = Alignment.Top,
+        Column(
+            horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
+            modifier = Modifier.widthIn(max = BUBBLE_MAX),
         ) {
-            if (!mine) {
-                Box(Modifier.width(AVATAR_SLOT)) {
-                    if (message.firstInGroup) {
-                        RoomAvatar(
-                            message.senderName,
-                            message.sender,
-                            resolver.avatar(message.senderAvatarMxc),
-                            size = AVATAR_SLOT
-                        )
+            if (!mine && message.firstInGroup) {
+                SenderName(
+                    message.label,
+                    MaterialTheme.typography.labelLarge,
+                    Modifier.padding(start = 12.dp, top = NAME_NUDGE, bottom = 2.dp),
+                )
+            }
+            val open = {
+                media: Media,
+                kind: ViewerMedia.Kind,
+                ->
+                onOpenMedia(viewerMedia(message, media, kind, resolver))
+            }
+            if (bare) {
+                Content(message, resolver, MaterialTheme.colorScheme.onSurface, open)
+                Footer(message, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(horizontal = 4.dp))
+            } else {
+                Bubble(message) { color ->
+                    Column(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        message.reply?.let { Reply(it, color) }
+                        Content(message, resolver, color, open)
+                        Footer(message, color.copy(alpha = FOOTER_ALPHA), Modifier.align(Alignment.End))
                     }
                 }
-                Spacer(Modifier.width(AVATAR_GAP))
             }
-            Column(
-                horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
-                modifier = Modifier.widthIn(max = BUBBLE_MAX)
-            ) {
-                val open = {
-                    media: Media,
-                    kind: ViewerMedia.Kind,
-                    ->
-                    onOpenMedia(viewerMedia(message, media, kind, resolver))
-                }
-                if (bare) {
-                    Content(message, resolver, MaterialTheme.colorScheme.onSurface, open)
-                    Footer(message, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(horizontal = 4.dp))
-                } else {
-                    Bubble(message) { color ->
-                        Column(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            message.reply?.let { Reply(it, color) }
-                            Content(message, resolver, color, open)
-                            Footer(message, color.copy(alpha = FOOTER_ALPHA), Modifier.align(Alignment.End))
-                        }
-                    }
-                }
-                if (message.reactions.isNotEmpty()) Reactions(message.reactions, resolver, Modifier.padding(top = 4.dp))
-            }
+            if (message.reactions.isNotEmpty()) Reactions(message.reactions, resolver, Modifier.padding(top = 4.dp))
         }
     }
 }
@@ -206,7 +204,7 @@ private fun Content(
     val style = MaterialTheme.typography.bodyLarge
     when (val c = message.content) {
         is MessageContent.Text -> {
-            TextContent(c, message.senderName, color, resolver)
+            TextContent(c, message.label.shownName, color, resolver)
         }
 
         is MessageContent.Image -> {
@@ -412,13 +410,14 @@ private fun Reply(
                 .clip(RoundedCornerShape(8.dp))
                 .background(color.copy(alpha = REPLY_BG_ALPHA)),
     ) {
-        Box(Modifier.width(3.dp).fillMaxHeight().background(MaterialTheme.colorScheme.primary))
+        val sender = reply.sender
+        val bar = sender?.let { senderColor(it.profileId ?: it.senderId) } ?: color.copy(alpha = NOTICE_ALPHA)
+        Box(Modifier.width(3.dp).fillMaxHeight().background(bar))
         Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-            val sender = reply.senderName
             if (sender == null) {
                 Quiet(stringResource(R.string.reply_unavailable), color)
             } else {
-                Text(sender, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                SenderName(sender, MaterialTheme.typography.labelMedium)
                 Text(
                     reply.text.orEmpty(),
                     style = MaterialTheme.typography.bodyMedium,
@@ -503,6 +502,9 @@ private fun Reactions(
 
 private val AVATAR_SLOT = 32.dp
 private val AVATAR_GAP = 6.dp
+
+/** Centres the name line on the avatar's upper half, so the two read as one header. */
+private val NAME_NUDGE = 6.dp
 private val BUBBLE_MAX = 320.dp
 private val BUBBLE_RADIUS = 20.dp
 private val GROUPED_RADIUS = 6.dp

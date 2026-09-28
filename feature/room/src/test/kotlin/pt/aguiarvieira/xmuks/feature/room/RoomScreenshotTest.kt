@@ -17,6 +17,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.Reaction
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyPreview
+import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TextKind
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
@@ -47,11 +48,13 @@ class RoomScreenshotTest {
         reply: ReplyPreview? = null,
         reactions: List<Reaction> = emptyList(),
         edited: Boolean = false,
+        profileId: String? = null,
+        profileName: String? = null,
     ) = TimelineItem.Message(
         key = "m${n++}",
         eventId = "\$e$n",
         sender = sender,
-        senderName = name,
+        label = SenderLabel(sender, name, profileId, profileName),
         senderAvatarMxc = null,
         fromMe = me,
         timestamp = t0 + n * 60_000L,
@@ -87,13 +90,20 @@ class RoomScreenshotTest {
                 sender = "@me:x",
                 name = "Me",
                 me = true,
-                reply = ReplyPreview("\$e1", "Ann", "Did the SSE keepalive fix land?"),
+                reply = ReplyPreview("\$e1", SenderLabel("@ann:x", "Ann"), "Did the SSE keepalive fix land?"),
                 reactions = listOf(Reaction("🎉", 2, true), Reaction("👍", 1, false)),
                 edited = true,
             ),
             msg(MessageContent.Image(photo, "the view from here"), sender = "@bob:x", name = "Bob"),
             msg(MessageContent.File(photo.copy(size = 2_400_000), "gomuks-logs.tar.zst"), sender = "@bob:x", name = "Bob"),
             msg(text("waves", kind = TextKind.Emote), sender = "@bob:x", name = "Bob"),
+            msg(
+                text("[xmuks] ricardo-duarte-av pushed 1 commit to main", kind = TextKind.Notice),
+                sender = "@github:x",
+                name = "GitHub Bot",
+                profileId = "185400624",
+                profileName = "ricardo-duarte-av",
+            ),
             msg(text("🚀", big = true), sender = "@me:x", name = "Me", me = true),
             msg(MessageContent.Redacted),
         )

@@ -17,7 +17,7 @@ sealed interface TimelineItem {
         override val key: String,
         val eventId: String,
         val sender: String,
-        val senderName: String,
+        val label: SenderLabel,
         val senderAvatarMxc: String?,
         val fromMe: Boolean,
         val timestamp: Long,
@@ -31,7 +31,10 @@ sealed interface TimelineItem {
         /** Users whose read receipt sits on this message (not us, not the sender). */
         val readBy: List<String>,
         val sendError: String?,
-    ) : TimelineItem
+    ) : TimelineItem {
+        /** The label as plain text ("profile via sender", or the sender's name). */
+        val senderName: String get() = label.text
+    }
 
     /** Membership and room-setting changes, shown as a quiet line. */
     data class StateChange(
@@ -157,9 +160,29 @@ data class Media(
 data class ReplyPreview(
     val eventId: String,
     /** Null when the replied-to event isn't loaded (yet). */
-    val senderName: String?,
+    val sender: SenderLabel?,
     val text: String?,
-)
+) {
+    val senderName: String? get() = sender?.text
+}
+
+/**
+ * Who a message is attributed to: its sender, or a per-message profile (MSC4144 — bridges and bots
+ * speaking for someone) shown as "profile via sender".
+ */
+data class SenderLabel(
+    val senderId: String,
+    /** The sender's per-room name (or localpart). */
+    val senderName: String,
+    /** The per-message profile's own ID and name, when there is one. */
+    val profileId: String? = null,
+    val profileName: String? = null,
+) {
+    val text: String get() = profileName?.let { "$it via $senderName" } ?: senderName
+
+    /** The name the message is attributed to: avatar initials, emotes. */
+    val shownName: String get() = profileName ?: senderName
+}
 
 data class Reaction(
     val key: String,
