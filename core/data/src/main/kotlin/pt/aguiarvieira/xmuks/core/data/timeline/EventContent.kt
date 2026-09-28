@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
+import pt.aguiarvieira.xmuks.core.protocol.Event
 
 private const val HTML_FORMAT = "org.matrix.custom.html"
 
@@ -36,6 +37,16 @@ internal fun senderLabel(
         profileName = shown
     )
 }
+
+/** gomuks' aggregated reactions, most-used first, ours marked. */
+internal fun reactionsOf(
+    event: Event,
+    myReactions: Map<String, Set<String>>,
+): List<Reaction> =
+    event.reactions
+        .orEmpty()
+        .map { (key, count) -> Reaction(key, count, key in myReactions[event.eventId].orEmpty()) }
+        .sortedByDescending { it.count }
 
 internal fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
 

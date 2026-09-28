@@ -169,7 +169,7 @@ private fun Timeline(
         items(items, key = { it.key }, contentType = { it::class }) { item ->
             when (item) {
                 is TimelineItem.Message -> MessageRow(item, resolver, onOpenMedia, Modifier.animateItem())
-                is TimelineItem.StateChange -> StateChangeRow(item, Modifier.animateItem())
+                is TimelineItem.StateChange -> StateChangeRow(item, resolver, Modifier.animateItem())
                 is TimelineItem.DaySeparator -> DayRow(item.day, Modifier.animateItem())
             }
         }
@@ -222,40 +222,6 @@ private fun DayRow(
         }
     }
 }
-
-@Composable
-private fun StateChangeRow(
-    item: TimelineItem.StateChange,
-    modifier: Modifier = Modifier,
-) {
-    Text(
-        changeText(item.actorName, item.change),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center,
-        modifier = modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 4.dp),
-    )
-}
-
-@Composable
-private fun changeText(
-    actor: String,
-    change: Change,
-): String =
-    when (change) {
-        Change.Joined -> stringResource(R.string.change_joined, actor)
-        Change.Left -> stringResource(R.string.change_left, actor)
-        is Change.Invited -> stringResource(R.string.change_invited, actor, change.target)
-        is Change.Kicked -> stringResource(R.string.change_kicked, actor, change.target)
-        is Change.Banned -> stringResource(R.string.change_banned, actor, change.target)
-        is Change.Renamed -> stringResource(R.string.change_renamed, change.from ?: actor, change.to ?: actor)
-        Change.ChangedAvatar -> stringResource(R.string.change_avatar, actor)
-        is Change.RoomName -> stringResource(R.string.change_room_name, actor, change.name.orEmpty())
-        is Change.RoomTopic -> stringResource(R.string.change_room_topic, actor)
-        Change.RoomAvatar -> stringResource(R.string.change_room_avatar, actor)
-        Change.RoomCreated -> stringResource(R.string.change_created, actor)
-        Change.EncryptionEnabled -> stringResource(R.string.change_encryption, actor)
-    }
 
 @Composable
 private fun typingText(typing: List<String>): String? =

@@ -192,4 +192,30 @@ class TimelineItemBuilderTest {
         val msgs = build(ev { copy(sendError = "not sent") }, ev { copy(sendError = "M_FORBIDDEN") }).messages()
         assertEquals(listOf(null, "M_FORBIDDEN"), msgs.map { it.sendError })
     }
+
+    @Test
+    fun `an emote stands alone and ends the group around it`() {
+        val msgs =
+            build(
+                ev(ts = t0),
+                ev(ts = t0 + 1_000, content = """{"msgtype":"m.emote","body":"waves"}"""),
+                ev(ts = t0 + 2_000),
+            ).messages()
+        assertEquals(listOf(true, true, true), msgs.map { it.firstInGroup })
+        assertEquals(listOf(true, true, true), msgs.map { it.lastInGroup })
+    }
+
+    @Test
+    fun `state changes carry what replies and reactions need`() {
+        val join =
+            ev(sender = "@ann:x", type = "m.room.member", stateKey = "@ann:x", content = """{"membership":"join","displayname":"Ann","avatar_url":"mxc://x/ann"}""") {
+                copy(reactions = mapOf("👋" to 2))
+            }
+        val change = build(join).single { it is TimelineItem.StateChange }
+        change as TimelineItem.StateChange
+        assertEquals(join.eventId, change.eventId)
+        assertEquals("@ann:x", change.actor)
+        assertEquals("mxc://x/ann", change.actorAvatarMxc)
+        assertEquals(listOf("👋"), change.reactions.map { it.key })
+    }
 }

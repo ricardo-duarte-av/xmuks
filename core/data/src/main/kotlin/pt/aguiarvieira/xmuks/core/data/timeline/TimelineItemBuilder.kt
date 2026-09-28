@@ -42,23 +42,18 @@ class TimelineItemBuilder(
 
             val item =
                 if (event.stateKey != null) {
-                    stateChange(event, members)
+                    stateChange(event, members, myReactions)
                 } else {
                     message(event, snapshot, byEventId, members, myReactions, readers)
                 }
-            if (item is TimelineItem.Message) {
-                val group = groupKey(event, item)
+            if (item != null) {
+                // Messages from the same sender (and profile) within minutes of each other form a
+                // group; emotes and state changes stand alone and end the group around them.
+                val group = (item as? TimelineItem.Message)?.takeUnless { it.isEmote }?.let { groupKey(event, it) }
                 val gap = previous?.let { event.timestamp - it.timestamp } ?: Long.MAX_VALUE
-                val continues = group == previousGroup && day == previousDay && gap < GROUP_GAP_MS
-                if (continues) {
-                    val last = out.last() as TimelineItem.Message
-                    out[out.lastIndex] = last.copy(lastInGroup = false)
-                }
-                out += item.copy(firstInGroup = !continues)
+                val continues = group != null && group == previousGroup && day == previousDay && gap < GROUP_GAP_MS
+                out.appendGrouped(item, continues)
                 previousGroup = group
-            } else if (item != null) {
-                out += item
-                previousGroup = null
             }
             previous = event
         }
@@ -104,11 +99,7 @@ class TimelineItemBuilder(
             timestamp = event.timestamp,
             content = contentOf(event, content, html, (edit ?: event).localContent?.bigEmoji == true),
             reply = replyOf(content, event, byEventId, members),
-            reactions =
-                event.reactions
-                    .orEmpty()
-                    .map { (key, count) -> Reaction(key, count, key in myReactions[event.eventId].orEmpty()) }
-                    .sortedByDescending { it.count },
+            reactions = reactionsOf(event, myReactions),
             edited = edit != null,
             firstInGroup = true,
             lastInGroup = true,
@@ -254,6 +245,7 @@ class TimelineItemBuilder(
     private fun stateChange(
         event: Event,
         members: Map<String, MemberProfile>,
+        myReactions: Map<String, Set<String>>,
     ): TimelineItem.StateChange? {
         val content = event.effectiveContent
         val actor = members[event.sender]?.displayName ?: localpart(event.sender)
@@ -267,7 +259,16 @@ class TimelineItemBuilder(
                 "m.room.encryption" -> Change.EncryptionEnabled
                 else -> return null
             }
-        return TimelineItem.StateChange("e:${event.rowId}", actor, change, event.timestamp)
+        return TimelineItem.StateChange(
+            key = "e:${event.rowId}",
+            eventId = event.eventId,
+            actor = event.sender,
+            actorName = actor,
+            actorAvatarMxc = members[event.sender]?.avatarMxc,
+            change = change,
+            timestamp = event.timestamp,
+            reactions = reactionsOf(event, myReactions),
+        )
     }
 
     private fun memberChange(

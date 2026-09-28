@@ -73,73 +73,55 @@ fun MessageRow(
     onOpenMedia: (ViewerMedia) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (message.isEmote) {
+        EmoteRow(message, resolver, modifier)
+        return
+    }
     val mine = message.fromMe
-    val bare = message.content.isBare()
-    // The avatar lines up with the sender's name at the top of the group.
-    Row(
+    // Others' groups open with a header (avatar + name); their bubbles then start at the left
+    // margin, using the width an avatar gutter would waste on every message.
+    Column(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(start = 8.dp, end = 12.dp, top = if (message.firstInGroup) 8.dp else 2.dp),
-        horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.Top,
+                .padding(horizontal = EDGE, vertical = 0.dp)
+                .padding(top = if (message.firstInGroup) GROUP_GAP else MESSAGE_GAP),
+        horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
     ) {
-        if (!mine) {
-            Box(Modifier.width(AVATAR_SLOT)) {
-                if (message.firstInGroup) {
-                    RoomAvatar(
-                        message.label.shownName,
-                        message.label.profileId ?: message.sender,
-                        resolver.avatar(message.senderAvatarMxc),
-                        size = AVATAR_SLOT,
-                    )
-                }
-            }
-            Spacer(Modifier.width(AVATAR_GAP))
-        }
+        if (!mine && message.firstInGroup) Header(message, resolver)
+        val open = { media: Media, kind: ViewerMedia.Kind -> onOpenMedia(viewerMedia(message, media, kind, resolver)) }
         Column(
             horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
-            modifier = Modifier.widthIn(max = BUBBLE_MAX),
+            modifier = Modifier.maxWidthFraction(BUBBLE_FRACTION),
         ) {
-            if (!mine && message.firstInGroup) {
-                // Top of the name's letters = top of the avatar: no leading above the line, and the
-                // font's own room above its ascenders taken back.
-                val nameStyle =
-                    MaterialTheme.typography.labelLarge.copy(
-                        lineHeightStyle =
-                            LineHeightStyle(
-                                LineHeightStyle.Alignment.Top,
-                                LineHeightStyle.Trim.FirstLineTop
-                            ),
-                    )
-                SenderName(
-                    message.label,
-                    nameStyle,
-                    Modifier.padding(start = 12.dp, bottom = 2.dp).raise(nameStyle.fontSize * ASCENT_GAP),
-                )
-            }
-            val open = {
-                media: Media,
-                kind: ViewerMedia.Kind,
-                ->
-                onOpenMedia(viewerMedia(message, media, kind, resolver))
-            }
-            if (bare) {
+            if (message.content.isBare()) {
                 Content(message, resolver, MaterialTheme.colorScheme.onSurface, open)
                 Footer(message, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(horizontal = 4.dp))
             } else {
-                Bubble(message) { color ->
-                    Column(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        message.reply?.let { Reply(it, color) }
-                        Content(message, resolver, color, open)
-                        Footer(message, color.copy(alpha = FOOTER_ALPHA), Modifier.align(Alignment.End))
-                    }
-                }
+                Bubble(message) { color -> BubbleContent(message, resolver, color, open) }
             }
             if (message.reactions.isNotEmpty()) Reactions(message.reactions, resolver, Modifier.padding(top = 4.dp))
+        }
+    }
+}
+
+@Composable
+private fun BubbleContent(
+    message: TimelineItem.Message,
+    resolver: MediaResolver,
+    color: Color,
+    open: (Media, ViewerMedia.Kind) -> Unit,
+) {
+    Column(
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = BUBBLE_PADDING_V),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        message.reply?.let { Reply(it, color) }
+        // Text-like content shares its last line with the time when there's room; media (which
+        // never reports a last line) keeps the time below.
+        val lastLine = remember(message.content) { LastLine() }
+        ContentWithFooter(lastLine, footer = { Footer(message, color.copy(alpha = FOOTER_ALPHA)) }) {
+            Content(message, resolver, color, open, lastLine)
         }
     }
 }
@@ -213,11 +195,12 @@ private fun Content(
     resolver: MediaResolver,
     color: Color,
     onOpen: (Media, ViewerMedia.Kind) -> Unit,
+    lastLine: LastLine? = null,
 ) {
     val style = MaterialTheme.typography.bodyLarge
     when (val c = message.content) {
         is MessageContent.Text -> {
-            TextContent(c, message.label.shownName, color, resolver)
+            TextContent(c, message.label.shownName, color, resolver, lastLine)
         }
 
         is MessageContent.Image -> {
@@ -259,16 +242,17 @@ private fun Content(
         }
 
         MessageContent.Redacted -> {
-            Quiet(stringResource(R.string.redacted), color)
+            Quiet(stringResource(R.string.redacted), color, lastLine)
         }
 
         is MessageContent.Undecryptable -> {
-            Quiet(stringResource(R.string.undecryptable), color)
+            Quiet(stringResource(R.string.undecryptable), color, lastLine)
         }
 
         is MessageContent.Unsupported -> {
-            c.body?.takeIf { it.isNotBlank() }?.let { Text(it, color = color, style = style) }
-                ?: Quiet(stringResource(R.string.unsupported, c.type), color)
+            c.body?.takeIf { it.isNotBlank() }?.let {
+                Text(it, color = color, style = style, onTextLayout = { layout -> lastLine?.update(layout) })
+            } ?: Quiet(stringResource(R.string.unsupported, c.type), color, lastLine)
         }
     }
 }
@@ -279,6 +263,7 @@ private fun TextContent(
     sender: String,
     color: Color,
     resolver: MediaResolver,
+    lastLine: LastLine? = null,
 ) {
     val style =
         when {
@@ -289,24 +274,12 @@ private fun TextContent(
     val emoteStyle = if (c.kind == TextKind.Emote) style.copy(fontStyle = FontStyle.Italic) else style
     val html = c.html
     val emote = c.kind == TextKind.Emote
+    val media = { mxc: String -> resolver.media(mxc, false) }
     when {
-        html != null && emote -> {
-            HtmlContent("* ${escape(sender)} $html", tint, emoteStyle, mediaUrl = {
-                resolver.media(it, false)
-            })
-        }
-
-        html != null -> {
-            HtmlContent(html, tint, emoteStyle, mediaUrl = { resolver.media(it, false) })
-        }
-
-        emote -> {
-            PlainContent("* $sender ${c.body}", tint, emoteStyle)
-        }
-
-        else -> {
-            PlainContent(c.body, tint, emoteStyle)
-        }
+        html != null && emote -> HtmlContent("* ${escape(sender)} $html", tint, emoteStyle, media, lastLine = lastLine)
+        html != null -> HtmlContent(html, tint, emoteStyle, media, lastLine = lastLine)
+        emote -> PlainContent("* $sender ${c.body}", tint, emoteStyle, lastLine = lastLine)
+        else -> PlainContent(c.body, tint, emoteStyle, lastLine = lastLine)
     }
 }
 
@@ -405,14 +378,16 @@ private fun FileCard(
 private fun Quiet(
     text: String,
     color: Color,
+    lastLine: LastLine? = null,
 ) = Text(
     text,
     color = color.copy(alpha = NOTICE_ALPHA),
-    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic)
+    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+    onTextLayout = { lastLine?.update(it) },
 )
 
 @Composable
-private fun Reply(
+internal fun Reply(
     reply: ReplyPreview,
     color: Color,
 ) {
@@ -443,80 +418,15 @@ private fun Reply(
     }
 }
 
-@Composable
-private fun Footer(
-    message: TimelineItem.Message,
-    color: Color,
-    modifier: Modifier = Modifier,
-) {
-    val time =
-        remember(message.timestamp) { DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(message.timestamp)) }
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        message.sendError?.let {
-            Text(
-                stringResource(R.string.send_failed, it),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.labelSmall
-            )
-        }
-        if (message.edited) {
-            Text(
-                stringResource(R.string.edited),
-                color = color,
-                style = MaterialTheme.typography.labelSmall
-            )
-        }
-        Text(time, color = color, style = MaterialTheme.typography.labelSmall)
-    }
-}
+/** Screen edge to bubble, both sides. */
+private val EDGE = 12.dp
+private val GROUP_GAP = 8.dp
+private val MESSAGE_GAP = 2.dp
+private val BUBBLE_PADDING_V = 6.dp
 
-@Composable
-private fun Reactions(
-    reactions: List<Reaction>,
-    resolver: MediaResolver,
-    modifier: Modifier = Modifier,
-) {
-    val colors = MaterialTheme.colorScheme
-    FlowRow(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        reactions.forEach { r ->
-            Surface(
-                shape = CircleShape,
-                color = if (r.mine) colors.secondaryContainer else colors.surfaceContainerHigh,
-                border = if (r.mine) androidx.compose.foundation.BorderStroke(1.dp, colors.primary) else null,
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    if (r.isImage) {
-                        AsyncImage(
-                            model = resolver.media(r.key, false),
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    } else {
-                        Text(r.key.take(MAX_REACTION_CHARS), style = MaterialTheme.typography.bodyMedium)
-                    }
-                    Text(
-                        r.count.toString(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.onSurfaceVariant
-                    )
-                }
-            }
-        }
-    }
-}
+/** Bubbles leave the far side free, so whose message it is stays obvious. */
+private const val BUBBLE_FRACTION = 0.86f
 
-private val AVATAR_SLOT = 32.dp
-private val AVATAR_GAP = 6.dp
-
-private val BUBBLE_MAX = 320.dp
 private val BUBBLE_RADIUS = 20.dp
 private val GROUPED_RADIUS = 6.dp
 private val STICKER_SIZE = 140.dp
@@ -529,4 +439,3 @@ private const val FOOTER_ALPHA = 0.7f
 private const val NOTICE_ALPHA = 0.75f
 private const val REPLY_BG_ALPHA = 0.08f
 private const val SCRIM = 0.45f
-private const val MAX_REACTION_CHARS = 24

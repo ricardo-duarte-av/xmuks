@@ -34,14 +34,22 @@ sealed interface TimelineItem {
     ) : TimelineItem {
         /** The label as plain text ("profile via sender", or the sender's name). */
         val senderName: String get() = label.text
+
+        /** /me: rendered as an action line, outside the bubbles and their groups. */
+        val isEmote: Boolean get() = (content as? MessageContent.Text)?.kind == TextKind.Emote
     }
 
-    /** Membership and room-setting changes, shown as a quiet line. */
+    /** Membership and room-setting changes, shown as an action line. */
     data class StateChange(
         override val key: String,
+        /** Like any event, state changes can be replied to and reacted to. */
+        val eventId: String,
+        val actor: String,
         val actorName: String,
+        val actorAvatarMxc: String?,
         val change: Change,
         val timestamp: Long,
+        val reactions: List<Reaction> = emptyList(),
     ) : TimelineItem
 
     data class DaySeparator(

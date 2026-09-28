@@ -51,11 +51,18 @@ fun HtmlContent(
     style: TextStyle,
     mediaUrl: (String) -> String?,
     modifier: Modifier = Modifier,
+    lastLine: LastLine? = null,
+    prefix: AnnotatedString? = null,
 ) {
     val colors = htmlColors()
-    val blocks = remember(html, colors) { HtmlParser(colors).parse(html) }
+    val blocks = remember(html, colors, prefix) { withPrefix(HtmlParser(colors).parse(html), prefix) }
+    // Only a closing paragraph has a last line a footer can share; quotes, lists and code don't.
+    if (blocks.lastOrNull() !is HtmlBlock.Paragraph) lastLine?.clear()
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        blocks.forEach { Block(it, color, style, mediaUrl) }
+        blocks.forEachIndexed { index, block ->
+            val last = if (index == blocks.lastIndex && block is HtmlBlock.Paragraph) lastLine else null
+            Block(block, color, style, mediaUrl, last)
+        }
     }
 }
 
@@ -66,10 +73,26 @@ fun PlainContent(
     color: Color,
     style: TextStyle,
     modifier: Modifier = Modifier,
+    lastLine: LastLine? = null,
+    prefix: AnnotatedString? = null,
 ) {
     val link = MaterialTheme.colorScheme.primary
-    val text = remember(body, link) { linkify(body, link) }
-    Text(text, color = color, style = style, modifier = modifier)
+    val text = remember(body, link, prefix) { prefix?.plus(linkify(body, link)) ?: linkify(body, link) }
+    Text(text, color = color, style = style, modifier = modifier, onTextLayout = { lastLine?.update(it) })
+}
+
+/** [prefix] runs into the first paragraph (an emote's "* Name"), or stands as its own line. */
+private fun withPrefix(
+    blocks: List<HtmlBlock>,
+    prefix: AnnotatedString?,
+): List<HtmlBlock> {
+    if (prefix == null) return blocks
+    val first = blocks.firstOrNull()
+    return if (first is HtmlBlock.Paragraph) {
+        listOf(HtmlBlock.Paragraph(prefix + first.text)) + blocks.drop(1)
+    } else {
+        listOf(HtmlBlock.Paragraph(prefix)) + blocks
+    }
 }
 
 @Composable
@@ -78,11 +101,12 @@ private fun Block(
     color: Color,
     style: TextStyle,
     mediaUrl: (String) -> String?,
+    lastLine: LastLine? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     when (block) {
         is HtmlBlock.Paragraph -> {
-            RichText(block.text, color, style, mediaUrl)
+            RichText(block.text, color, style, mediaUrl, lastLine)
         }
 
         is HtmlBlock.Heading -> {
@@ -148,6 +172,7 @@ private fun RichText(
     color: Color,
     style: TextStyle,
     mediaUrl: (String) -> String?,
+    lastLine: LastLine? = null,
 ) {
     val images =
         remember(text) {
@@ -163,7 +188,7 @@ private fun RichText(
                 AsyncImage(model = mediaUrl(id.removePrefix(HtmlParser.IMAGE_PREFIX)), contentDescription = it)
             }
         }
-    Text(text, color = color, style = style, inlineContent = inline)
+    Text(text, color = color, style = style, inlineContent = inline, onTextLayout = { lastLine?.update(it) })
 }
 
 @Composable

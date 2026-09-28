@@ -68,6 +68,13 @@ class RoomScreenshotTest {
         sendError = null,
     )
 
+    private fun state(
+        key: String,
+        actor: String,
+        name: String,
+        change: Change,
+    ) = TimelineItem.StateChange(key, "\$$key", actor, name, null, change, t0 + n++ * 60_000L)
+
     private fun text(
         body: String,
         html: String? = null,
@@ -82,7 +89,7 @@ class RoomScreenshotTest {
     private val timeline =
         listOf(
             TimelineItem.DaySeparator("d", LocalDate.of(2026, 9, 26)),
-            TimelineItem.StateChange("s", "Bob", Change.Joined, t0),
+            state("s1", "@bob:x", "Bob", Change.Joined),
             msg(text("Did the SSE keepalive fix land?"), first = true, last = false),
             msg(text("<b>bold</b> and a https://example.org link", "<p><b>Bold</b>, <code>code</code> and a <a href=\"https://example.org\">link</a></p>"), first = false),
             msg(
@@ -96,7 +103,14 @@ class RoomScreenshotTest {
             ),
             msg(MessageContent.Image(photo, "the view from here"), sender = "@bob:x", name = "Bob"),
             msg(MessageContent.File(photo.copy(size = 2_400_000), "gomuks-logs.tar.zst"), sender = "@bob:x", name = "Bob"),
-            msg(text("waves", kind = TextKind.Emote), sender = "@bob:x", name = "Bob"),
+            msg(
+                text("sends another one", "sends <b>another</b> one 🎉", kind = TextKind.Emote),
+                sender = "@bob:x",
+                name = "Bob",
+            ),
+            msg(text("waves", kind = TextKind.Emote), sender = "@me:x", name = "Ricardo", me = true),
+            state("s2", "@ann:x", "Annie", Change.Renamed("Ann", "Annie")),
+            state("s3", "@mod:x", "Mod", Change.Kicked("Spammer", "spam")),
             msg(
                 text("[xmuks] ricardo-duarte-av pushed 1 commit to main", kind = TextKind.Notice),
                 sender = "@github:x",
