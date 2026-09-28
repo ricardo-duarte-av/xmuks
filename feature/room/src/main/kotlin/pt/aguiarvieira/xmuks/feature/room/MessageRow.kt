@@ -4,6 +4,7 @@ import android.text.format.Formatter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -145,8 +146,11 @@ private fun BubbleRow(
         message.localId != null && (message.sendState == SendState.Failed || message.sendState == SendState.Unknown)
     Row(
         modifier =
-            Modifier.fillMaxWidth().then(
-                if (stuck) Modifier.clickable { actions.onUnsent(message) } else Modifier
+            Modifier.fillMaxWidth().combinedClickable(
+                interactionSource = null,
+                indication = null,
+                onClick = { if (stuck) actions.onUnsent(message) },
+                onLongClick = { actions.onMessageMenu(message) },
             ),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom,

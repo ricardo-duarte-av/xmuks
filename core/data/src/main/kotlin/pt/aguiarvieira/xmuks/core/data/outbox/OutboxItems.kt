@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
+import pt.aguiarvieira.xmuks.core.data.timeline.ReplyPreview
 import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TextKind
@@ -25,6 +26,10 @@ fun List<OutboxEntity>.toTimelineItems(
         if (entry.command != Outbox.SEND_MESSAGE) return@mapNotNull null
         val params =
             runCatching { GomuksJson.parseToJsonElement(entry.params).jsonObject }.getOrNull() ?: return@mapNotNull null
+        val relates = params["relates_to"] as? JsonObject
+        // An edit shows on its original once gomuks has it; it isn't a message of its own.
+        if (relates?.string("rel_type") == "m.replace") return@mapNotNull null
+        val replyTo = (relates?.get("m.in_reply_to") as? JsonObject)?.string("event_id")
         val text = params.string("text").orEmpty()
         val emote = text.startsWith(EMOTE_PREFIX)
         TimelineItem.Message(
@@ -42,7 +47,7 @@ fun List<OutboxEntity>.toTimelineItems(
                     kind = if (emote) TextKind.Emote else TextKind.Text,
                     bigEmoji = false,
                 ),
-            reply = null,
+            reply = replyTo?.let { ReplyPreview(it, sender = null, text = null) },
             reactions = emptyList(),
             edited = false,
             firstInGroup = true,

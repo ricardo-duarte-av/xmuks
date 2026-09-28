@@ -55,6 +55,8 @@ class TimelineActions(
     val jumpTo: (eventId: String) -> Unit,
     /** One of our messages that didn't go out: offer to resend or discard it. */
     val onUnsent: (TimelineItem.Message) -> Unit = {},
+    /** Long press: what can be done with this message (reply, edit, copy…). */
+    val onMessageMenu: (TimelineItem.Message) -> Unit = {},
 )
 
 /** Briefly tints the row a jump landed on, so the eye finds it. */

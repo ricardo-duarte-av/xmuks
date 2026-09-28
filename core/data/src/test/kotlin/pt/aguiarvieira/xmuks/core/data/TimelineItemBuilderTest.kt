@@ -294,4 +294,16 @@ class TimelineItemBuilderTest {
             build(echo, sent, failed).messages().map { it.sendState },
         )
     }
+
+    @Test
+    fun `only our own text messages are editable, from gomuks' edit source`() {
+        val mine =
+            ev(sender = "@me:x", content = """{"msgtype":"m.emote","body":"waves"}""") {
+                copy(localContent = LocalContent(editSource = "/me waves"))
+            }
+        val plain = ev(sender = "@me:x", content = """{"msgtype":"m.text","body":"hi"}""")
+        val theirs = ev(content = """{"msgtype":"m.text","body":"yo"}""")
+        val image = ev(sender = "@me:x", content = """{"msgtype":"m.image","body":"x.png","url":"mxc://x/y"}""")
+        assertEquals(listOf("/me waves", "hi", null, null), build(mine, plain, theirs, image).messages().map { it.editSource })
+    }
 }

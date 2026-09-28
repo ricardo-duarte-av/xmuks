@@ -17,7 +17,7 @@ import java.time.ZoneId
  * the Matrix ID's localpart.
  */
 class TimelineItemBuilder(
-    private val me: String?,
+    internal val me: String?,
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) {
     fun build(
@@ -105,6 +105,7 @@ class TimelineItemBuilder(
             readBy = readers[event.eventId].orEmpty().toReaders(me, event.sender, members),
             sendError = event.sendError?.takeIf { it.isNotBlank() && it != NOT_SENT },
             sendState = event.sendState(),
+            editSource = editSourceOf(event, local, content),
         )
     }
 

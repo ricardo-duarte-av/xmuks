@@ -73,15 +73,66 @@ class RoomSession(
             }
         }
 
-    /** Sends [text] (markdown; gomuks renders it) through the durable outbox. */
-    suspend fun send(text: String) {
+    /**
+     * Sends [text] (markdown, `/me`, `/notice`…; gomuks renders it) through the durable outbox,
+     * as a reply to [replyTo] or as an edit of [editing] (our own message).
+     */
+    suspend fun send(
+        text: String,
+        replyTo: ReplyTarget? = null,
+        editing: String? = null,
+    ) {
         outbox.sendMessage(
             roomId,
             buildJsonObject {
                 put("room_id", JsonPrimitive(roomId))
                 put("text", JsonPrimitive(text))
+                when {
+                    editing != null -> {
+                        put(
+                            "relates_to",
+                            buildJsonObject {
+                                put("rel_type", JsonPrimitive("m.replace"))
+                                put("event_id", JsonPrimitive(editing))
+                            }
+                        )
+                    }
+
+                    replyTo != null -> {
+                        val inReplyTo = buildJsonObject { put("event_id", JsonPrimitive(replyTo.eventId)) }
+                        put("relates_to", buildJsonObject { put("m.in_reply_to", inReplyTo) })
+                        // Like gomuks web: a reply pings who wrote the original.
+                        put(
+                            "mentions",
+                            buildJsonObject {
+                                put("user_ids", JsonArray(listOf(JsonPrimitive(replyTo.sender))))
+                            }
+                        )
+                    }
+                }
             },
         )
+    }
+
+    /** Marks everything up to [eventId] read (a public read receipt). */
+    suspend fun markRead(eventId: String) {
+        val params =
+            buildJsonObject {
+                put("room_id", JsonPrimitive(roomId))
+                put("event_id", JsonPrimitive(eventId))
+                put("receipt_type", JsonPrimitive("m.read"))
+            }
+        exec.exec("mark_read", params, ExecMode.Write)
+    }
+
+    /** Typing for [timeoutMs] from now; 0 stops it. */
+    suspend fun setTyping(timeoutMs: Int) {
+        val params =
+            buildJsonObject {
+                put("room_id", JsonPrimitive(roomId))
+                put("timeout", JsonPrimitive(timeoutMs))
+            }
+        exec.exec("set_typing", params, ExecMode.Write)
     }
 
     suspend fun resend(localId: String) = outbox.resend(localId)
@@ -229,6 +280,12 @@ class RoomSession(
     }
 }
 
+/** What a reply points at: the original's event ID and who wrote it (they get mentioned). */
+data class ReplyTarget(
+    val eventId: String,
+    val sender: String,
+)
+
 /** Creates sessions for rooms being opened. */
 class RoomSessions(
     private val store: TimelineStore,
@@ -238,4 +295,9 @@ class RoomSessions(
     private val scope: CoroutineScope,
 ) {
     fun open(roomId: String) = RoomSession(roomId, store, exec, database, outbox, scope)
+
+    /** Stops our typing notification in [roomId], outliving whoever asked. */
+    fun stopTyping(roomId: String) {
+        scope.launch { open(roomId).setTyping(0) }
+    }
 }

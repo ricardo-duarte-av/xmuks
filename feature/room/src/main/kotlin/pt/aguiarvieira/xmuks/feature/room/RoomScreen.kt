@@ -75,6 +75,7 @@ fun RoomRoute(
     val hasMoreBefore by viewModel.hasMoreBefore.collectAsStateWithLifecycle()
     val loadedEvents by viewModel.loadedEvents.collectAsStateWithLifecycle()
     val context by viewModel.context.collectAsStateWithLifecycle()
+    val mode by viewModel.mode.collectAsStateWithLifecycle()
     val resolver = remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media) }
     val androidContext = LocalContext.current
     val uriHandler = remember(androidContext) { SafeUriHandler(androidContext) }
@@ -92,7 +93,18 @@ fun RoomRoute(
             onOpenMedia = onOpenMedia,
             onShowContext = viewModel::showContext,
             onLeaveContext = viewModel::leaveContext,
-            composer = ComposerActions(viewModel.draft, viewModel::send, viewModel::resend, viewModel::discard),
+            composer =
+                ComposerActions(
+                    draft = viewModel.draft,
+                    onSend = viewModel::send,
+                    onResend = viewModel::resend,
+                    onDiscard = viewModel::discard,
+                    mode = mode,
+                    onReply = viewModel::reply,
+                    onEdit = viewModel::edit,
+                    onCancelMode = viewModel::cancelMode,
+                    onMarkRead = viewModel::markRead,
+                ),
             modifier = modifier,
         )
     }
@@ -104,6 +116,12 @@ class ComposerActions(
     val onSend: () -> Unit,
     val onResend: (localId: String) -> Unit,
     val onDiscard: (localId: String) -> Unit,
+    val mode: ComposeMode = ComposeMode.New,
+    val onReply: (TimelineItem.Message) -> Unit = {},
+    val onEdit: (TimelineItem.Message) -> Unit = {},
+    val onCancelMode: () -> Unit = {},
+    /** The newest message is on screen: the room can be marked read up to it. */
+    val onMarkRead: (eventId: String) -> Unit = {},
 )
 
 /** The live timeline as the screen needs it; [items] newest first, null until the first page. */
@@ -139,6 +157,7 @@ fun RoomScreen(
 ) {
     val scope = rememberCoroutineScope()
     var unsent by remember { mutableStateOf<TimelineItem.Message?>(null) }
+    var menuFor by remember { mutableStateOf<TimelineItem.Message?>(null) }
     // After we send, the timeline follows to our message wherever it was scrolled.
     val followNext = remember { FollowRequest() }
     val liveList = rememberLazyListState()
@@ -152,6 +171,7 @@ fun RoomScreen(
             TimelineActions(
                 openMedia = onOpenMedia,
                 onUnsent = { unsent = it },
+                onMessageMenu = { menuFor = it },
                 jumpTo = { eventId ->
                     val index = shown?.indexOfEvent(eventId) ?: -1
                     if (index >= 0) {
@@ -171,6 +191,20 @@ fun RoomScreen(
         }
     }
     BackHandler(enabled = context != null, onBack = onLeaveContext)
+    menuFor?.let { message ->
+        MessageMenu(
+            message,
+            onReply = {
+                composer.onReply(message)
+                menuFor = null
+            },
+            onEdit = {
+                composer.onEdit(message)
+                menuFor = null
+            },
+            onDismiss = { menuFor = null },
+        )
+    }
     unsent?.let { message ->
         val id = message.localId ?: return@let
         UnsentDialog(
@@ -195,10 +229,10 @@ fun RoomScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = { HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia) },
         bottomBar = {
-            ComposerCard(composer.draft, {
+            ComposerCard(composer.draft, composer.mode, {
                 followNext.requested = true
                 composer.onSend()
-            })
+            }, composer.onCancelMode)
         },
     ) { padding ->
         ScreenCard(
@@ -212,6 +246,7 @@ fun RoomScreen(
                 ContextTimeline(context, contextList, resolver, actions, highlighted, onLeaveContext)
             } else {
                 LiveTimeline(timeline, liveList, followNext, resolver, actions, highlighted, onLoadOlder)
+                MarkReadAtBottom(timeline.items, liveList, composer.onMarkRead)
             }
         }
     }
@@ -338,6 +373,30 @@ private fun Timeline(
                 Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { Loading() }
             }
         }
+    }
+}
+
+/**
+ * While the newest items are on screen, the room counts as read up to its newest message that
+ * someone else sent and the homeserver has (a real event ID).
+ */
+@Composable
+private fun MarkReadAtBottom(
+    items: List<TimelineItem>?,
+    list: LazyListState,
+    onMarkRead: (String) -> Unit,
+) {
+    val newest =
+        items
+            ?.asSequence()
+            ?.filterIsInstance<TimelineItem.Message>()
+            ?.firstOrNull { !it.fromMe && it.eventId.startsWith("$") }
+            ?.eventId
+    val mark by rememberUpdatedState(onMarkRead)
+    LaunchedEffect(newest, list) {
+        val target = newest ?: return@LaunchedEffect
+        snapshotFlow { list.firstVisibleItemIndex <= 1 }.first { it }
+        mark(target)
     }
 }
 

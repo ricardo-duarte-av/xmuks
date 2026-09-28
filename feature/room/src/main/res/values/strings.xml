@@ -47,4 +47,10 @@
     <string name="resend">Send again</string>
     <string name="discard">Discard</string>
     <string name="cancel">Cancel</string>
+    <string name="reply">Reply</string>
+    <string name="edit">Edit</string>
+    <string name="copy_text">Copy text</string>
+    <string name="replying_to">Replying to %1$s</string>
+    <string name="editing">Editing message</string>
+    <string name="cancel_reply">Cancel</string>
 </resources>

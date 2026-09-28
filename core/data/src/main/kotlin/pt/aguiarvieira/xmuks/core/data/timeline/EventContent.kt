@@ -88,6 +88,19 @@ internal fun Event.sendState(): SendState =
         else -> SendState.Sent
     }
 
+/** Our own editable (text) messages: gomuks' edit source, else the body. Null for anything else. */
+internal fun TimelineItemBuilder.editSourceOf(
+    event: Event,
+    local: LocalContent?,
+    content: JsonObject,
+): String? {
+    if (event.sender != me || event.redactedBy != null) return null
+    if (content.str("msgtype") !in EDITABLE_MSGTYPES) return null
+    return local?.editSource ?: content.str("body")
+}
+
+private val EDITABLE_MSGTYPES = setOf("m.text", "m.notice", "m.emote")
+
 internal fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
 
 internal fun JsonObject.obj(key: String) = get(key) as? JsonObject

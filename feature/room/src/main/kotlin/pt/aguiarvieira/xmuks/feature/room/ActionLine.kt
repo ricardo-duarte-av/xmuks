@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.room
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -120,7 +121,13 @@ internal fun EmoteRow(
         actions = actions,
         highlighted = highlighted,
         footer = { Footer(message, MaterialTheme.colorScheme.onSurfaceVariant) },
-        modifier = modifier,
+        modifier =
+            modifier.combinedClickable(
+                interactionSource = null,
+                indication = null,
+                onClick = {},
+                onLongClick = { actions.onMessageMenu(message) },
+            ),
     ) { lastLine ->
         val name = senderText(message.label)
         val prefix = remember(name) { AnnotatedString("* ") + name + AnnotatedString(" ") }

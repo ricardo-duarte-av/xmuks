@@ -35,6 +35,11 @@ sealed interface TimelineItem {
         val sendState: SendState = SendState.Sent,
         /** Set for messages still in our outbox: what resend/discard act on. */
         val localId: String? = null,
+        /**
+         * For our own text messages: what to put back in the composer to edit it — gomuks' record
+         * of what was typed (markdown, `/me` prefix included), else the plain body.
+         */
+        val editSource: String? = null,
     ) : TimelineItem {
         /** The label as plain text ("profile via sender", or the sender's name). */
         val senderName: String get() = label.text
