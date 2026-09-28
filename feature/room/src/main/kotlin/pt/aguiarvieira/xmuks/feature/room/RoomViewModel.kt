@@ -69,15 +69,19 @@ class RoomViewModel
             contextTarget
                 .flatMapLatest { eventId ->
                     if (eventId == null) {
-                        flowOf(null)
+                        flowOf<ContextView?>(null)
                     } else {
-                        flow {
+                        flow<ContextView?> {
                             emit(ContextView(eventId, items = null))
                             val snapshot = session.eventContext(eventId)
                             if (snapshot == null) {
                                 emit(ContextView(eventId, items = null, failed = true))
                             } else {
-                                emitAll(session.itemsOf(flowOf(snapshot)).map { ContextView(eventId, it.asReversed()) })
+                                emitAll(
+                                    session.itemsOf(flowOf(snapshot)).map<List<TimelineItem>, ContextView?> {
+                                        ContextView(eventId, it.asReversed())
+                                    },
+                                )
                             }
                         }
                     }

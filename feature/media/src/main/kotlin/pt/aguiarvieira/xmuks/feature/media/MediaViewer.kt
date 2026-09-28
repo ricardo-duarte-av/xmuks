@@ -90,7 +90,8 @@ fun MediaViewer(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+// Kotlin's opt-in, not androidx.annotation.OptIn (imported here for Media3's UnstableApi).
+@kotlin.OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ZoomableImage(
     media: ViewerMedia,
