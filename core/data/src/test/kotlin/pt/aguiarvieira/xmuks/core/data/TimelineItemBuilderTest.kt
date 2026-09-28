@@ -223,7 +223,14 @@ class TimelineItemBuilderTest {
     @Test
     fun `reactions whose count dropped to zero are not shown`() {
         val msg = ev { copy(reactions = mapOf("🟢 build" to 1, "🔵 build" to 0)) }
-        assertEquals(listOf("🟢 build"), build(msg).messages().single().reactions.map { it.key })
+        assertEquals(
+            listOf("🟢 build"),
+            build(msg)
+                .messages()
+                .single()
+                .reactions
+                .map { it.key }
+        )
     }
 
     @Test
@@ -231,7 +238,12 @@ class TimelineItemBuilderTest {
         val first = ev()
         val second = ev()
         val reaction = ev(type = "m.reaction", content = """{"m.relates_to":{"rel_type":"m.annotation","event_id":"${second.eventId}","key":"👍"}}""")
-        fun receipt(user: String, on: Event, ts: Long) = Receipt(userId = user, receiptType = "m.read", eventId = on.eventId, timestamp = ts)
+
+        fun receipt(
+            user: String,
+            on: Event,
+            ts: Long,
+        ) = Receipt(userId = user, receiptType = "m.read", eventId = on.eventId, timestamp = ts)
         val snapshot =
             TimelineSnapshot(
                 "!r",

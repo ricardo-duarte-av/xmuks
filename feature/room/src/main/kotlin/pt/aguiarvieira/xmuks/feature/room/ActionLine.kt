@@ -72,7 +72,11 @@ private fun ActionLine(
                     avatar.id,
                     resolver.avatar(avatar.mxc),
                     size = AVATAR,
-                    modifier = Modifier.clip(CircleShape).clickable { resolver.image(avatar.mxc, avatar.name)?.let(actions.openMedia) },
+                    modifier =
+                        Modifier
+                            .clip(
+                                CircleShape
+                            ).clickable { resolver.image(avatar.mxc, avatar.name)?.let(actions.openMedia) },
                 )
             }
             Spacer(Modifier.width(GAP))
@@ -245,11 +249,26 @@ private fun profileTemplate(
             else -> ""
         }
     return when {
-        change.nameChanged && change.avatarChanged -> stringResource(R.string.change_profile_both, ACTOR, oldName) + avatarPart
-        change.nameChanged -> stringResource(R.string.change_profile_name, ACTOR, oldName)
-        change.newAvatar == null -> stringResource(R.string.change_profile_avatar_removed, ACTOR) + avatarPart
-        change.oldAvatar == null -> stringResource(R.string.change_profile_avatar_set, ACTOR) + avatarPart
-        else -> stringResource(R.string.change_profile_avatar, ACTOR) + avatarPart
+        change.nameChanged && change.avatarChanged -> {
+            stringResource(R.string.change_profile_both, ACTOR, oldName) +
+                avatarPart
+        }
+
+        change.nameChanged -> {
+            stringResource(R.string.change_profile_name, ACTOR, oldName)
+        }
+
+        change.newAvatar == null -> {
+            stringResource(R.string.change_profile_avatar_removed, ACTOR) + avatarPart
+        }
+
+        change.oldAvatar == null -> {
+            stringResource(R.string.change_profile_avatar_set, ACTOR) + avatarPart
+        }
+
+        else -> {
+            stringResource(R.string.change_profile_avatar, ACTOR) + avatarPart
+        }
     }
 }
 

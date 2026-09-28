@@ -91,7 +91,12 @@ fun MessageRow(
         horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
     ) {
         if (!mine && message.firstInGroup) Header(message, resolver, actions.openMedia)
-        val open = { media: Media, kind: ViewerMedia.Kind -> actions.openMedia(viewerMedia(message, media, kind, resolver)) }
+        val open = {
+            media: Media,
+            kind: ViewerMedia.Kind,
+            ->
+            actions.openMedia(viewerMedia(message, media, kind, resolver))
+        }
         Column(
             horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
             modifier = Modifier.maxWidthFraction(BUBBLE_FRACTION),
