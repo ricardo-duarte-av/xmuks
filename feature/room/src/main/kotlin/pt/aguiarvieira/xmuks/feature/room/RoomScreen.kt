@@ -139,6 +139,8 @@ fun RoomScreen(
 ) {
     val scope = rememberCoroutineScope()
     var unsent by remember { mutableStateOf<TimelineItem.Message?>(null) }
+    // After we send, the timeline follows to our message wherever it was scrolled.
+    val followNext = remember { FollowRequest() }
     val liveList = rememberLazyListState()
     val contextList = remember(context?.eventId) { LazyListState() }
     var highlighted by remember { mutableStateOf<String?>(null) }
@@ -192,7 +194,12 @@ fun RoomScreen(
         // navigation bar and the keyboard.
         contentWindowInsets = WindowInsets(0),
         topBar = { HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia) },
-        bottomBar = { ComposerCard(composer.draft, composer.onSend) },
+        bottomBar = {
+            ComposerCard(composer.draft, {
+                followNext.requested = true
+                composer.onSend()
+            })
+        },
     ) { padding ->
         ScreenCard(
             Modifier
@@ -204,7 +211,7 @@ fun RoomScreen(
             if (context != null) {
                 ContextTimeline(context, contextList, resolver, actions, highlighted, onLeaveContext)
             } else {
-                LiveTimeline(timeline, liveList, resolver, actions, highlighted, onLoadOlder)
+                LiveTimeline(timeline, liveList, followNext, resolver, actions, highlighted, onLoadOlder)
             }
         }
     }
@@ -248,6 +255,7 @@ private fun HeaderCard(
 private fun LiveTimeline(
     timeline: TimelineState,
     list: LazyListState,
+    followNext: FollowRequest,
     resolver: MediaResolver,
     actions: TimelineActions,
     highlighted: String?,
@@ -270,6 +278,7 @@ private fun LiveTimeline(
             }
 
             else -> {
+                FollowNewest(items, list, followNext)
                 LoadOlderNearTop(list, timeline, onLoadOlder)
                 Timeline(items, list, resolver, actions, highlighted, loadingOlder = timeline.loadingOlder)
             }
@@ -328,6 +337,33 @@ private fun Timeline(
             item(key = "loading-older", contentType = "loading") {
                 Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { Loading() }
             }
+        }
+    }
+}
+
+/** Set when we send: the next new message is ours, so the list follows it wherever it was. */
+private class FollowRequest {
+    var requested = false
+}
+
+/**
+ * New messages arrive at index 0 (the bottom). The list keeps its first visible item in place, so
+ * on its own it would leave them just out of view: follow them while already at the bottom, and
+ * always right after we sent one.
+ */
+@Composable
+private fun FollowNewest(
+    items: List<TimelineItem>,
+    list: LazyListState,
+    followNext: FollowRequest,
+) {
+    val newest = items.firstOrNull()?.key
+    LaunchedEffect(newest) {
+        if (followNext.requested || list.firstVisibleItemIndex <= 1) {
+            list.animateScrollToItem(0)
+            // Only once there: our message changes key twice in quick succession (outbox entry,
+            // then gomuks' local echo), and the second change cancels the first scroll.
+            followNext.requested = false
         }
     }
 }
