@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -52,6 +51,8 @@ import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -155,10 +156,16 @@ fun RoomScreen(
 
     Scaffold(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = ScreenCards.ground,
         topBar = { HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia) },
     ) { padding ->
-        Card(Modifier.padding(padding).padding(start = CARD_GAP, end = CARD_GAP, bottom = CARD_GAP).fillMaxSize()) {
+        ScreenCard(
+            Modifier
+                .padding(
+                    padding
+                ).padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap)
+                .fillMaxSize()
+        ) {
             if (context != null) {
                 ContextTimeline(context, contextList, resolver, actions, highlighted, onLeaveContext)
             } else {
@@ -179,7 +186,7 @@ private fun HeaderCard(
     onBack: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
 ) {
-    Card(Modifier.statusBarsPadding().padding(CARD_GAP)) {
+    ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
         TopAppBar(
             windowInsets = WindowInsets(0),
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
@@ -201,17 +208,6 @@ private fun HeaderCard(
         )
     }
 }
-
-@Composable
-private fun Card(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) = Surface(
-    modifier = modifier,
-    shape = RoundedCornerShape(CARD_RADIUS),
-    color = MaterialTheme.colorScheme.surface,
-    content = content,
-)
 
 @Composable
 private fun LiveTimeline(
@@ -401,5 +397,3 @@ private fun typingText(typing: List<String>): String? =
 private const val PREFETCH_DISTANCE = 10
 private const val HIGHLIGHT_MS = 1_600L
 private const val FOCUS_FRACTION = 3
-private val CARD_GAP = 8.dp
-private val CARD_RADIUS = 28.dp

@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -27,6 +30,7 @@ import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -40,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -53,6 +58,8 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.TabBadges
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.UnreadLevel
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 
@@ -118,84 +125,94 @@ fun HomeScreen(
     now: Long = rememberNow(),
     search: SearchQueries = remember { SearchQueries() },
 ) {
+    // Three cards on a tinted ground, like the room: header, the tab's content, the tab bar.
     Scaffold(
         modifier = modifier,
+        containerColor = ScreenCards.ground,
         topBar = {
-            Column {
-                TopAppBar(
-                    title = { Text(stringResource(state.tab.title)) },
-                    actions = { AccountButton(state, onAccountClick) },
-                )
-                ConnectionIndicator(state.connection)
+            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+                Column {
+                    TopAppBar(
+                        title = { Text(stringResource(state.tab.title)) },
+                        actions = { AccountButton(state, onAccountClick) },
+                        windowInsets = WindowInsets(0),
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                    )
+                    ConnectionIndicator(state.connection)
+                }
             }
         },
         bottomBar = {
-            ShortNavigationBar {
-                HomeTab.entries.forEach { tab ->
-                    ShortNavigationBarItem(
-                        selected = tab == state.tab,
-                        onClick = { onTabChange(tab) },
-                        icon = { TabIcon(tab, state.badges) },
-                        label = { Text(stringResource(tab.label)) },
-                    )
+            ScreenCard(Modifier.navigationBarsPadding().padding(ScreenCards.Gap)) {
+                ShortNavigationBar(containerColor = Color.Transparent, windowInsets = WindowInsets(0)) {
+                    HomeTab.entries.forEach { tab ->
+                        ShortNavigationBarItem(
+                            selected = tab == state.tab,
+                            onClick = { onTabChange(tab) },
+                            icon = { TabIcon(tab, state.badges) },
+                            label = { Text(stringResource(tab.label)) },
+                        )
+                    }
                 }
             }
         },
     ) { padding ->
         val pullState = rememberPullToRefreshState()
-        PullToRefreshBox(
-            isRefreshing = state.refreshing,
-            onRefresh = onRefresh,
-            state = pullState,
-            modifier = Modifier.padding(padding).fillMaxSize(),
-            indicator = {
-                PullToRefreshDefaults.LoadingIndicator(
-                    state = pullState,
-                    isRefreshing = state.refreshing,
-                    modifier = Modifier.align(Alignment.TopCenter),
-                )
-            },
-        ) {
-            // All tabs stay composed (only the selected one is drawn): switching is then just a
-            // page change instead of rebuilding a grid of avatars. Measured on a OnePlus 7: entering
-            // Spaces cost a ~45-90 ms frame when the grid was recomposed from scratch.
-            val pager = rememberPagerState(initialPage = state.tab.ordinal) { HomeTab.entries.size }
-            LaunchedEffect(state.tab) { pager.scrollToPage(state.tab.ordinal) }
-            HorizontalPager(
-                state = pager,
-                userScrollEnabled = false,
-                beyondViewportPageCount = HomeTab.entries.size - 1,
-                key = { HomeTab.entries[it] },
+        ScreenCard(Modifier.padding(padding).padding(horizontal = ScreenCards.Gap).fillMaxSize()) {
+            PullToRefreshBox(
+                isRefreshing = state.refreshing,
+                onRefresh = onRefresh,
+                state = pullState,
                 modifier = Modifier.fillMaxSize(),
-            ) { page ->
-                val tab = HomeTab.entries[page]
-                val query = search.of(tab)
-                Column {
-                    SearchField(query, stringResource(tab.searchHint))
-                    val searching = query.text.isNotBlank()
-                    when (tab) {
-                        HomeTab.Chats -> {
-                            RoomList(
-                                state.chats,
-                                now,
-                                emptyText(searching, R.string.empty_chats),
-                                SharedScopes.CHATS,
-                                onOpenRoom
-                            )
-                        }
+                indicator = {
+                    PullToRefreshDefaults.LoadingIndicator(
+                        state = pullState,
+                        isRefreshing = state.refreshing,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
+                },
+            ) {
+                // All tabs stay composed (only the selected one is drawn): switching is then just a
+                // page change instead of rebuilding a grid of avatars. Measured on a OnePlus 7: entering
+                // Spaces cost a ~45-90 ms frame when the grid was recomposed from scratch.
+                val pager = rememberPagerState(initialPage = state.tab.ordinal) { HomeTab.entries.size }
+                LaunchedEffect(state.tab) { pager.scrollToPage(state.tab.ordinal) }
+                HorizontalPager(
+                    state = pager,
+                    userScrollEnabled = false,
+                    beyondViewportPageCount = HomeTab.entries.size - 1,
+                    key = { HomeTab.entries[it] },
+                    modifier = Modifier.fillMaxSize(),
+                ) { page ->
+                    val tab = HomeTab.entries[page]
+                    val query = search.of(tab)
+                    Column {
+                        SearchField(query, stringResource(tab.searchHint))
+                        val searching = query.text.isNotBlank()
+                        when (tab) {
+                            HomeTab.Chats -> {
+                                RoomList(
+                                    state.chats,
+                                    now,
+                                    emptyText(searching, R.string.empty_chats),
+                                    SharedScopes.CHATS,
+                                    onOpenRoom
+                                )
+                            }
 
-                        HomeTab.Dms -> {
-                            RoomList(
-                                state.dms,
-                                now,
-                                emptyText(searching, R.string.empty_dms),
-                                SharedScopes.DMS,
-                                onOpenRoom
-                            )
-                        }
+                            HomeTab.Dms -> {
+                                RoomList(
+                                    state.dms,
+                                    now,
+                                    emptyText(searching, R.string.empty_dms),
+                                    SharedScopes.DMS,
+                                    onOpenRoom
+                                )
+                            }
 
-                        HomeTab.Spaces -> {
-                            SpaceGrid(state.spaces, emptyText(searching, R.string.empty_spaces), onOpenSpace)
+                            HomeTab.Spaces -> {
+                                SpaceGrid(state.spaces, emptyText(searching, R.string.empty_spaces), onOpenSpace)
+                            }
                         }
                     }
                 }
