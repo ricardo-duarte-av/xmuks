@@ -132,7 +132,7 @@ internal fun EmojiPickerSheet(
                     }
                     section.items.forEachIndexed { i, picked ->
                         item(key = section.id + ":" + i + ":" + picked.key) {
-                            Cell(picked, resolver, mode) { onPick(picked) }
+                            Cell(picked, resolver) { onPick(picked) }
                         }
                     }
                 }
@@ -159,7 +159,7 @@ private fun SectionIcon(
         icon.startsWith(
             "mxc://"
         ) -> {
-            AsyncImage(resolver.avatar(icon), section.title, Modifier.size(26.dp).clip(CircleShape))
+            AsyncImage(resolver.media(icon, false), section.title, Modifier.size(26.dp).clip(CircleShape))
         }
 
         else -> {
@@ -193,7 +193,6 @@ private fun SectionHeader(
 private fun Cell(
     picked: Picked,
     resolver: MediaResolver,
-    mode: PickerMode,
     onClick: () -> Unit,
 ) {
     Box(
@@ -210,14 +209,8 @@ private fun Cell(
             }
 
             is Picked.Custom -> {
-                val url =
-                    if (mode ==
-                        PickerMode.Sticker
-                    ) {
-                        resolver.media(picked.image.mxc, false)
-                    } else {
-                        resolver.avatar(picked.image.mxc)
-                    }
+                // The image itself, not gomuks' avatar thumbnail: thumbnails are always still frames.
+                val url = resolver.media(picked.image.mxc, false)
                 AsyncImage(url, picked.image.shortcode, Modifier.fillMaxWidth().aspectRatio(1f))
             }
         }

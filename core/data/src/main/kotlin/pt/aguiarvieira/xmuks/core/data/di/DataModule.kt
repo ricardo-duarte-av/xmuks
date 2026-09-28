@@ -6,6 +6,7 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import coil3.ImageLoader
 import coil3.annotation.ExperimentalCoilApi
 import coil3.disk.DiskCache
+import coil3.gif.AnimatedImageDecoder
 import coil3.network.ConnectivityChecker
 import coil3.network.DeDupeConcurrentRequestStrategy
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
@@ -178,6 +179,9 @@ object DataModule {
         ImageLoader
             .Builder(context)
             .components {
+                // Animated GIF / WebP / HEIF (custom emoji, stickers, images) play, not just their
+                // first frame. The platform decoder: our minSdk (31) always has it.
+                add(AnimatedImageDecoder.Factory())
                 add(
                     OkHttpNetworkFetcherFactory(
                         callFactory = { api },
