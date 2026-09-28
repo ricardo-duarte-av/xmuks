@@ -73,71 +73,49 @@ class RoomSession(
             }
         }
 
+    /** Everything this session sends: messages, deletions, receipts, typing. */
+    val writer = RoomWriter(roomId, exec, outbox)
+
     /**
-     * Sends [text] (markdown, `/me`, `/notice`…; gomuks renders it) through the durable outbox,
-     * as a reply to [replyTo] or as an edit of [editing] (our own message).
+     * Every version of [eventId], oldest first: the original, then each edit gomuks has
+     * (`get_related_events`, m.replace). Null when gomuks can't answer.
      */
-    suspend fun send(
-        text: String,
-        replyTo: ReplyTarget? = null,
-        editing: String? = null,
-    ) {
-        outbox.sendMessage(
-            roomId,
-            buildJsonObject {
-                put("room_id", JsonPrimitive(roomId))
-                put("text", JsonPrimitive(text))
-                when {
-                    editing != null -> {
-                        put(
-                            "relates_to",
-                            buildJsonObject {
-                                put("rel_type", JsonPrimitive("m.replace"))
-                                put("event_id", JsonPrimitive(editing))
-                            }
-                        )
-                    }
-
-                    replyTo != null -> {
-                        val inReplyTo = buildJsonObject { put("event_id", JsonPrimitive(replyTo.eventId)) }
-                        put("relates_to", buildJsonObject { put("m.in_reply_to", inReplyTo) })
-                        // Like gomuks web: a reply pings who wrote the original.
-                        put(
-                            "mentions",
-                            buildJsonObject {
-                                put("user_ids", JsonArray(listOf(JsonPrimitive(replyTo.sender))))
-                            }
-                        )
-                    }
-                }
-            },
-        )
-    }
-
-    /** Marks everything up to [eventId] read (a public read receipt). */
-    suspend fun markRead(eventId: String) {
+    suspend fun editHistory(eventId: String): List<MessageVersion>? {
+        val original = getEvent(eventId, unredact = false) ?: return null
         val params =
             buildJsonObject {
                 put("room_id", JsonPrimitive(roomId))
                 put("event_id", JsonPrimitive(eventId))
-                put("receipt_type", JsonPrimitive("m.read"))
+                put("relation_type", JsonPrimitive("m.replace"))
             }
-        exec.exec("mark_read", params, ExecMode.Write)
+        val result = exec.exec("get_related_events", params, ExecMode.Read) as? ExecResult.Ok ?: return null
+        // Only edits by the original's sender count (anyone can send an m.replace; it's ignored).
+        val edits = decodeEvents(result).orEmpty().filter { it.sender == original.sender }.sortedBy { it.timestamp }
+        return listOf(original.toVersion(edit = false)) + edits.map { it.toVersion(edit = true) }
     }
 
-    /** Typing for [timeoutMs] from now; 0 stops it. */
-    suspend fun setTyping(timeoutMs: Int) {
+    /**
+     * What a deleted message said: gomuks asks the homeserver for the unredacted event (allowed for
+     * room moderators). Null when it isn't available.
+     */
+    suspend fun deletedContent(eventId: String): MessageVersion? {
+        val event = getEvent(eventId, unredact = true) ?: return null
+        return event.toVersion(edit = false).takeIf { !it.body.isNullOrBlank() || it.html != null }
+    }
+
+    private suspend fun getEvent(
+        eventId: String,
+        unredact: Boolean,
+    ): Event? {
         val params =
             buildJsonObject {
                 put("room_id", JsonPrimitive(roomId))
-                put("timeout", JsonPrimitive(timeoutMs))
+                put("event_id", JsonPrimitive(eventId))
+                put("unredact", JsonPrimitive(unredact))
             }
-        exec.exec("set_typing", params, ExecMode.Write)
+        val result = exec.exec("get_event", params, ExecMode.Read) as? ExecResult.Ok ?: return null
+        return runCatching { GomuksJson.decodeFromJsonElement(Event.serializer(), result.data) }.getOrNull()
     }
-
-    suspend fun resend(localId: String) = outbox.resend(localId)
-
-    suspend fun discard(localId: String) = outbox.discard(localId)
 
     /** Items for any snapshot of this room (the live one, or an event context), with its profiles. */
     fun itemsOf(snapshots: Flow<TimelineSnapshot>): Flow<List<TimelineItem>> =
@@ -280,6 +258,23 @@ class RoomSession(
     }
 }
 
+/** One version of a message: when it was written and what it said. */
+data class MessageVersion(
+    val timestamp: Long,
+    val body: String?,
+    val html: String?,
+    val edit: Boolean,
+)
+
+private fun Event.toVersion(edit: Boolean): MessageVersion {
+    val content = effectiveContent
+    // An edit's text is its m.new_content; its body carries the "* " fallback.
+    val shown = if (edit) (content["m.new_content"] as? JsonObject) ?: content else content
+    val body = (shown["body"] as? JsonPrimitive)?.contentOrNull
+    val html = localContent?.sanitizedHtml?.takeIf { it.isNotBlank() && localContent?.wasPlaintext != true }
+    return MessageVersion(timestamp, body, html, edit)
+}
+
 /** What a reply points at: the original's event ID and who wrote it (they get mentioned). */
 data class ReplyTarget(
     val eventId: String,
@@ -298,6 +293,6 @@ class RoomSessions(
 
     /** Stops our typing notification in [roomId], outliving whoever asked. */
     fun stopTyping(roomId: String) {
-        scope.launch { open(roomId).setTyping(0) }
+        scope.launch { RoomWriter(roomId, exec, outbox).setTyping(0) }
     }
 }

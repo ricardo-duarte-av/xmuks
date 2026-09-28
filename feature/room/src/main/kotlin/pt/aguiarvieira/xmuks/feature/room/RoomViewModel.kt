@@ -3,7 +3,6 @@ package pt.aguiarvieira.xmuks.feature.room
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
@@ -24,6 +23,7 @@ import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
+import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
@@ -111,18 +111,18 @@ class RoomViewModel
             viewModelScope.launch {
                 when (mode) {
                     ComposeMode.New -> {
-                        session.send(text)
+                        session.writer.send(text)
                     }
 
                     is ComposeMode.Reply -> {
-                        session.send(
+                        session.writer.send(
                             text,
                             replyTo = ReplyTarget(mode.message.eventId, mode.message.sender)
                         )
                     }
 
                     is ComposeMode.Edit -> {
-                        session.send(text, editing = mode.message.eventId)
+                        session.writer.send(text, editing = mode.message.eventId)
                     }
                 }
             }
@@ -145,50 +145,52 @@ class RoomViewModel
             _mode.value = ComposeMode.New
         }
 
+        private val _history = MutableStateFlow<HistoryView?>(null)
+
+        /** A message's edit history, or a deleted message's content, being shown. */
+        val history: StateFlow<HistoryView?> = _history
+
+        fun showHistory(message: TimelineItem.Message) {
+            val deleted = message.content == MessageContent.Redacted
+            _history.value = HistoryView(deleted, versions = null)
+            viewModelScope.launch {
+                val versions =
+                    if (deleted) {
+                        listOfNotNull(session.deletedContent(message.eventId))
+                    } else {
+                        session.editHistory(message.eventId).orEmpty()
+                    }
+                if (_history.value != null) _history.value = HistoryView(deleted, versions)
+            }
+        }
+
+        fun delete(message: TimelineItem.Message) {
+            viewModelScope.launch { session.writer.redact(message.eventId) }
+        }
+
+        fun hideHistory() {
+            _history.value = null
+        }
+
         private var lastMarked: String? = null
 
         /** The newest message was on screen: mark the room read up to it (once per event). */
         fun markRead(eventId: String) {
             if (eventId == lastMarked) return
             lastMarked = eventId
-            viewModelScope.launch { session.markRead(eventId) }
+            viewModelScope.launch { session.writer.markRead(eventId) }
         }
 
-        private var typingSentAt = 0L
+        private val typingNotifier = TypingNotifier(viewModelScope, draft, session.writer::setTyping)
 
-        /**
-         * While the draft has text, tell the room we're typing (renewed every few seconds, like
-         * gomuks web); stop as soon as it's empty or sent.
-         */
-        private fun watchTyping() {
-            viewModelScope.launch {
-                snapshotFlow { draft.text.isNotEmpty() }.collect { hasText ->
-                    if (!hasText) stopTyping()
-                }
-            }
-            viewModelScope.launch {
-                snapshotFlow { draft.text.toString() }.collect { text ->
-                    val now = System.currentTimeMillis()
-                    if (text.isNotEmpty() && now - typingSentAt > TYPING_RENEW_MS) {
-                        typingSentAt = now
-                        session.setTyping(TYPING_TIMEOUT_MS)
-                    }
-                }
-            }
-        }
-
-        private fun stopTyping() {
-            if (typingSentAt == 0L) return
-            typingSentAt = 0L
-            viewModelScope.launch { session.setTyping(0) }
-        }
+        private fun stopTyping() = typingNotifier.stop()
 
         fun resend(localId: String) {
-            viewModelScope.launch { session.resend(localId) }
+            viewModelScope.launch { session.writer.resend(localId) }
         }
 
         fun discard(localId: String) {
-            viewModelScope.launch { session.discard(localId) }
+            viewModelScope.launch { session.writer.discard(localId) }
         }
 
         fun showContext(eventId: String) {
@@ -201,7 +203,6 @@ class RoomViewModel
 
         init {
             viewModelScope.launch { session.open() }
-            watchTyping()
         }
 
         fun loadOlder() {
@@ -210,12 +211,10 @@ class RoomViewModel
 
         override fun onCleared() {
             // Leaving the room: we're not typing any more. (The session's scope outlives this one.)
-            if (typingSentAt != 0L) sessions.stopTyping(roomId)
+            if (typingNotifier.active) sessions.stopTyping(roomId)
         }
 
         private companion object {
-            const val TYPING_TIMEOUT_MS = 10_000
-            const val TYPING_RENEW_MS = 5_000L
             val WHILE_VISIBLE = SharingStarted.WhileSubscribed(5_000)
         }
     }

@@ -76,6 +76,7 @@ fun RoomRoute(
     val loadedEvents by viewModel.loadedEvents.collectAsStateWithLifecycle()
     val context by viewModel.context.collectAsStateWithLifecycle()
     val mode by viewModel.mode.collectAsStateWithLifecycle()
+    val history by viewModel.history.collectAsStateWithLifecycle()
     val resolver = remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media) }
     val androidContext = LocalContext.current
     val uriHandler = remember(androidContext) { SafeUriHandler(androidContext) }
@@ -104,6 +105,10 @@ fun RoomRoute(
                     onEdit = viewModel::edit,
                     onCancelMode = viewModel::cancelMode,
                     onMarkRead = viewModel::markRead,
+                    history = history,
+                    onShowHistory = viewModel::showHistory,
+                    onHideHistory = viewModel::hideHistory,
+                    onDelete = viewModel::delete,
                 ),
             modifier = modifier,
         )
@@ -122,6 +127,10 @@ class ComposerActions(
     val onCancelMode: () -> Unit = {},
     /** The newest message is on screen: the room can be marked read up to it. */
     val onMarkRead: (eventId: String) -> Unit = {},
+    val history: HistoryView? = null,
+    val onShowHistory: (TimelineItem.Message) -> Unit = {},
+    val onHideHistory: () -> Unit = {},
+    val onDelete: (TimelineItem.Message) -> Unit = {},
 )
 
 /** The live timeline as the screen needs it; [items] newest first, null until the first page. */
@@ -158,6 +167,7 @@ fun RoomScreen(
     val scope = rememberCoroutineScope()
     var unsent by remember { mutableStateOf<TimelineItem.Message?>(null) }
     var menuFor by remember { mutableStateOf<TimelineItem.Message?>(null) }
+    var deleting by remember { mutableStateOf<TimelineItem.Message?>(null) }
     // After we send, the timeline follows to our message wherever it was scrolled.
     val followNext = remember { FollowRequest() }
     val liveList = rememberLazyListState()
@@ -202,9 +212,27 @@ fun RoomScreen(
                 composer.onEdit(message)
                 menuFor = null
             },
+            onHistory = {
+                composer.onShowHistory(message)
+                menuFor = null
+            },
+            onDelete = {
+                deleting = message
+                menuFor = null
+            },
             onDismiss = { menuFor = null },
         )
     }
+    deleting?.let { message ->
+        DeleteDialog(
+            onConfirm = {
+                composer.onDelete(message)
+                deleting = null
+            },
+            onDismiss = { deleting = null },
+        )
+    }
+    composer.history?.let { MessageHistorySheet(it, resolver, composer.onHideHistory) }
     unsent?.let { message ->
         val id = message.localId ?: return@let
         UnsentDialog(

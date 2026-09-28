@@ -53,4 +53,15 @@
     <string name="replying_to">Replying to %1$s</string>
     <string name="editing">Editing message</string>
     <string name="cancel_reply">Cancel</string>
+    <string name="view_edits">View edits</string>
+    <string name="view_deleted">View deleted content</string>
+    <string name="history_title">Message history</string>
+    <string name="deleted_title">Deleted message</string>
+    <string name="history_original">Original</string>
+    <string name="history_edit">Edited</string>
+    <string name="history_unavailable">Not available</string>
+    <string name="deleted_unavailable">The deleted content isn\'t available. Only room moderators can see it, and only while the server still has it.</string>
+    <string name="delete">Delete</string>
+    <string name="delete_title">Delete this message?</string>
+    <string name="delete_text">It will be removed for everyone in the room.</string>
 </resources>

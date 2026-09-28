@@ -30,6 +30,8 @@ internal fun MessageMenu(
     message: TimelineItem.Message,
     onReply: () -> Unit,
     onEdit: () -> Unit,
+    onHistory: () -> Unit,
+    onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     @Suppress("DEPRECATION") // The suspend Clipboard API needs ClipEntry plumbing for plain text.
@@ -40,11 +42,18 @@ internal fun MessageMenu(
         Column(Modifier.padding(bottom = 24.dp)) {
             if (sent) Item(R.drawable.ic_reply, R.string.reply) { onReply() }
             if (sent && message.editSource != null) Item(R.drawable.ic_edit, R.string.edit) { onEdit() }
+            if (sent && message.edited) Item(R.drawable.ic_history, R.string.view_edits) { onHistory() }
+            if (sent && message.content == MessageContent.Redacted) {
+                Item(R.drawable.ic_history, R.string.view_deleted) { onHistory() }
+            }
             if (text != null) {
                 Item(R.drawable.ic_copy, R.string.copy_text) {
                     clipboard.setText(AnnotatedString(text))
                     onDismiss()
                 }
+            }
+            if (sent && message.fromMe && message.content != MessageContent.Redacted) {
+                Item(R.drawable.ic_delete, R.string.delete) { onDelete() }
             }
         }
     }
