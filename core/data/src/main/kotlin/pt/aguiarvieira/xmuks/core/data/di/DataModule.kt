@@ -33,6 +33,9 @@ import pt.aguiarvieira.xmuks.core.data.connection.LiveTasks
 import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.media.MediaCacheStrategy
+import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
+import pt.aguiarvieira.xmuks.core.data.media.MediaSender
+import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
@@ -99,7 +102,20 @@ object DataModule {
         timelines: TimelineStore,
         outbox: Outbox,
         drafts: DraftStore,
-    ): Set<AccountScoped> = setOf(ingestor, stats, timelines, outbox, drafts)
+        uploads: MediaSender,
+    ): Set<AccountScoped> = setOf(ingestor, stats, timelines, outbox, drafts, uploads)
+
+    @Provides @Singleton
+    fun mediaPreparer(
+        @ApplicationContext context: Context,
+    ) = MediaPreparer(context, Dispatchers.IO)
+
+    @Provides @Singleton
+    fun mediaSender(
+        uploader: MediaUploader,
+        outbox: Outbox,
+        scope: CoroutineScope,
+    ) = MediaSender(uploader, outbox, scope)
 
     @Provides @Singleton
     fun draftStore(
@@ -170,13 +186,18 @@ object DataModule {
     ) = RoomListRepository(database, media)
 
     @Provides @Singleton
+    fun mediaUploader(
+        @Named("media") http: OkHttpClient,
+        store: CredentialStore,
+    ) = MediaUploader(http, { store.credentials()?.serverUrl }, Dispatchers.IO)
+
+    @Provides @Singleton
     fun profileRepository(
         exec: ExecClient,
-        @Named("api") api: OkHttpClient,
-        store: CredentialStore,
+        uploader: MediaUploader,
         database: XmuksDatabase,
         ingestor: SyncIngestor,
-    ) = ProfileRepository(exec, api, { store.credentials()?.serverUrl }, database, ingestor, Dispatchers.IO)
+    ) = ProfileRepository(exec, uploader, database, ingestor)
 
     @Provides @Singleton
     fun syncController(
@@ -237,8 +258,9 @@ object DataModule {
         exec: ExecClient,
         database: XmuksDatabase,
         outbox: Outbox,
+        uploads: MediaSender,
         scope: CoroutineScope,
-    ) = RoomSessions(timelines, exec, database, outbox, scope)
+    ) = RoomSessions(timelines, exec, database, outbox, uploads, scope)
 
     /** Unsent messages: their own database, which (unlike the cache) survives schema changes. */
     @Provides @Singleton

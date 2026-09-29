@@ -50,12 +50,13 @@ internal fun ComposerCard(
     modifier: Modifier = Modifier,
     commands: List<BotCommand> = emptyList(),
     onEmoji: () -> Unit = {},
-    onSticker: () -> Unit = {},
+    onAttach: () -> Unit = {},
     /** The message box got focus (a tap into it): the keyboard is coming back. */
     onFocus: () -> Unit = {},
     personas: Personas = Personas(),
     avatarUrl: (String?) -> String? = { null },
     onChoosePersona: (String?) -> Unit = {},
+    onOpenPersonas: () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
     ScreenCard(
@@ -63,15 +64,18 @@ internal fun ComposerCard(
     ) {
         Column {
             ModeBanner(mode, onCancelMode)
+            SendingAsBanner(personas, state, avatarUrl, onChoosePersona, onOpenPersonas)
             CommandHints(state, commands)
             Row(
                 modifier = Modifier.padding(start = 4.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
+                IconButton(onClick = onAttach) {
+                    Icon(painterResource(R.drawable.ic_attach), contentDescription = stringResource(R.string.attach))
+                }
                 IconButton(onClick = onEmoji) {
                     Icon(painterResource(R.drawable.ic_mood), contentDescription = stringResource(R.string.emoji))
                 }
-                PersonaButton(personas, state, avatarUrl, onChoosePersona)
                 val style = MaterialTheme.typography.bodyLarge.copy(color = colors.onSurface)
                 BasicTextField(
                     state = state,
@@ -97,14 +101,6 @@ internal fun ComposerCard(
                         }
                     },
                 )
-                if (state.text.isEmpty()) {
-                    IconButton(onClick = onSticker) {
-                        Icon(
-                            painterResource(R.drawable.ic_sticker),
-                            contentDescription = stringResource(R.string.sticker_button)
-                        )
-                    }
-                }
                 FilledIconButton(onClick = onSend, enabled = state.text.isNotBlank()) {
                     Icon(
                         painterResource(R.drawable.ic_send),

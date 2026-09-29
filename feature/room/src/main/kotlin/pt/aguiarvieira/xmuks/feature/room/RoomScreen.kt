@@ -64,6 +64,7 @@ import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.emoji.ImagePack
 import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
+import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
@@ -98,6 +99,7 @@ fun RoomRoute(
     val packs by viewModel.emoji.packs.collectAsStateWithLifecycle()
     val recent by viewModel.emoji.recent.collectAsStateWithLifecycle()
     val personas by viewModel.personas.personas.collectAsStateWithLifecycle()
+    val mediaDraft by viewModel.attach.draft.collectAsStateWithLifecycle()
     val resolver = remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media) }
     val androidContext = LocalContext.current
     val uriHandler = remember(androidContext, onOpenUser) { SafeUriHandler(androidContext, onOpenUser) }
@@ -144,6 +146,12 @@ fun RoomRoute(
                         ),
                     personas = personas,
                     onChoosePersona = viewModel.personas::choose,
+                    attachments = SUPPORTED_ATTACHMENTS,
+                    mediaDraft = mediaDraft,
+                    onPickMedia = viewModel.attach::pick,
+                    onChooseSize = viewModel.attach::choose,
+                    onSendMedia = viewModel.attach::send,
+                    onCancelMedia = viewModel.attach::cancel,
                 ),
             modifier = modifier,
         )
@@ -170,6 +178,15 @@ class ComposerActions(
     val emoji: EmojiState = EmojiState(),
     val personas: Personas = Personas(),
     val onChoosePersona: (String?) -> Unit = {},
+    /** What the + sheet offers, and picking one. */
+    val attachments: List<Attachment> = emptyList(),
+    val onAttach: (Attachment) -> Unit = {},
+    /** A picked attachment waiting on its preview screen. */
+    val mediaDraft: MediaDraft? = null,
+    val onPickMedia: (android.net.Uri) -> Unit = {},
+    val onChooseSize: (ImageSize) -> Unit = {},
+    val onSendMedia: (caption: String) -> Unit = {},
+    val onCancelMedia: () -> Unit = {},
 )
 
 /** What the emoji/sticker pickers show, and what picking does. */
@@ -275,11 +292,12 @@ fun RoomScreen(
                     composer.onCancelMode,
                     commands = composer.commands,
                     onEmoji = { openPanel(overlays, PickerMode.Emoji, keyboard, focus) },
-                    onSticker = { openPanel(overlays, PickerMode.Sticker, keyboard, focus) },
+                    onAttach = { overlays.attaching = true },
                     onFocus = { if (overlays.picker?.reactTo == null) overlays.picker = null },
                     personas = composer.personas,
                     avatarUrl = resolver.avatar,
                     onChoosePersona = composer.onChoosePersona,
+                    onOpenPersonas = { overlays.choosingPersona = true },
                 )
             }
         },

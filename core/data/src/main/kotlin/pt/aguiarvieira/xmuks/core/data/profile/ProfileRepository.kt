@@ -4,26 +4,20 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import okhttp3.HttpUrl
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
+import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
+import pt.aguiarvieira.xmuks.core.data.media.UploadSource
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.str
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
 import pt.aguiarvieira.xmuks.core.network.ExecResult
-import pt.aguiarvieira.xmuks.core.network.await
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 import java.io.IOException
-import kotlin.coroutines.CoroutineContext
 
 /**
  * Profiles: anyone's (`get_profile`), and our own to edit (`set_profile_field`, uploads for the
@@ -31,11 +25,9 @@ import kotlin.coroutines.CoroutineContext
  */
 class ProfileRepository(
     private val exec: ExecClient,
-    private val http: OkHttpClient,
-    private val server: () -> HttpUrl?,
+    private val uploader: MediaUploader,
     database: XmuksDatabase,
     private val ingestor: SyncIngestor,
-    private val io: CoroutineContext,
 ) {
     private val dao = database.roomListDao()
 
@@ -108,35 +100,10 @@ class ProfileRepository(
         filename: String,
         mimeType: String?,
         bytes: ByteArray,
-    ): Result<String> {
-        val base = server() ?: return Result.failure(IOException("Not logged in"))
-        val url =
-            base
-                .newBuilder()
-                .addPathSegment("_gomuks")
-                .addPathSegment("upload")
-                .addQueryParameter("filename", filename)
-                .addQueryParameter("encrypt", "false")
-                .build()
-        val request =
-            Request
-                .Builder()
-                .url(url)
-                .post(bytes.toRequestBody(mimeType?.toMediaTypeOrNull()))
-                .build()
-        return withContext(io) {
-            runCatching {
-                http.newCall(request).await().use { response ->
-                    val text = response.body.string()
-                    if (!response.isSuccessful) throw IOException(errorOf(text) ?: "HTTP ${response.code}")
-                    (GomuksJson.parseToJsonElement(text) as? JsonObject)?.str("url") ?: throw IOException("No URL")
-                }
-            }
-        }
-    }
-
-    private fun errorOf(body: String): String? =
-        runCatching { (GomuksJson.parseToJsonElement(body) as? JsonObject)?.str("error") }.getOrNull()
+    ): Result<String> =
+        uploader
+            .upload(UploadSource(bytes.size.toLong()) { bytes.inputStream() }, filename, mimeType, encrypt = false)
+            .mapCatching { it.str("url") ?: throw IOException("No URL") }
 
     private fun ExecResult.toResult(): Result<JsonElement> =
         when (this) {

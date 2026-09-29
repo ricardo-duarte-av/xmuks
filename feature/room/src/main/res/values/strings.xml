@@ -74,4 +74,20 @@
     <string name="react_with">React with “%1$s”</string>
     <string name="send_as">Sending as %1$s</string>
     <string name="send_as_me">Yourself</string>
+    <string name="send_as_title">Send as</string>
+    <string name="attach">Attach</string>
+    <string name="attach_gallery">Gallery</string>
+    <string name="attach_photo">Take photo</string>
+    <string name="attach_video">Record video</string>
+    <string name="attach_file">File</string>
+    <string name="attach_audio">Audio</string>
+    <string name="attach_voice">Voice message</string>
+    <string name="attach_location">Location</string>
+    <string name="caption_hint">Add a caption</string>
+    <string name="attach_failed">Couldn\'t prepare it: %1$s</string>
+    <string name="size_original">Original</string>
+    <string name="size_large">Large</string>
+    <string name="size_medium">Medium</string>
+    <string name="size_small">Small</string>
+    <string name="size_original_note">Sent as it is, metadata included (a photo\'s location, too). Smaller sizes leave it out.</string>
 </resources>

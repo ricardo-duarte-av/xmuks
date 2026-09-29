@@ -15,6 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
 import pt.aguiarvieira.xmuks.core.data.profile.PerMessageProfile
 import pt.aguiarvieira.xmuks.core.data.profile.PerMessageProfiles
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileFields
@@ -63,7 +64,8 @@ class LiveProfileTest {
         val plain = OkHttpClient.Builder().readTimeout(45, TimeUnit.SECONDS).build()
         val http = plain.newBuilder().addInterceptor(AuthInterceptor(session, AuthApi(plain))).build()
         val db = XmuksDatabase.build(ApplicationProvider.getApplicationContext(), name = null, driver = AndroidSQLiteDriver())
-        return ProfileRepository(ExecClient(http, { server }, Dispatchers.IO), http, { server }, db, SyncIngestor(db), Dispatchers.IO)
+        val uploader = MediaUploader(http, { server }, Dispatchers.IO)
+        return ProfileRepository(ExecClient(http, { server }, Dispatchers.IO), uploader, db, SyncIngestor(db))
     }
 
     @Test

@@ -10,6 +10,8 @@ import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TextKind
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
+import pt.aguiarvieira.xmuks.core.data.timeline.media
+import pt.aguiarvieira.xmuks.core.data.timeline.mediaMessage
 import pt.aguiarvieira.xmuks.core.database.outbox.OutboxEntity
 import pt.aguiarvieira.xmuks.core.database.outbox.OutboxState
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
@@ -44,12 +46,13 @@ fun List<OutboxEntity>.toTimelineItems(
             fromMe = true,
             timestamp = entry.createdAt,
             content =
-                MessageContent.Text(
-                    body = if (emote) text.removePrefix(EMOTE_PREFIX) else text,
-                    html = null,
-                    kind = if (emote) TextKind.Emote else TextKind.Text,
-                    bigEmoji = false,
-                ),
+                mediaOf(params["base_content"] as? JsonObject, params.string("text").orEmpty())
+                    ?: MessageContent.Text(
+                        body = if (emote) text.removePrefix(EMOTE_PREFIX) else text,
+                        html = null,
+                        kind = if (emote) TextKind.Emote else TextKind.Text,
+                        bigEmoji = false,
+                    ),
             reply = replyTo?.let { ReplyPreview(it, sender = null, text = null) },
             reactions = emptyList(),
             edited = false,
@@ -66,6 +69,20 @@ fun List<OutboxEntity>.toTimelineItems(
             localId = entry.localId,
         )
     }
+
+/** An uploaded file or a sticker, as it will show; [caption] becomes its body, as gomuks does. */
+private fun mediaOf(
+    base: JsonObject?,
+    caption: String,
+): MessageContent? {
+    val msgtype = base?.string("msgtype") ?: return null
+    val content = if (caption.isEmpty()) base else JsonObject(base + ("body" to JsonPrimitive(caption)))
+    return when (msgtype) {
+        "m.sticker" -> media(content)?.let { MessageContent.Sticker(it, content.string("body").orEmpty()) }
+        "m.image", "m.video", "m.audio", "m.file" -> mediaMessage(msgtype, content, content.string("body").orEmpty())
+        else -> null
+    }
+}
 
 private fun JsonObject.string(key: String) = (get(key) as? JsonPrimitive)?.contentOrNull
 

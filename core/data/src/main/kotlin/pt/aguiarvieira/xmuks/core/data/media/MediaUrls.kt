@@ -24,6 +24,8 @@ class MediaUrls(
         mxc: String?,
         extra: HttpUrl.Builder.() -> Unit,
     ): String? {
+        // Our own files (a thumbnail shown while its upload runs) load as they are.
+        if (mxc != null && mxc.startsWith("file:")) return mxc
         val (host, id) = parseMxc(mxc) ?: return null
         val base = server() ?: return null
         return base

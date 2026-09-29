@@ -21,7 +21,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.commands.CommandParser
+import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
+import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.media.UPLOAD_PREFIX
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
@@ -40,6 +43,8 @@ class RoomViewModel
         private val sessions: RoomSessions,
         drafts: DraftStore,
         profiles: ProfileRepository,
+        preparer: MediaPreparer,
+        private val uploads: MediaSender,
         val media: MediaUrls,
     ) : ViewModel() {
         @AssistedFactory
@@ -102,6 +107,25 @@ class RoomViewModel
 
         /** Our per-message profiles here, and which one messages go out as. */
         val personas = PersonaActions(viewModelScope, roomId, profiles, rooms.ownProfile(), WHILE_VISIBLE)
+
+        /** Attachments: the preview step, then the upload. */
+        val attach =
+            MediaActions(
+                viewModelScope,
+                roomId,
+                preparer,
+                uploads,
+                encrypted = { room.value?.encrypted == true },
+                replyTo = {
+                    (modes.mode.value as? ComposeMode.Reply)?.message?.let {
+                        ReplyTarget(
+                            it.eventId,
+                            it.sender
+                        )
+                    }
+                },
+                onSent = { if (modes.mode.value is ComposeMode.Reply) modes.cancel() },
+            )
 
         /** Reacting, stickers, recent emoji and pack subscriptions. */
         val emoji = EmojiActions(viewModelScope, session, WHILE_VISIBLE)
@@ -185,10 +209,12 @@ class RoomViewModel
         private fun stopTyping() = typingNotifier.stop()
 
         fun resend(localId: String) {
+            if (localId.startsWith(UPLOAD_PREFIX)) return uploads.retry(localId.removePrefix(UPLOAD_PREFIX))
             viewModelScope.launch { session.writer.resend(localId) }
         }
 
         fun discard(localId: String) {
+            if (localId.startsWith(UPLOAD_PREFIX)) return uploads.discard(localId.removePrefix(UPLOAD_PREFIX))
             viewModelScope.launch { session.writer.discard(localId) }
         }
 

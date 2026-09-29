@@ -24,6 +24,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.emoji.RoomEmoji
+import pt.aguiarvieira.xmuks.core.data.media.MediaSender
+import pt.aguiarvieira.xmuks.core.data.media.toTimelineItem
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.outbox.toTimelineItems
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
@@ -45,6 +47,7 @@ class RoomSession(
     private val exec: ExecClient,
     private val database: XmuksDatabase,
     private val outbox: Outbox,
+    private val uploads: MediaSender,
     private val scope: CoroutineScope,
 ) {
     private val dao = database.roomListDao()
@@ -64,14 +67,19 @@ class RoomSession(
      * changes. Messages still in our outbox come last: they're newer than anything gomuks has.
      */
     val items: Flow<List<TimelineItem>> =
-        combine(itemsOf(snapshot), outbox.observe(roomId), dao.meta()) { live, unsent, meta ->
+        combine(
+            itemsOf(snapshot),
+            outbox.observe(roomId),
+            uploads.observe(roomId),
+            dao.meta()
+        ) { live, unsent, uploading, meta ->
             val me = meta?.userId
-            if (unsent.isEmpty() ||
-                me == null
-            ) {
+            if ((unsent.isEmpty() && uploading.isEmpty()) || me == null) {
                 live
             } else {
-                live + unsent.toTimelineItems(me, meta.displayName ?: localpart(me))
+                val name = meta.displayName ?: localpart(me)
+                // Uploads first: they started before the messages their outbox entries became.
+                live + uploading.map { it.toTimelineItem(me, name) } + unsent.toTimelineItems(me, name)
             }
         }
 
@@ -306,9 +314,10 @@ class RoomSessions(
     private val exec: ExecClient,
     private val database: XmuksDatabase,
     private val outbox: Outbox,
+    private val uploads: MediaSender,
     private val scope: CoroutineScope,
 ) {
-    fun open(roomId: String) = RoomSession(roomId, store, exec, database, outbox, scope)
+    fun open(roomId: String) = RoomSession(roomId, store, exec, database, outbox, uploads, scope)
 
     /** Stops our typing notification in [roomId], outliving whoever asked. */
     fun stopTyping(roomId: String) {

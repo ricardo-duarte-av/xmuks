@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Where the system camera writes photos and videos for us to send. -->
+<paths>
+    <cache-path name="camera" path="camera/" />
+</paths>

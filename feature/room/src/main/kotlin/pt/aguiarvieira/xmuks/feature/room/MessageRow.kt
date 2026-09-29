@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -240,7 +241,15 @@ private fun Content(
         }
 
         is MessageContent.Image -> {
-            MediaImage(c.media, resolver, c.caption, color, message.eventId, ViewerMedia.Kind.Image) {
+            MediaImage(
+                c.media,
+                resolver,
+                c.caption,
+                color,
+                message.eventId,
+                ViewerMedia.Kind.Image,
+                message.uploadProgress
+            ) {
                 onOpen(c.media, ViewerMedia.Kind.Image)
             }
         }
@@ -254,7 +263,15 @@ private fun Content(
         }
 
         is MessageContent.Video -> {
-            MediaImage(c.media, resolver, c.caption, color, message.eventId, ViewerMedia.Kind.Video) {
+            MediaImage(
+                c.media,
+                resolver,
+                c.caption,
+                color,
+                message.eventId,
+                ViewerMedia.Kind.Video,
+                message.uploadProgress
+            ) {
                 onOpen(c.media, ViewerMedia.Kind.Video)
             }
         }
@@ -270,7 +287,10 @@ private fun Content(
         }
 
         is MessageContent.File -> {
-            FileCard(R.drawable.ic_file, c.name, c.media.size, color)
+            Box(contentAlignment = Alignment.Center) {
+                FileCard(R.drawable.ic_file, c.name, c.media.size, color)
+                message.uploadProgress?.let { UploadProgress(it) }
+            }
         }
 
         is MessageContent.Location -> {
@@ -327,6 +347,8 @@ private fun MediaImage(
     color: Color,
     eventId: String,
     kind: ViewerMedia.Kind,
+    /** Still uploading: how far along. */
+    uploadProgress: Float?,
     onClick: () -> Unit,
 ) {
     val ratio = media.aspectRatio() ?: DEFAULT_RATIO
@@ -341,7 +363,7 @@ private fun MediaImage(
                     .heightIn(max = MEDIA_MAX_HEIGHT)
                     .aspectRatio(ratio.coerceIn(MIN_RATIO, MAX_RATIO))
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable(onClick = onClick),
+                    .clickable(enabled = uploadProgress == null, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
             placeholder?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
@@ -353,7 +375,9 @@ private fun MediaImage(
                     modifier = Modifier.fillMaxSize()
                 )
             }
-            if (kind == ViewerMedia.Kind.Video) {
+            if (uploadProgress != null) {
+                UploadProgress(uploadProgress)
+            } else if (kind == ViewerMedia.Kind.Video) {
                 Surface(shape = CircleShape, color = Color.Black.copy(alpha = SCRIM)) {
                     Icon(
                         painterResource(R.drawable.ic_play),
@@ -365,6 +389,19 @@ private fun MediaImage(
             }
         }
         caption?.let { PlainContent(it, color, MaterialTheme.typography.bodyLarge) }
+    }
+}
+
+/** A ring filling up as the upload goes, on a dark disc so it reads over any image. */
+@Composable
+private fun UploadProgress(progress: Float) {
+    Surface(shape = CircleShape, color = Color.Black.copy(alpha = SCRIM)) {
+        CircularProgressIndicator(
+            progress = { progress },
+            color = Color.White,
+            trackColor = Color.White.copy(alpha = 0.3f),
+            modifier = Modifier.padding(10.dp).size(32.dp),
+        )
     }
 }
 

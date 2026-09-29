@@ -28,36 +28,7 @@ class RoomWriter(
         replyTo: ReplyTarget? = null,
         editing: String? = null,
     ) {
-        outbox.sendMessage(
-            roomId,
-            buildJsonObject {
-                put("room_id", JsonPrimitive(roomId))
-                put("text", JsonPrimitive(text))
-                when {
-                    editing != null -> {
-                        put(
-                            "relates_to",
-                            buildJsonObject {
-                                put("rel_type", JsonPrimitive("m.replace"))
-                                put("event_id", JsonPrimitive(editing))
-                            }
-                        )
-                    }
-
-                    replyTo != null -> {
-                        val inReplyTo = buildJsonObject { put("event_id", JsonPrimitive(replyTo.eventId)) }
-                        put("relates_to", buildJsonObject { put("m.in_reply_to", inReplyTo) })
-                        // Like gomuks web: a reply pings who wrote the original.
-                        put(
-                            "mentions",
-                            buildJsonObject {
-                                put("user_ids", JsonArray(listOf(JsonPrimitive(replyTo.sender))))
-                            }
-                        )
-                    }
-                }
-            },
-        )
+        outbox.sendMessage(roomId, messageParams(roomId, text, replyTo, editing))
     }
 
     suspend fun resend(localId: String) = outbox.resend(localId)
@@ -206,3 +177,37 @@ class RoomWriter(
 }
 
 private const val COMMAND_KEY = "org.matrix.msc4391.command"
+
+/**
+ * `send_message`'s parameters: [text] (markdown, or a caption when there's [baseContent]), an edit
+ * of [editing], or a reply to [replyTo] — which, like gomuks web, pings who wrote the original.
+ */
+internal fun messageParams(
+    roomId: String,
+    text: String,
+    replyTo: ReplyTarget? = null,
+    editing: String? = null,
+    baseContent: JsonObject? = null,
+): JsonObject =
+    buildJsonObject {
+        put("room_id", JsonPrimitive(roomId))
+        put("text", JsonPrimitive(text))
+        baseContent?.let { put("base_content", it) }
+        when {
+            editing != null -> {
+                put(
+                    "relates_to",
+                    buildJsonObject {
+                        put("rel_type", JsonPrimitive("m.replace"))
+                        put("event_id", JsonPrimitive(editing))
+                    },
+                )
+            }
+
+            replyTo != null -> {
+                val inReplyTo = buildJsonObject { put("event_id", JsonPrimitive(replyTo.eventId)) }
+                put("relates_to", buildJsonObject { put("m.in_reply_to", inReplyTo) })
+                put("mentions", buildJsonObject { put("user_ids", JsonArray(listOf(JsonPrimitive(replyTo.sender)))) })
+            }
+        }
+    }

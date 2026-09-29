@@ -14,15 +14,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusManager
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
@@ -35,6 +41,12 @@ internal class OverlayState {
     var menuFor by mutableStateOf<TimelineItem.Message?>(null)
     var deleting by mutableStateOf<TimelineItem.Message?>(null)
     var picker by mutableStateOf<PickerRequest?>(null)
+
+    /** The + sheet is open. */
+    var attaching by mutableStateOf(false)
+
+    /** Choosing the per-message profile to send as. */
+    var choosingPersona by mutableStateOf(false)
 }
 
 /** An open picker: for a reaction to [reactTo], or for the composer. */
@@ -121,6 +133,7 @@ internal fun RoomOverlays(
         )
     }
     composer.history?.let { MessageHistorySheet(it, resolver, composer.onHideHistory) }
+    ComposerOverlays(state, composer, resolver)
     state.unsent?.let { message ->
         val id = message.localId ?: return@let
         UnsentDialog(
@@ -167,6 +180,7 @@ internal fun ComposerPanel(
     composer: ComposerActions,
     resolver: MediaResolver,
     keyboardHeight: Dp,
+    onModeChange: (PickerMode) -> Unit,
     onClose: () -> Unit,
 ) {
     BackHandler(onBack = onClose)
@@ -178,6 +192,42 @@ internal fun ComposerPanel(
             // The card's bottom margin counts against the keyboard's height, so the box doesn't move.
             .height(if (searching) SEARCHING_HEIGHT else (keyboardHeight - ScreenCards.Gap).coerceAtLeast(MIN_PANEL)),
     ) {
+        Column {
+            PrimaryTabRow(selectedTabIndex = request.mode.ordinal, containerColor = Color.Transparent) {
+                PickerMode.entries.forEach { mode ->
+                    Tab(
+                        selected = request.mode == mode,
+                        onClick = { onModeChange(mode) },
+                        text = {
+                            Text(
+                                stringResource(
+                                    if (mode ==
+                                        PickerMode.Emoji
+                                    ) {
+                                        R.string.emoji
+                                    } else {
+                                        R.string.sticker_button
+                                    }
+                                )
+                            )
+                        },
+                    )
+                }
+            }
+            PickerContent(request, composer, resolver, onClose)
+        }
+    }
+}
+
+@Composable
+private fun PickerContent(
+    request: PickerRequest,
+    composer: ComposerActions,
+    resolver: MediaResolver,
+    onClose: () -> Unit,
+) {
+    // Keyed by mode: switching tabs starts a fresh search and scroll.
+    key(request.mode) {
         EmojiPicker(
             mode = request.mode,
             packs = composer.emoji.packs,
@@ -194,7 +244,7 @@ internal fun ComposerPanel(
                 }
             },
             onSubscribe = composer.emoji.onSubscribe,
-            modifier = Modifier.padding(top = 12.dp),
+            modifier = Modifier.padding(top = 8.dp),
         )
     }
 }
@@ -225,7 +275,13 @@ internal fun ComposerArea(
     Column(Modifier.windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))) {
         box()
         overlays.picker?.takeIf { it.reactTo == null }?.let { request ->
-            ComposerPanel(request, composer, resolver, keyboardHeight) { overlays.picker = null }
+            ComposerPanel(
+                request,
+                composer,
+                resolver,
+                keyboardHeight,
+                onModeChange = { overlays.picker = PickerRequest(it) },
+            ) { overlays.picker = null }
         }
     }
 }
@@ -240,4 +296,28 @@ internal fun openPanel(
     keyboard?.hide()
     focus.clearFocus()
     overlays.picker = PickerRequest(mode)
+}
+
+/** The composer's own: the + sheet, an attachment's preview, and choosing who to send as. */
+@Composable
+private fun ComposerOverlays(
+    state: OverlayState,
+    composer: ComposerActions,
+    resolver: MediaResolver,
+) {
+    val launch = rememberAttachLauncher(composer.onPickMedia)
+    if (state.attaching) {
+        AttachSheet(
+            available = composer.attachments,
+            onPick = launch,
+            onSendAs = if (composer.personas.choices.isEmpty()) null else ({ state.choosingPersona = true }),
+            onDismiss = { state.attaching = false },
+        )
+    }
+    composer.mediaDraft?.let { draft ->
+        MediaSendScreen(draft, composer.onChooseSize, composer.onSendMedia, composer.onCancelMedia)
+    }
+    if (state.choosingPersona) {
+        PersonaChooser(composer.personas, resolver.avatar, composer.onChoosePersona) { state.choosingPersona = false }
+    }
 }

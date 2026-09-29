@@ -40,6 +40,8 @@ sealed interface TimelineItem {
          * of what was typed (markdown, `/me` prefix included), else the plain body.
          */
         val editSource: String? = null,
+        /** Media still uploading: how far along (0..1). */
+        val uploadProgress: Float? = null,
     ) : TimelineItem {
         /** The label as plain text ("profile via sender", or the sender's name). */
         val senderName: String get() = label.text
