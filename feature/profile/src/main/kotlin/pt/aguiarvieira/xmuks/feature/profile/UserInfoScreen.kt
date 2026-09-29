@@ -101,6 +101,8 @@ fun UserInfoRoute(
     onOpenMedia: (ViewerMedia) -> Unit,
     modifier: Modifier = Modifier,
     onOpenLink: (uri: String) -> Unit = {},
+    onOpenRoom: (roomId: String) -> Unit = {},
+    onOpenIgnoredUsers: () -> Unit = {},
     viewModel: UserInfoViewModel =
         hiltViewModel<UserInfoViewModel, UserInfoViewModel.Factory>(key = userId) { it.create(userId) },
 ) {
@@ -110,6 +112,11 @@ fun UserInfoRoute(
     val connection by viewModel.connection.collectAsStateWithLifecycle()
     val busy by viewModel.tasks.busy.collectAsStateWithLifecycle()
     val error by viewModel.tasks.error.collectAsStateWithLifecycle()
+    val ignored by viewModel.ignored.collectAsStateWithLifecycle()
+    val mutualRooms by viewModel.mutualRooms.collectAsStateWithLifecycle()
+    val directRoom by viewModel.directRoom.collectAsStateWithLifecycle()
+    val openRoom by rememberUpdatedState(onOpenRoom)
+    LaunchedEffect(viewModel) { viewModel.openRoom.collect { openRoom(it) } }
     val media = remember(viewModel) { ProfileMedia(viewModel.media::avatar, viewModel.media::full) }
     val edits =
         remember(viewModel) {
@@ -139,7 +146,20 @@ fun UserInfoRoute(
             onBack = onBack,
             onOpenMedia = onOpenMedia,
             modifier = modifier,
-            own = if (isMe) OwnProfile(edits, personas, viewModel.account, connection) else null,
+            own = if (isMe) OwnProfile(edits, personas, viewModel.account, connection, onOpenIgnoredUsers) else null,
+            other =
+                if (isMe) {
+                    null
+                } else {
+                    OtherProfile(
+                        hasDirectRoom = directRoom != null,
+                        ignored = ignored,
+                        mutualRooms = mutualRooms,
+                        onMessage = viewModel::message,
+                        onSetIgnored = viewModel::setIgnored,
+                        onOpenRoom = onOpenRoom,
+                    )
+                },
         )
     }
 }
@@ -151,6 +171,7 @@ class OwnProfile(
     val personas: PerMessageProfiles,
     val account: String,
     val connection: ConnectionState,
+    val onOpenIgnoredUsers: () -> Unit = {},
 )
 
 /**
@@ -171,6 +192,7 @@ fun UserInfoScreen(
     onOpenMedia: (ViewerMedia) -> Unit,
     modifier: Modifier = Modifier,
     own: OwnProfile? = null,
+    other: OtherProfile? = null,
 ) {
     val snackbar = remember { SnackbarHostState() }
     val failed = error?.let { stringResource(R.string.action_failed, it) }
@@ -225,7 +247,7 @@ fun UserInfoScreen(
             }
 
             is ProfileState.Loaded -> {
-                ProfileCards(state.profile, media, own, onOpenMedia, padding)
+                ProfileCards(state.profile, media, own, other, onOpenMedia, padding)
             }
         }
     }
@@ -236,6 +258,7 @@ private fun ProfileCards(
     profile: UserProfile,
     media: ProfileMedia,
     own: OwnProfile?,
+    other: OtherProfile?,
     onOpenMedia: (ViewerMedia) -> Unit,
     padding: PaddingValues,
 ) {
@@ -246,10 +269,15 @@ private fun ProfileCards(
         contentPadding = PaddingValues(bottom = ScreenCards.Gap),
     ) {
         item(key = "hero") { HeroCard(profile, media, own?.edits, onOpenMedia, cardModifier) }
+        if (other != null) item(key = "contact") { ContactCard(other, cardModifier) }
         item(key = "details") { DetailsCard(profile, own?.edits, cardModifier) }
         item(key = "about") { AboutCard(profile, media, own?.edits, onOpenMedia, cardModifier) }
+        other?.mutualRooms?.let { rooms ->
+            item(key = "mutual") { MutualRoomsCard(rooms, other.onOpenRoom, cardModifier) }
+        }
         if (own != null) {
             item(key = "personas") { PersonasCard(own.personas, media, own.edits.personas, cardModifier) }
+            item(key = "ignored") { IgnoredUsersCard(own.onOpenIgnoredUsers, cardModifier) }
             item(key = "account") { AccountCard(own.account, own.connection, own.edits.logout, cardModifier) }
         }
     }

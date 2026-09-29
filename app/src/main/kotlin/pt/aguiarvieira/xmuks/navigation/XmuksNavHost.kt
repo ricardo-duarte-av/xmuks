@@ -36,6 +36,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.LocalAnimatedVisibility
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalSharedTransitionScope
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.feature.media.MediaViewerRoute
+import pt.aguiarvieira.xmuks.feature.profile.IgnoredUsersRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomInfoRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomMembersRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomPreviewRoute
@@ -64,6 +65,9 @@ import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
 @Serializable data class UserKey(
     val userId: String,
 ) : NavKey
+
+/** Everyone we ignore. */
+@Serializable data object IgnoredUsersKey : NavKey
 
 /** A room's details, members and settings. */
 @Serializable data class RoomInfoKey(
@@ -204,6 +208,14 @@ fun XmuksNavHost(
                                 )
                             }
                         }
+                        entry<IgnoredUsersKey> {
+                            Destination {
+                                IgnoredUsersRoute(
+                                    onBack = { backStack.removeLastOrNull() },
+                                    onOpenUser = { backStack.add(UserKey(it)) },
+                                )
+                            }
+                        }
                         entry<RoomMembersKey> { key ->
                             Destination {
                                 RoomMembersRoute(
@@ -218,6 +230,8 @@ fun XmuksNavHost(
                                 UserInfoRoute(
                                     userId = key.userId,
                                     onOpenLink = openLink,
+                                    onOpenRoom = { backStack.openRoom(it, LINK_SCOPE) },
+                                    onOpenIgnoredUsers = { backStack.add(IgnoredUsersKey) },
                                     onBack = { backStack.removeLastOrNull() },
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
                                 )

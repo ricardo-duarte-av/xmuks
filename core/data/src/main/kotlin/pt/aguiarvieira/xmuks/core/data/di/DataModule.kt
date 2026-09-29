@@ -39,6 +39,7 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
+import pt.aguiarvieira.xmuks.core.data.profile.Contacts
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
 import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
@@ -227,6 +228,13 @@ object DataModule {
         database: XmuksDatabase,
         exec: ExecClient,
     ) = RoomPushRules(database, exec)
+
+    @Provides @Singleton
+    fun contacts(
+        exec: ExecClient,
+        database: XmuksDatabase,
+        rooms: RoomListRepository,
+    ) = Contacts(exec, database, rooms)
 
     @Provides @Singleton
     fun roomInfoRepository(

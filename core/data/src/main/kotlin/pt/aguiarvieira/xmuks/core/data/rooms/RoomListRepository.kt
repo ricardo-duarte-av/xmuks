@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.transform
@@ -53,6 +54,17 @@ class RoomListRepository(
 
     fun room(roomId: String): Flow<RoomSummary?> =
         combine(dao.roomSummary(roomId), me) { row, me -> row?.toSummary(me) }
+
+    /** Those of [roomIds] we're in (once, not live), most recently active first. */
+    suspend fun rooms(roomIds: List<String>): List<RoomSummary> {
+        val ownId = me.first()
+        // SQLite caps a query's parameters: a long list goes in slices.
+        return roomIds
+            .chunked(MAX_IDS_PER_QUERY)
+            .flatMap { dao.roomSummaries(it) }
+            .sortedByDescending { it.sortingTs }
+            .map { it.toSummary(ownId) }
+    }
 
     fun topLevelSpaces(): Flow<List<SpaceSummary>> =
         dao.topLevelSpaceSummaries().map { rows ->
@@ -113,6 +125,7 @@ class RoomListRepository(
 }
 
 private const val UI_THROTTLE_MS = 250L
+private const val MAX_IDS_PER_QUERY = 500
 
 /** Emits the first value at once, then at most one (the latest) per [periodMs]. */
 internal fun <T> Flow<T>.throttleLatest(periodMs: Long): Flow<T> =

@@ -9,11 +9,16 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
@@ -23,10 +28,12 @@ import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.profile.Contacts
 import pt.aguiarvieira.xmuks.core.data.profile.PerMessageProfiles
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileFields
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.profile.UserProfile
+import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 
 /** The profile being shown: loading, loaded, or why it couldn't be. */
@@ -48,6 +55,7 @@ class UserInfoViewModel
     constructor(
         @Assisted val userId: String,
         private val profiles: ProfileRepository,
+        private val contacts: Contacts,
         val media: MediaUrls,
         private val session: SessionRepository,
         sync: SyncController,
@@ -76,9 +84,46 @@ class UserInfoViewModel
         private val uploader = ImageUploader(context, profiles)
         val personas = PerMessageProfileActions(profiles, uploader, tasks)
 
+        /** Someone else's: whether we ignore them, and the rooms we share (null: not known). */
+        val ignored: StateFlow<Boolean> =
+            contacts.ignored.map { userId in it }.stateIn(viewModelScope, WHILE_VISIBLE, false)
+
+        private val _mutualRooms = MutableStateFlow<List<RoomSummary>?>(null)
+        val mutualRooms: StateFlow<List<RoomSummary>?> = _mutualRooms.asStateFlow()
+
+        /** Our DM with them, when we're in one: "Message" goes there instead of starting another. */
+        private val _directRoom = MutableStateFlow<String?>(null)
+        val directRoom: StateFlow<String?> = _directRoom.asStateFlow()
+
+        /** A room to open: the DM, once found or started. */
+        private val _openRoom = Channel<String>(Channel.BUFFERED)
+        val openRoom: Flow<String> = _openRoom.receiveAsFlow()
+
         init {
             refresh()
+            viewModelScope.launch {
+                if (profiles.me.filterNotNull().first() == userId) return@launch
+                _directRoom.value = contacts.directRoom(userId)
+                // Unsupported by some servers (MSC2666): the section just doesn't show.
+                _mutualRooms.value = contacts.mutualRooms(userId).getOrNull()
+            }
         }
+
+        /** Opens our DM with them, starting one first if there's none. */
+        fun message() {
+            _directRoom.value?.let {
+                _openRoom.trySend(it)
+                return
+            }
+            tasks.run({
+                contacts.startDirectChat(userId).onSuccess {
+                    _directRoom.value = it
+                    _openRoom.trySend(it)
+                }
+            })
+        }
+
+        fun setIgnored(ignore: Boolean) = tasks.run({ contacts.setIgnored(userId, ignore) })
 
         fun refresh() {
             viewModelScope.launch { load() }

@@ -209,6 +209,21 @@ interface RoomListDao {
     )
     fun roomSummary(roomId: String): Flow<RoomSummaryRow?>
 
+    /** Those of [roomIds] we're in, most recently active first. */
+    @Query(
+        """
+        SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.sortingTs,
+            r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
+            e.previewText AS previewText, e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
+            (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
+             WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName
+        FROM rooms r LEFT JOIN events e ON e.rowId = r.previewEventRowId
+        WHERE r.roomId IN (:roomIds)
+        ORDER BY r.sortingTs DESC
+        """
+    )
+    suspend fun roomSummaries(roomIds: List<String>): List<RoomSummaryRow>
+
     @Query(
         """
         SELECT
@@ -245,6 +260,14 @@ interface RoomListDao {
         """,
     )
     suspend fun memberEvents(roomId: String): List<MemberRow>
+
+    /** The most recently active of [roomIds] that we're in. */
+    @Query("SELECT roomId FROM rooms WHERE roomId IN (:roomIds) ORDER BY sortingTs DESC LIMIT 1")
+    suspend fun latestJoined(roomIds: List<String>): String?
+
+    /** A room gomuks considers our DM with [userId], most recent first. */
+    @Query("SELECT roomId FROM rooms WHERE dmUserId = :userId ORDER BY sortingTs DESC LIMIT 1")
+    suspend fun dmWith(userId: String): String?
 
     @Query("SELECT content FROM account_data WHERE roomId = :roomId AND type = 'm.fully_read'")
     fun fullyRead(roomId: String): Flow<String?>

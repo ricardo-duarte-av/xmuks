@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import pt.aguiarvieira.xmuks.core.data.connection.toResult
 import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
 import pt.aguiarvieira.xmuks.core.data.media.UploadSource
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
@@ -15,7 +16,6 @@ import pt.aguiarvieira.xmuks.core.data.timeline.str
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
-import pt.aguiarvieira.xmuks.core.network.ExecResult
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 import java.io.IOException
 
@@ -104,11 +104,4 @@ class ProfileRepository(
         uploader
             .upload(UploadSource(bytes.size.toLong()) { bytes.inputStream() }, filename, mimeType, encrypt = false)
             .mapCatching { it.str("url") ?: throw IOException("No URL") }
-
-    private fun ExecResult.toResult(): Result<JsonElement> =
-        when (this) {
-            is ExecResult.Ok -> Result.success(data)
-            is ExecResult.CommandError -> Result.failure(IOException(message))
-            is ExecResult.NetworkError -> Result.failure(cause)
-        }
 }

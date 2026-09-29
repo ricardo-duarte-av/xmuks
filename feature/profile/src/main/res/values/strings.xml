@@ -147,4 +147,14 @@
     <string name="join">Join</string>
     <string name="accept_invite">Accept invite</string>
     <string name="ask_to_join">Ask to join</string>
+    <string name="start_dm">Start DM</string>
+    <string name="go_to_dm">Go to DM</string>
+    <string name="ignore">Ignore</string>
+    <string name="unignore">Unignore</string>
+    <string name="ignore_confirm">You won\'t see their messages or invites any more. You can stop ignoring them from your own profile.</string>
+    <string name="mutual_rooms">Rooms in common · %1$d</string>
+    <string name="mutual_rooms_none">None that we know of</string>
+    <string name="mutual_rooms_all">All %1$d rooms</string>
+    <string name="ignored_users">Ignored users</string>
+    <string name="ignored_none">You\'re not ignoring anyone</string>
 </resources>
