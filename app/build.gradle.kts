@@ -34,8 +34,8 @@ android {
     defaultConfig {
         applicationId = "pt.aguiarvieira.xmuks"
         // CI's verify-tag job checks that a `vX.Y.Z` tag matches versionName.
-        versionCode = 16
-        versionName = "0.0.16"
+        versionCode = 17
+        versionName = "0.0.17"
     }
 
     signingConfigs {
