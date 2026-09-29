@@ -294,7 +294,7 @@ private fun Content(
         }
 
         is MessageContent.Location -> {
-            FileCard(R.drawable.ic_location, c.body, null, color)
+            LocationCard(c, color)
         }
 
         MessageContent.Redacted -> {

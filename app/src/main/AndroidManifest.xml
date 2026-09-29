@@ -13,6 +13,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Xmuks.Starting">
 
+        <!-- Google Maps (location picker, map previews); the key comes from the build, never git. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${mapsApiKey}" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

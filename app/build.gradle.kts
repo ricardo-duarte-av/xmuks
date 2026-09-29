@@ -28,6 +28,15 @@ val releaseKeyPassword = signingValue("keyPassword", "KEY_PASSWORD")
 val hasReleaseSigning =
     listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { it != null }
 
+// Google Maps key (location picker and map previews): secrets.properties (local, gitignored), then
+// the MAPS_API_KEY environment variable (CI). Without it maps just don't load; nothing else breaks.
+val secrets =
+    Properties().apply {
+        val file = rootProject.file("secrets.properties")
+        if (file.exists()) file.inputStream().use(::load)
+    }
+val mapsApiKey = secrets.getProperty("MAPS_API_KEY") ?: System.getenv("MAPS_API_KEY").orEmpty()
+
 android {
     namespace = "pt.aguiarvieira.xmuks"
 
@@ -36,6 +45,7 @@ android {
         // CI's verify-tag job checks that a `vX.Y.Z` tag matches versionName.
         versionCode = 17
         versionName = "0.0.17"
+        manifestPlaceholders["mapsApiKey"] = mapsApiKey
     }
 
     signingConfigs {

@@ -208,6 +208,20 @@ class RoomViewModel
 
         private fun stopTyping() = typingNotifier.stop()
 
+        fun sendLocation(location: PickedLocation) {
+            val reply = (modes.mode.value as? ComposeMode.Reply)?.message?.let { ReplyTarget(it.eventId, it.sender) }
+            if (reply != null) modes.cancel()
+            viewModelScope.launch {
+                session.writer.sendLocation(
+                    location.latitude,
+                    location.longitude,
+                    location.accuracy,
+                    location.self,
+                    reply
+                )
+            }
+        }
+
         fun resend(localId: String) {
             if (localId.startsWith(UPLOAD_PREFIX)) return uploads.retry(localId.removePrefix(UPLOAD_PREFIX))
             viewModelScope.launch { session.writer.resend(localId) }

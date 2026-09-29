@@ -133,7 +133,7 @@ class MediaSender(
             }
         val content =
             uploader
-                .upload(media.source, media.filename, media.mimeType, upload.encrypt) { p ->
+                .upload(media.source, media.filename, media.mimeType, upload.encrypt, voiceMessage = media.voice) { p ->
                     change(upload.shown.id) { it.copy(progress = p) }
                 }.getOrThrow()
         val roomId = upload.shown.roomId

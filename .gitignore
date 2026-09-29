@@ -16,6 +16,9 @@ hs_err_pid*
 replay_pid*
 captures/
 
+# API keys (Google Maps): secrets.properties locally, MAPS_API_KEY in CI — never commit
+secrets.properties
+
 # Release signing — never commit (CI decodes it from secrets)
 keystore.properties
 *.jks

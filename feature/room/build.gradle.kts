@@ -10,4 +10,7 @@ dependencies {
     implementation(projects.core.data)
     implementation(projects.core.richtext)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.maps.compose)
+    implementation(libs.play.services.maps)
+    implementation(libs.play.services.location)
 }

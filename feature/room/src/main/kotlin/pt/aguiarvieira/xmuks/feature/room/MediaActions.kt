@@ -122,6 +122,12 @@ class MediaActions(
         }
     }
 
+    /** A recording from the voice sheet: straight to the uploads, no preview step. */
+    fun sendVoice(file: File) {
+        sender.send(roomId, preparer.voice(file), "", replyTo(), encrypted())
+        onSent()
+    }
+
     fun cancel() {
         sizing?.cancel()
         resized.clear()

@@ -56,6 +56,8 @@ class PreparedMedia(
     val width: Int?,
     val height: Int?,
     val thumbnail: Thumbnail?,
+    /** A voice message: gomuks adds the waveform and marks it as voice (MSC3245). */
+    val voice: Boolean = false,
 )
 
 /**
@@ -225,6 +227,19 @@ class MediaPreparer(
     suspend fun videoPreview(file: PickedFile): File? =
         withContext(io) { runCatching { video(file).thumbnail?.file }.getOrNull() }
 
+    /** A recording of ours, sent as a voice message. */
+    fun voice(file: File): PreparedMedia =
+        PreparedMedia(
+            UploadSource(file.length()) { file.inputStream() },
+            file.name,
+            VOICE_MIME,
+            MediaKind.Audio,
+            null,
+            null,
+            null,
+            voice = true,
+        )
+
     /** Clears what earlier sends left in the cache. */
     fun clearCache() {
         dir.listFiles()?.forEach { it.delete() }
@@ -237,6 +252,7 @@ class MediaPreparer(
         const val THUMBNAIL_SIDE = 800
         const val BLURHASH_SIDE = 32
         const val HALF_TURN = 180
+        const val VOICE_MIME = "audio/ogg"
 
         /** Milliseconds to the microseconds a quarter of the way in: ms × 1000 / 4. */
         const val QUARTER_US = 250L

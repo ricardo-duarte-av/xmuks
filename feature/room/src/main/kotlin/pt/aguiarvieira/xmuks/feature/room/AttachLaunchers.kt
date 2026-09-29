@@ -17,7 +17,7 @@ import java.util.UUID
 
 /** The attachments this build can send, in the + sheet's order. */
 internal val SUPPORTED_ATTACHMENTS =
-    listOf(Attachment.Gallery, Attachment.Photo, Attachment.Video, Attachment.File, Attachment.Audio)
+    Attachment.entries
 
 /**
  * Starts whatever gets the file for an attachment — the photo picker, the file picker, or the
@@ -66,7 +66,7 @@ internal fun rememberAttachLauncher(onPick: (Uri) -> Unit): (Attachment) -> Unit
                 video.launch(uri)
             }
 
-            // Not offered yet (see SUPPORTED_ATTACHMENTS).
+            // These open their own sheets (a recorder, a map) rather than another app.
             Attachment.Voice, Attachment.Location -> {}
         }
     }

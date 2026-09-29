@@ -47,6 +47,12 @@ internal class OverlayState {
 
     /** Choosing the per-message profile to send as. */
     var choosingPersona by mutableStateOf(false)
+
+    /** Recording a voice message. */
+    var recordingVoice by mutableStateOf(false)
+
+    /** Picking a place on the map. */
+    var pickingLocation by mutableStateOf(false)
 }
 
 /** An open picker: for a reaction to [reactTo], or for the composer. */
@@ -309,7 +315,13 @@ private fun ComposerOverlays(
     if (state.attaching) {
         AttachSheet(
             available = composer.attachments,
-            onPick = launch,
+            onPick = {
+                when (it) {
+                    Attachment.Voice -> state.recordingVoice = true
+                    Attachment.Location -> state.pickingLocation = true
+                    else -> launch(it)
+                }
+            },
             onSendAs = if (composer.personas.choices.isEmpty()) null else ({ state.choosingPersona = true }),
             onDismiss = { state.attaching = false },
         )
@@ -317,6 +329,8 @@ private fun ComposerOverlays(
     composer.mediaDraft?.let { draft ->
         MediaSendScreen(draft, composer.onChooseSize, composer.onSendMedia, composer.onCancelMedia)
     }
+    if (state.recordingVoice) VoiceSheet(composer.onSendVoice) { state.recordingVoice = false }
+    if (state.pickingLocation) LocationPicker(composer.onSendLocation) { state.pickingLocation = false }
     if (state.choosingPersona) {
         PersonaChooser(composer.personas, resolver.avatar, composer.onChoosePersona) { state.choosingPersona = false }
     }

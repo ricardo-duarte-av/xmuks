@@ -80,6 +80,7 @@ private fun mediaOf(
     return when (msgtype) {
         "m.sticker" -> media(content)?.let { MessageContent.Sticker(it, content.string("body").orEmpty()) }
         "m.image", "m.video", "m.audio", "m.file" -> mediaMessage(msgtype, content, content.string("body").orEmpty())
+        "m.location" -> MessageContent.Location(content.string("body").orEmpty(), content.string("geo_uri"))
         else -> null
     }
 }

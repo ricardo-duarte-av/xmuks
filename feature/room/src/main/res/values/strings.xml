@@ -90,4 +90,11 @@
     <string name="size_medium">Medium</string>
     <string name="size_small">Small</string>
     <string name="size_original_note">Sent as it is, metadata included (a photo\'s location, too). Smaller sizes leave it out.</string>
+    <string name="voice_no_permission">Recording needs the microphone. You can allow it in the app\'s settings.</string>
+    <string name="voice_recorded">Voice message · %1$s</string>
+    <string name="voice_discard">Discard</string>
+    <string name="voice_stop">Stop</string>
+    <string name="location_mine">My location</string>
+    <string name="location_send">Send this location</string>
+    <string name="location_open">Open in maps</string>
 </resources>

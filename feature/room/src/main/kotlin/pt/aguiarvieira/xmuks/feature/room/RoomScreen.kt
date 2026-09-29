@@ -152,6 +152,8 @@ fun RoomRoute(
                     onChooseSize = viewModel.attach::choose,
                     onSendMedia = viewModel.attach::send,
                     onCancelMedia = viewModel.attach::cancel,
+                    onSendVoice = viewModel.attach::sendVoice,
+                    onSendLocation = viewModel::sendLocation,
                 ),
             modifier = modifier,
         )
@@ -187,6 +189,8 @@ class ComposerActions(
     val onChooseSize: (ImageSize) -> Unit = {},
     val onSendMedia: (caption: String) -> Unit = {},
     val onCancelMedia: () -> Unit = {},
+    val onSendVoice: (java.io.File) -> Unit = {},
+    val onSendLocation: (PickedLocation) -> Unit = {},
 )
 
 /** What the emoji/sticker pickers show, and what picking does. */

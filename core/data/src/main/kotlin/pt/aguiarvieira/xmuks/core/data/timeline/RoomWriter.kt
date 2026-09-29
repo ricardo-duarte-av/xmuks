@@ -31,6 +31,42 @@ class RoomWriter(
         outbox.sendMessage(roomId, messageParams(roomId, text, replyTo, editing))
     }
 
+    /**
+     * A location (`m.location` with its MSC3488 form alongside): our own position ([self]) or a
+     * pin dropped on the map, with the fix's [accuracy] in metres when there is one.
+     */
+    suspend fun sendLocation(
+        latitude: Double,
+        longitude: Double,
+        accuracy: Float?,
+        self: Boolean,
+        replyTo: ReplyTarget? = null,
+    ) {
+        val coordinates = "%.6f,%.6f".format(java.util.Locale.ROOT, latitude, longitude)
+        val geoUri = "geo:$coordinates" + (accuracy?.let { ";u=${it.toInt()}" } ?: "")
+        val body = "Location: $coordinates"
+        val content =
+            buildJsonObject {
+                put("msgtype", JsonPrimitive("m.location"))
+                put("body", JsonPrimitive(body))
+                put("geo_uri", JsonPrimitive(geoUri))
+                put(
+                    "org.matrix.msc3488.location",
+                    buildJsonObject {
+                        put("uri", JsonPrimitive(geoUri))
+                        put("description", JsonPrimitive(body))
+                    },
+                )
+                put(
+                    "org.matrix.msc3488.asset",
+                    buildJsonObject { put("type", JsonPrimitive(if (self) "m.self" else "m.pin")) }
+                )
+                put("org.matrix.msc3488.ts", JsonPrimitive(System.currentTimeMillis()))
+                put("org.matrix.msc1767.text", JsonPrimitive(body))
+            }
+        outbox.sendMessage(roomId, messageParams(roomId, "", replyTo, baseContent = content))
+    }
+
     suspend fun resend(localId: String) = outbox.resend(localId)
 
     suspend fun discard(localId: String) = outbox.discard(localId)
