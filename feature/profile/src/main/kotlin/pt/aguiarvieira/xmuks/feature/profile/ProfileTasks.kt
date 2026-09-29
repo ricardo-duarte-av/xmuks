@@ -68,11 +68,12 @@ class ImageUploader(
     }
 }
 
-/** Adding, editing and removing our per-message profiles (MSC4461). */
+/** Adding, editing and removing our per-message profiles (MSC4461): global, or one room's ([roomId]). */
 class PerMessageProfileActions(
     private val profiles: ProfileRepository,
     private val uploader: ImageUploader,
     private val tasks: ProfileTasks,
+    private val roomId: String? = null,
 ) {
     /** Uploads a profile's new avatar; [onDone] gets its `mxc://` URI to put in the draft. */
     fun uploadAvatar(
@@ -95,5 +96,8 @@ class PerMessageProfileActions(
     fun delete(id: String) = edit { it.remove(id) }
 
     private fun edit(change: (PerMessageProfiles) -> PerMessageProfiles) =
-        tasks.run({ profiles.savePerMessageProfiles(change(profiles.perMessageProfiles.first())) })
+        tasks.run({
+            val current = profiles.perMessageProfiles(roomId.orEmpty()).first()
+            profiles.savePerMessageProfiles(change(current), roomId)
+        })
 }

@@ -57,7 +57,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
-import pt.aguiarvieira.xmuks.core.data.profile.PerMessageProfile
 import pt.aguiarvieira.xmuks.core.data.profile.PerMessageProfiles
 import pt.aguiarvieira.xmuks.core.data.profile.UserProfile
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
@@ -78,9 +77,7 @@ class ProfileEdits(
     val setTimezone: (String?) -> Unit,
     val setAvatar: (Uri?) -> Unit,
     val setBanner: (Uri?) -> Unit,
-    val savePersona: (PerMessageProfile, isDefault: Boolean) -> Unit,
-    val deletePersona: (id: String) -> Unit,
-    val uploadPersonaAvatar: (Uri, onDone: (mxc: String) -> Unit) -> Unit,
+    val personas: PersonaEdits,
     val logout: () -> Unit,
 )
 
@@ -124,9 +121,7 @@ fun UserInfoRoute(
                 setTimezone = viewModel::setTimezone,
                 setAvatar = viewModel::setAvatar,
                 setBanner = viewModel::setBanner,
-                savePersona = viewModel.personas::save,
-                deletePersona = viewModel.personas::delete,
-                uploadPersonaAvatar = viewModel.personas::uploadAvatar,
+                personas = PersonaEdits.of(viewModel.personas),
                 logout = viewModel::logout,
             )
         }
@@ -254,7 +249,7 @@ private fun ProfileCards(
         item(key = "details") { DetailsCard(profile, own?.edits, cardModifier) }
         item(key = "about") { AboutCard(profile, media, own?.edits, onOpenMedia, cardModifier) }
         if (own != null) {
-            item(key = "personas") { PersonasCard(own.personas, media, own.edits, cardModifier) }
+            item(key = "personas") { PersonasCard(own.personas, media, own.edits.personas, cardModifier) }
             item(key = "account") { AccountCard(own.account, own.connection, own.edits.logout, cardModifier) }
         }
     }

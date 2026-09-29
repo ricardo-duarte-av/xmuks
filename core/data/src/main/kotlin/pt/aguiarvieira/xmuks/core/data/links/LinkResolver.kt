@@ -23,9 +23,10 @@ sealed interface LinkTarget {
         val eventId: String?,
     ) : LinkTarget
 
-    /** A room we're not in (joining and previews come with the room info screen). */
+    /** A room we're not in: previewed, and joined or knocked on, through [via] servers. */
     data class NotJoined(
         val roomIdOrAlias: String,
+        val via: List<String> = emptyList(),
     ) : LinkTarget
 
     /** Not a Matrix link, or an alias that doesn't resolve. */
@@ -48,12 +49,12 @@ class LinkResolver(
             }
 
             link.id.startsWith("!") -> {
-                room(link.id, link.eventId)
+                room(link.id, link.eventId, link.via)
             }
 
             link.id.startsWith("#") -> {
-                resolveAlias(link.id)?.let { room(it, link.eventId) }
-                    ?: LinkTarget.NotJoined(link.id)
+                resolveAlias(link.id)?.let { room(it, link.eventId, link.via) }
+                    ?: LinkTarget.NotJoined(link.id, link.via)
             }
 
             else -> {
@@ -65,8 +66,9 @@ class LinkResolver(
     private suspend fun room(
         roomId: String,
         eventId: String?,
+        via: List<String>,
     ): LinkTarget =
-        if (rooms.room(roomId).first() != null) LinkTarget.Room(roomId, eventId) else LinkTarget.NotJoined(roomId)
+        if (rooms.room(roomId).first() != null) LinkTarget.Room(roomId, eventId) else LinkTarget.NotJoined(roomId, via)
 
     private suspend fun resolveAlias(alias: String): String? {
         val result = exec.exec("resolve_alias", buildJsonObject { put("alias", JsonPrimitive(alias)) }, ExecMode.Read)

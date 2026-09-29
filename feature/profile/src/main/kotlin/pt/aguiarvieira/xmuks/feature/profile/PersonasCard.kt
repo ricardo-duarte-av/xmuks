@@ -47,25 +47,30 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import java.util.UUID
 
-/** Our per-message profiles (MSC4461): each with its triggers, the default marked. Tap to edit. */
+/**
+ * Our per-message profiles (MSC4461), global or one room's: each with its triggers, the default
+ * marked. Tap to edit.
+ */
 @Composable
 internal fun PersonasCard(
     personas: PerMessageProfiles,
     media: ProfileMedia,
-    edits: ProfileEdits,
+    edits: PersonaEdits,
     modifier: Modifier = Modifier,
+    title: String = stringResource(R.string.pmp_title),
+    explainer: String = stringResource(R.string.pmp_explainer),
 ) {
     // The one being edited; a fresh one (not yet in the list) while adding.
     var editing by remember { mutableStateOf<PerMessageProfile?>(null) }
     ScreenCard(modifier) {
         Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
             Text(
-                stringResource(R.string.pmp_title),
+                title,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             )
             Text(
-                stringResource(R.string.pmp_explainer),
+                explainer,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 20.dp),
@@ -88,9 +93,9 @@ internal fun PersonasCard(
             persona = persona,
             isDefault = persona.id == personas.defaultId,
             media = media,
-            onUploadAvatar = edits.uploadPersonaAvatar,
-            onSave = edits.savePersona,
-            onDelete = if (exists) ({ edits.deletePersona(persona.id) }) else null,
+            onUploadAvatar = edits.uploadAvatar,
+            onSave = edits.save,
+            onDelete = if (exists) ({ edits.delete(persona.id) }) else null,
             onDismiss = { editing = null },
         )
     }

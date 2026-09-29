@@ -31,6 +31,8 @@ data class RoomEntity(
     val heroes: String,
     val joinedMembers: Int?,
     val invitedMembers: Int?,
+    /** gomuks has the full member list (fetched once); until then, get_room_state must fetch it. */
+    val hasMemberList: Boolean = false,
     val previewEventRowId: Long,
     val sortingTs: Long,
     val unreadHighlights: Int,

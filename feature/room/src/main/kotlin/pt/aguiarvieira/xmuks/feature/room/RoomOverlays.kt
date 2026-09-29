@@ -58,9 +58,6 @@ internal class OverlayState {
 
     /** Picking a place on the map. */
     var pickingLocation by mutableStateOf(false)
-
-    /** Choosing how the room notifies. */
-    var notificationSettings by mutableStateOf(false)
 }
 
 /** An open picker: for a reaction to [reactTo], or for the composer. */
@@ -362,12 +359,6 @@ private fun ComposerOverlays(
     }
     if (state.recordingVoice) VoiceSheet(composer.onSendVoice) { state.recordingVoice = false }
     if (state.pickingLocation) LocationPicker(composer.onSendLocation) { state.pickingLocation = false }
-    if (state.notificationSettings) {
-        RoomNotificationsDialog(composer.notifications, composer.onSetNotifications) {
-            state.notificationSettings =
-                false
-        }
-    }
     if (state.choosingPersona) {
         PersonaChooser(composer.personas, resolver.avatar, composer.onChoosePersona) { state.choosingPersona = false }
     }

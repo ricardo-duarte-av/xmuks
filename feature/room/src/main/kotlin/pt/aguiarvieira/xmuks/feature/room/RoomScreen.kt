@@ -52,7 +52,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.SoftwareKeyboardController
@@ -69,7 +68,6 @@ import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.emoji.ImagePack
 import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
-import pt.aguiarvieira.xmuks.core.data.push.RoomNotifications
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
@@ -92,6 +90,7 @@ fun RoomRoute(
     /** An event to show once the room is open (a link to a message). */
     jumpTo: String? = null,
     onOpenLink: (uri: String) -> Unit = {},
+    onOpenRoomInfo: () -> Unit = {},
     viewModel: RoomViewModel = hiltViewModel<RoomViewModel, RoomViewModel.Factory>(key = roomId) { it.create(roomId) },
 ) {
     val room by viewModel.room.collectAsStateWithLifecycle()
@@ -109,25 +108,11 @@ fun RoomRoute(
     val recent by viewModel.emoji.recent.collectAsStateWithLifecycle()
     val personas by viewModel.personas.personas.collectAsStateWithLifecycle()
     val mediaDraft by viewModel.attach.draft.collectAsStateWithLifecycle()
-    val notificationSetting by viewModel.notifications.setting.collectAsStateWithLifecycle()
     val resolver =
         remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media, viewModel.mediaImages) }
     val androidContext = LocalContext.current
     val uriHandler = remember(androidContext, onOpenLink) { SafeUriHandler(androidContext, onOpenLink) }
     LaunchedEffect(jumpTo) { jumpTo?.let(viewModel::showContext) }
-    val resources = LocalResources.current
-    val notificationError by viewModel.notifications.error.collectAsStateWithLifecycle()
-    LaunchedEffect(notificationError) {
-        notificationError?.let {
-            Toast
-                .makeText(
-                    androidContext,
-                    resources.getString(R.string.notify_failed, it),
-                    Toast.LENGTH_LONG
-                ).show()
-            viewModel.notifications.errorShown()
-        }
-    }
     LifecycleResumeEffect(viewModel) {
         viewModel.onScreen(true)
         onPauseOrDispose { viewModel.onScreen(false) }
@@ -145,6 +130,7 @@ fun RoomRoute(
             onLoadOlder = viewModel::loadOlder,
             onOpenMedia = onOpenMedia,
             onOpenUser = onOpenUser,
+            onOpenRoomInfo = onOpenRoomInfo,
             player = viewModel.player,
             onShowContext = viewModel::showContext,
             onLeaveContext = viewModel::leaveContext,
@@ -184,8 +170,6 @@ fun RoomRoute(
                     onCancelMedia = viewModel.attach::cancel,
                     onSendVoice = viewModel.attach::sendVoice,
                     onSendLocation = viewModel::sendLocation,
-                    notifications = notificationSetting,
-                    onSetNotifications = viewModel.notifications::set,
                 ),
             modifier = modifier,
         )
@@ -223,9 +207,6 @@ class ComposerActions(
     val onCancelMedia: () -> Unit = {},
     val onSendVoice: (java.io.File) -> Unit = {},
     val onSendLocation: (PickedLocation) -> Unit = {},
-    /** How the room notifies, and changing it. */
-    val notifications: RoomNotifications = RoomNotifications.Default,
-    val onSetNotifications: (RoomNotifications) -> Unit = {},
 )
 
 /** What the emoji/sticker pickers show, and what picking does. */
@@ -272,6 +253,7 @@ fun RoomScreen(
     onLeaveContext: () -> Unit,
     composer: ComposerActions,
     modifier: Modifier = Modifier,
+    onOpenRoomInfo: () -> Unit = {},
     player: InlinePlayer? = null,
 ) {
     val scope = rememberCoroutineScope()
@@ -323,10 +305,7 @@ fun RoomScreen(
         // navigation bar and the keyboard.
         contentWindowInsets = WindowInsets(0),
         topBar = {
-            HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia) {
-                overlays.notificationSettings =
-                    true
-            }
+            HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia, onOpenRoomInfo)
         },
         bottomBar = {
             ComposerArea(overlays, composer, resolver) {
@@ -377,7 +356,7 @@ private fun HeaderCard(
     resolver: MediaResolver,
     onBack: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
-    onNotifications: () -> Unit,
+    onRoomInfo: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
@@ -405,10 +384,10 @@ private fun HeaderCard(
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.room_notifications)) },
+                        text = { Text(stringResource(R.string.room_info)) },
                         onClick = {
                             menu = false
-                            onNotifications()
+                            onRoomInfo()
                         },
                     )
                 }

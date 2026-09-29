@@ -1,4 +1,4 @@
-package pt.aguiarvieira.xmuks.feature.room
+package pt.aguiarvieira.xmuks.feature.profile
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement

@@ -1,6 +1,9 @@
 package pt.aguiarvieira.xmuks.core.data.sync
 
 import androidx.room3.withWriteTransaction
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -51,6 +54,14 @@ class SyncIngestor(
 ) : ResumeStore,
     AccountScoped {
     private val dao: SyncDao = db.syncDao()
+
+    private val _stateChanged = MutableSharedFlow<String>(extraBufferCapacity = STATE_BUFFER)
+
+    /**
+     * Rooms whose state (any type, not just what we cache) a sync changed: a room info screen
+     * reloads from gomuks when its room passes by.
+     */
+    val stateChanged: SharedFlow<String> = _stateChanged.asSharedFlow()
 
     suspend fun apply(frame: GomuksFrame) {
         when (val event = frame.event) {
@@ -201,6 +212,7 @@ class SyncIngestor(
         // Persist only what the room list reads after a restart: the preview event, the member
         // events of senders (per-room names), and newer copies of events we already hold (e.g. an
         // edited or redacted preview). Timelines stay in memory (TimelineStore); receipts too.
+        if (room.state.isNotEmpty()) _stateChanged.tryEmit(roomId)
         val members = room.state[MEMBER].orEmpty()
         val wanted =
             buildSet {
@@ -257,6 +269,7 @@ class SyncIngestor(
 
     private companion object {
         const val DAY_MS = 24 * 60 * 60 * 1000L
+        const val STATE_BUFFER = 64
         const val MEMBER = "m.room.member"
 
         /** Stay well under SQLite's bound-parameter limit. */
@@ -280,6 +293,7 @@ private fun Room.toEntity(generation: Long) =
         heroes = lazyLoadSummary?.heroes.orEmpty().joinToString("\n"),
         joinedMembers = lazyLoadSummary?.joinedMemberCount,
         invitedMembers = lazyLoadSummary?.invitedMemberCount,
+        hasMemberList = hasMemberList,
         previewEventRowId = previewEventRowId,
         sortingTs = sortingTimestamp,
         unreadHighlights = unreadHighlights,

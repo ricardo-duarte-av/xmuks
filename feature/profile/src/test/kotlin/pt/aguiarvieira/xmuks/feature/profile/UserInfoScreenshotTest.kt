@@ -42,7 +42,7 @@ class UserInfoScreenshotTest {
         raw = JsonObject(emptyMap()),
     )
 
-    private val edits = ProfileEdits({}, {}, { _, _ -> }, {}, {}, {}, {}, { _, _ -> }, {}, { _, _ -> }, {})
+    private val edits = ProfileEdits({}, {}, { _, _ -> }, {}, {}, {}, {}, PersonaEdits({ _, _ -> }, {}, { _, _ -> }), {})
 
     private fun capture(
         name: String,

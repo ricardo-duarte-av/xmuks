@@ -33,7 +33,6 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.media.UPLOAD_PREFIX
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
-import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
@@ -59,7 +58,6 @@ class RoomViewModel
         @Named("media") val mediaImages: ImageLoader,
         @ApplicationContext context: Context,
         private val openRoom: OpenRoom,
-        pushRules: RoomPushRules,
         val media: MediaUrls,
     ) : ViewModel() {
         @AssistedFactory
@@ -135,9 +133,6 @@ class RoomViewModel
 
         /** Our per-message profiles here, and which one messages go out as. */
         val personas = PersonaActions(viewModelScope, roomId, profiles, rooms.ownProfile(), WHILE_VISIBLE)
-
-        /** How the room notifies (push rules). */
-        val notifications = RoomNotificationActions(viewModelScope, roomId, pushRules, WHILE_VISIBLE)
 
         /** Voice messages, audio and videos playing in their bubbles. */
         val player = InlinePlayer(context, playerSource, viewModelScope)

@@ -37,6 +37,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.LocalAnimatedVisibility
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalSharedTransitionScope
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.feature.media.MediaViewerRoute
+import pt.aguiarvieira.xmuks.feature.profile.RoomInfoRoute
 import pt.aguiarvieira.xmuks.feature.profile.UserInfoRoute
 import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
@@ -61,6 +62,11 @@ import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
 /** Anyone's profile; our own is where it's edited, and where the account lives. */
 @Serializable data class UserKey(
     val userId: String,
+) : NavKey
+
+/** A room's details, members and settings. */
+@Serializable data class RoomInfoKey(
+    val roomId: String,
 ) : NavKey
 
 /** Full-screen media, over whatever opened it (never a list-detail pane). */
@@ -162,6 +168,18 @@ fun XmuksNavHost(
                                     onBack = { backStack.removeLastOrNull() },
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
                                     onOpenUser = { backStack.add(UserKey(it)) },
+                                    onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
+                                )
+                            }
+                        }
+                        entry<RoomInfoKey> { key ->
+                            Destination {
+                                RoomInfoRoute(
+                                    roomId = key.roomId,
+                                    onBack = { backStack.removeLastOrNull() },
+                                    onOpenMedia = { backStack.add(MediaKey(it)) },
+                                    onOpenUser = { backStack.add(UserKey(it)) },
+                                    onLeft = { backStack.leftRoom(key.roomId) },
                                 )
                             }
                         }
@@ -203,6 +221,12 @@ private fun NavBackStack<NavKey>.openRoom(
 ) {
     if (lastOrNull() is RoomKey) removeAt(lastIndex)
     add(RoomKey(roomId, scope, eventId))
+}
+
+/** After leaving a room: its screens go, back to the list it was opened from. */
+private fun NavBackStack<NavKey>.leftRoom(roomId: String) {
+    removeAll { (it is RoomKey && it.roomId == roomId) || (it is RoomInfoKey && it.roomId == roomId) }
+    if (isEmpty()) add(HomeKey)
 }
 
 /** Rooms opened from a link have no list row to fly from. */

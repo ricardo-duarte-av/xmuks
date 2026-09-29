@@ -1,4 +1,4 @@
-package pt.aguiarvieira.xmuks.feature.room
+package pt.aguiarvieira.xmuks.feature.profile
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
