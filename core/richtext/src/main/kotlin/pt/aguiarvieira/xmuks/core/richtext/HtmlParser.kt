@@ -160,7 +160,7 @@ class HtmlParser(
         }
         if (el.normalName() != "img" || el.hasClass("hicli-custom-emoji") || el.hasAttr("data-mx-emoticon")) return null
         val (width, height) = imageSize(el) ?: return null
-        val src = toMxc(el.attr("src")).takeIf { it.startsWith("mxc://") } ?: return null
+        val src = toMxc(el.attr("src")) ?: return null
         return HtmlBlock.Picture(src, width, height, el.attr("alt").ifBlank { el.attr("title") }, link = null)
     }
 
@@ -281,7 +281,7 @@ class HtmlParser(
     private fun AnnotatedString.Builder.appendImage(el: Element) {
         val src = toMxc(el.attr("src"))
         val alt = el.attr("alt").ifBlank { el.attr("title") }.ifBlank { "🖼" }
-        if (src.isBlank()) {
+        if (src == null) {
             ws.verbatim(this, alt)
             return
         }

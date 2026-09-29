@@ -134,4 +134,13 @@ class HtmlParserTest {
             "<a href=\"https://vrkknn.net\"> <img src=\"mxc://v/b\" width=\"320\" height=\"120\" alt=\"vrkknn.net\"></a>"
         assertEquals(listOf(HtmlBlock.Picture("mxc://v/b", 320, 120, "vrkknn.net", "https://vrkknn.net")), parser.parse(html))
     }
+
+    @Test
+    fun `images from anywhere but Matrix are never loaded - their alt text shows`() {
+        val html = """<img src="https://tracker.example/pixel.png" alt="[web]"> <img src="file:///data/x.png" alt="[file]">"""
+        val text = para(html)
+        assertEquals("[web] [file]", text.text)
+        assertTrue(text.getStringAnnotations(0, text.length).isEmpty())
+        assertTrue(parser.parse("""<img src="https://x.example/a.png" width="320" height="120">""").none { it is HtmlBlock.Picture })
+    }
 }

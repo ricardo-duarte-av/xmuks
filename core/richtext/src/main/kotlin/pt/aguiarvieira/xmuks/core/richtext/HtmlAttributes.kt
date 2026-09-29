@@ -30,11 +30,13 @@ internal fun imageSize(el: Element): Pair<Int, Int>? {
 
 /**
  * gomuks rewrites inline images to its own media path (`_gomuks/media/{server}/{id}?…`); back to
- * the `mxc://` the rest of the app resolves. Anything else is left alone.
+ * the `mxc://` the rest of the app resolves. Anything else (a web URL, a file) is refused: only
+ * Matrix media is ever loaded.
  */
-internal fun toMxc(src: String): String {
-    val path = src.substringBefore('?').removePrefix("/").takeIf { it.startsWith(GOMUKS_MEDIA) } ?: return src
-    val (server, id) = path.removePrefix(GOMUKS_MEDIA).split('/', limit = 2).takeIf { it.size == 2 } ?: return src
+internal fun toMxc(src: String): String? {
+    if (src.startsWith("mxc://")) return src
+    val path = src.substringBefore('?').removePrefix("/").takeIf { it.startsWith(GOMUKS_MEDIA) } ?: return null
+    val (server, id) = path.removePrefix(GOMUKS_MEDIA).split('/', limit = 2).takeIf { it.size == 2 } ?: return null
     return "mxc://$server/$id"
 }
 
