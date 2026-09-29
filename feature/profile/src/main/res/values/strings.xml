@@ -157,4 +157,6 @@
     <string name="mutual_rooms_all">All %1$d rooms</string>
     <string name="ignored_users">Ignored users</string>
     <string name="ignored_none">You\'re not ignoring anyone</string>
+    <string name="preferences">Preferences</string>
+    <string name="room_preferences">Preferences for this room</string>
 </resources>

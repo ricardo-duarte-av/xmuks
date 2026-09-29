@@ -54,6 +54,7 @@ fun RoomInfoRoute(
     /** We left the room: nothing of it to go back to. */
     onLeft: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenPreferences: () -> Unit = {},
     viewModel: RoomInfoViewModel =
         hiltViewModel<RoomInfoViewModel, RoomInfoViewModel.Factory>(key = roomId) { it.create(roomId) },
 ) {
@@ -69,7 +70,7 @@ fun RoomInfoRoute(
     LaunchedEffect(left) { if (left) leave() }
     val media = remember(viewModel) { ProfileMedia(viewModel.media::avatar, viewModel.media::full) }
     val actions =
-        remember(viewModel, onOpenUser, onOpenMedia, onOpenMembers) {
+        remember(viewModel, onOpenUser, onOpenMedia, onOpenMembers, onOpenPreferences) {
             RoomInfoActions(
                 setName = viewModel::setName,
                 setTopic = viewModel::setTopic,
@@ -85,6 +86,7 @@ fun RoomInfoRoute(
                 openUser = onOpenUser,
                 openMedia = onOpenMedia,
                 openMembers = onOpenMembers,
+                openPreferences = onOpenPreferences,
             )
         }
     RoomInfoScreen(
@@ -206,6 +208,9 @@ private fun RoomInfoCards(
         item(key = "hero") { RoomHeroCard(info, me, media, actions, card) }
         item(key = "settings") { RoomSettingsCard(info, me, notifications, actions, card) }
         item(key = "members") { MembersCard(info, actions.openMembers, card) }
+        item(key = "preferences") {
+            ScreenCard(card) { LinkRow(R.drawable.ic_tune, R.string.room_preferences, actions.openPreferences) }
+        }
         item(key = "personas") {
             PersonasCard(
                 personas,

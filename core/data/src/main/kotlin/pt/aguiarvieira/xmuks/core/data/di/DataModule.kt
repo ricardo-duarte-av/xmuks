@@ -39,6 +39,7 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
+import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.profile.Contacts
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
@@ -112,7 +113,19 @@ object DataModule {
         drafts: DraftStore,
         uploads: MediaSender,
         push: PushRegistrar,
-    ): Set<AccountScoped> = setOf(ingestor, stats, timelines, outbox, drafts, uploads, push)
+        preferences: PreferenceStore,
+    ): Set<AccountScoped> = setOf(ingestor, stats, timelines, outbox, drafts, uploads, push, preferences)
+
+    @Provides @Singleton
+    fun preferenceStore(
+        @ApplicationContext context: Context,
+        exec: ExecClient,
+        database: XmuksDatabase,
+    ) = PreferenceStore(
+        exec,
+        database,
+        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("gomuks-preferences") },
+    )
 
     @Provides @Singleton
     fun pushRegistrar(

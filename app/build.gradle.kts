@@ -83,6 +83,7 @@ dependencies {
     implementation(projects.feature.room)
     implementation(projects.feature.media)
     implementation(projects.feature.profile)
+    implementation(projects.feature.settings)
     implementation(projects.core.push)
 
     implementation(libs.androidx.core.ktx)

@@ -44,6 +44,7 @@ import pt.aguiarvieira.xmuks.feature.profile.UserInfoRoute
 import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
+import pt.aguiarvieira.xmuks.feature.settings.PreferencesRoute
 
 @Serializable data object HomeKey : NavKey
 
@@ -64,6 +65,11 @@ import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
 /** Anyone's profile; our own is where it's edited, and where the account lives. */
 @Serializable data class UserKey(
     val userId: String,
+) : NavKey
+
+/** gomuks' preferences: the global ones ([roomId] null), or one room's. */
+@Serializable data class PreferencesKey(
+    val roomId: String? = null,
 ) : NavKey
 
 /** Everyone we ignore. */
@@ -191,6 +197,7 @@ fun XmuksNavHost(
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
                                     onOpenUser = { backStack.add(UserKey(it)) },
                                     onOpenMembers = { backStack.add(RoomMembersKey(key.roomId)) },
+                                    onOpenPreferences = { backStack.add(PreferencesKey(key.roomId)) },
                                     onLeft = { backStack.leftRoom(key.roomId) },
                                 )
                             }
@@ -206,6 +213,11 @@ fun XmuksNavHost(
                                         backStack.openRoom(roomId, LINK_SCOPE, key.eventId)
                                     },
                                 )
+                            }
+                        }
+                        entry<PreferencesKey> { key ->
+                            Destination {
+                                PreferencesRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
                             }
                         }
                         entry<IgnoredUsersKey> {
@@ -232,6 +244,7 @@ fun XmuksNavHost(
                                     onOpenLink = openLink,
                                     onOpenRoom = { backStack.openRoom(it, LINK_SCOPE) },
                                     onOpenIgnoredUsers = { backStack.add(IgnoredUsersKey) },
+                                    onOpenPreferences = { backStack.add(PreferencesKey()) },
                                     onBack = { backStack.removeLastOrNull() },
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
                                 )
