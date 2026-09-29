@@ -2,6 +2,7 @@ package pt.aguiarvieira.xmuks.feature.room
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,16 +29,44 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.MutableStateFlow
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
+import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
+
+/** An audio message that plays in its bubble; it stops when it scrolls away. */
+@Composable
+internal fun PlayableAudio(
+    message: TimelineItem.Message,
+    audio: MessageContent.Audio,
+    color: Color,
+    resolver: MediaResolver,
+    actions: TimelineActions,
+) {
+    val player = actions.player
+    val idle = remember { MutableStateFlow<Playback?>(null) }
+    val now by (player?.state ?: idle).collectAsState()
+    val mine = now?.takeIf { it.key == message.eventId }
+    DisposableEffect(message.eventId, player) { onDispose { player?.pause(message.eventId) } }
+    AudioCard(
+        audio,
+        color,
+        mine,
+        Modifier.clickable {
+            val url = resolver.media(audio.media.mxc, audio.media.encrypted)
+            if (player != null && url != null) player.toggle(message.eventId, url)
+        },
+    )
+}
 
 /**
- * Audio: a play button, the waveform when the sender gave one (voice messages do), otherwise the
- * file's name, and the duration.
+ * Audio: play/pause, the waveform when the sender gave one (voice messages do) filling in as it
+ * plays, otherwise the file's name, and the time — the position while it plays.
  */
 @Composable
 internal fun AudioCard(
     audio: MessageContent.Audio,
     color: Color,
+    playback: Playback?,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -47,7 +79,7 @@ internal fun AudioCard(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                painterResource(R.drawable.ic_play),
+                painterResource(if (playback?.playing == true) R.drawable.ic_pause else R.drawable.ic_play),
                 stringResource(R.string.audio),
                 tint = color,
                 modifier = Modifier.size(24.dp)
@@ -56,7 +88,12 @@ internal fun AudioCard(
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             val waveform = audio.waveform
             if (waveform != null) {
-                Waveform(waveform, color, Modifier.width(WAVEFORM_WIDTH).height(WAVEFORM_HEIGHT))
+                Waveform(
+                    waveform,
+                    color,
+                    playback?.progress ?: 0f,
+                    Modifier.width(WAVEFORM_WIDTH).height(WAVEFORM_HEIGHT)
+                )
             } else {
                 Text(
                     audio.name ?: stringResource(R.string.audio),
@@ -66,18 +103,20 @@ internal fun AudioCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            audio.durationMs?.let {
+            val shown = if (playback != null && playback.positionMs > 0) playback.positionMs else audio.durationMs
+            shown?.let {
                 Text(clock(it), color = color.copy(alpha = LABEL_ALPHA), style = MaterialTheme.typography.labelMedium)
             }
         }
     }
 }
 
-/** Bars of the loudness, resampled to fit; a floor keeps silence visible as a line. */
+/** Bars of the loudness, resampled to fit (a floor keeps silence a line); played bars are full colour. */
 @Composable
 private fun Waveform(
     samples: List<Float>,
     color: Color,
+    progress: Float,
     modifier: Modifier = Modifier,
 ) {
     val bars = remember(samples) { resample(samples, BARS) }
@@ -86,8 +125,9 @@ private fun Waveform(
         val barWidth = step * BAR_FILL
         bars.forEachIndexed { i, level ->
             val h = size.height * level.coerceIn(MIN_BAR, 1f)
+            val played = (i + 0.5f) / bars.size <= progress
             drawRoundRect(
-                color = color,
+                color = if (played || progress == 0f) color else color.copy(alpha = UNPLAYED_ALPHA),
                 topLeft = Offset(i * step, (size.height - h) / 2),
                 size = Size(barWidth, h),
                 cornerRadius = CornerRadius(barWidth / 2),
@@ -109,12 +149,13 @@ internal fun resample(
     }
 }
 
-private fun clock(ms: Long): String {
+internal fun clock(ms: Long): String {
     val seconds = ms / MS_PER_SECOND
     return "%d:%02d".format(seconds / SECONDS_PER_MINUTE, seconds % SECONDS_PER_MINUTE)
 }
 
 private const val BARS = 40
+private const val UNPLAYED_ALPHA = 0.4f
 private const val BAR_FILL = 0.6f
 private const val MIN_BAR = 0.08f
 private const val BUTTON_ALPHA = 0.15f

@@ -97,4 +97,5 @@
     <string name="location_mine">My location</string>
     <string name="location_send">Send this location</string>
     <string name="location_open">Open in maps</string>
+    <string name="fullscreen">Full screen</string>
 </resources>

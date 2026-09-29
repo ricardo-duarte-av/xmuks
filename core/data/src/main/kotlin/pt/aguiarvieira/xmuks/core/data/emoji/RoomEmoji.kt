@@ -1,5 +1,8 @@
 package pt.aguiarvieira.xmuks.core.data.emoji
 
+import android.icu.lang.UCharacter
+import android.icu.lang.UProperty
+import android.icu.text.BreakIterator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -94,6 +97,8 @@ class RoomEmoji(
                 ?.mapNotNull { entry ->
                     ((entry as? JsonArray)?.firstOrNull() as? JsonPrimitive)?.takeIf { it.isString }?.content
                 }.orEmpty()
+                // Text reactions ("same", "lol") are reactions, not emoji to pick again.
+                .filter(::isEmojiKey)
         }
 
     /** Adds our [key] reaction to [target], or takes it back if it's already ours. */
@@ -130,6 +135,7 @@ class RoomEmoji(
 
     /** Moves [key] to the front of the recently used list (as gomuks web does, max 100). */
     suspend fun bumpRecent(key: String) {
+        if (!isEmojiKey(key)) return
         val content = dao.accountData("", RECENT).first()?.let(::parseObject)
         val entries =
             (content?.get("recent_emoji") as? JsonArray)
@@ -225,3 +231,21 @@ class RoomEmoji(
         const val MAX_RECENT = 100
     }
 }
+
+/**
+ * An emoji worth remembering as recent: one of ours (`mxc://`), or a single character made of
+ * emoji (a flag, a family and a skin tone are each one) — not arbitrary text used as a reaction.
+ */
+fun isEmojiKey(key: String): Boolean {
+    if (key.startsWith("mxc://")) return true
+    if (key.isEmpty()) return false
+    val characters = BreakIterator.getCharacterInstance().apply { setText(key) }
+    characters.first()
+    if (characters.next() != key.length) return false
+    return key.codePoints().anyMatch {
+        it == VARIATION_EMOJI || UCharacter.hasBinaryProperty(it, UProperty.EMOJI_PRESENTATION)
+    }
+}
+
+/** U+FE0F: "show the preceding character as an emoji" (♥️, ☺️). */
+private const val VARIATION_EMOJI = 0xFE0F

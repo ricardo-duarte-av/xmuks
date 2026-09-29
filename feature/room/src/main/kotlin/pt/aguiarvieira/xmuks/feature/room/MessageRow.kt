@@ -263,21 +263,11 @@ private fun Content(
         }
 
         is MessageContent.Video -> {
-            MediaImage(
-                c.media,
-                resolver,
-                c.caption,
-                color,
-                message.eventId,
-                ViewerMedia.Kind.Video,
-                message.uploadProgress
-            ) {
-                onOpen(c.media, ViewerMedia.Kind.Video)
-            }
+            VideoContent(message, c, resolver, color, actions, onOpen)
         }
 
         is MessageContent.Audio -> {
-            AudioCard(c, color, Modifier.clickable { onOpen(c.media, ViewerMedia.Kind.Audio) })
+            PlayableAudio(message, c, color, resolver, actions)
         }
 
         is MessageContent.File -> {
@@ -333,6 +323,47 @@ private fun TextContent(
     }
 }
 
+/** A video: plays in place when it can (not while it uploads); fullscreen is the viewer. */
+@Composable
+private fun VideoContent(
+    message: TimelineItem.Message,
+    c: MessageContent.Video,
+    resolver: MediaResolver,
+    color: Color,
+    actions: TimelineActions,
+    onOpen: (Media, ViewerMedia.Kind) -> Unit,
+) {
+    val player = actions.player
+    val url = resolver.media(c.media.mxc, c.media.encrypted)
+    val inline =
+        if (player != null && url != null && message.uploadProgress == null) {
+            InlineVideo(player, message.eventId) {
+                player.pause(message.eventId)
+                onOpen(c.media, ViewerMedia.Kind.Video)
+            }
+        } else {
+            null
+        }
+    MediaImage(
+        c.media,
+        resolver,
+        c.caption,
+        color,
+        message.eventId,
+        ViewerMedia.Kind.Video,
+        message.uploadProgress,
+        inline,
+    ) {
+        if (inline != null &&
+            url != null
+        ) {
+            inline.player.toggle(message.eventId, url)
+        } else {
+            onOpen(c.media, ViewerMedia.Kind.Video)
+        }
+    }
+}
+
 @Composable
 private fun MediaImage(
     media: Media,
@@ -343,6 +374,8 @@ private fun MediaImage(
     kind: ViewerMedia.Kind,
     /** Still uploading: how far along. */
     uploadProgress: Float?,
+    /** A video that plays in place (its controls go over the thumbnail). */
+    inline: InlineVideo? = null,
     onClick: () -> Unit,
 ) {
     val ratio = media.aspectRatio() ?: DEFAULT_RATIO
@@ -371,6 +404,8 @@ private fun MediaImage(
             }
             if (uploadProgress != null) {
                 UploadProgress(uploadProgress)
+            } else if (inline != null) {
+                InlineVideoLayer(inline)
             } else if (kind == ViewerMedia.Kind.Video) {
                 Surface(shape = CircleShape, color = Color.Black.copy(alpha = SCRIM)) {
                     Icon(

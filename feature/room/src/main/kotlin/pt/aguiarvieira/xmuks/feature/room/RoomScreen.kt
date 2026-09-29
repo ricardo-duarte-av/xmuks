@@ -116,6 +116,7 @@ fun RoomRoute(
             onLoadOlder = viewModel::loadOlder,
             onOpenMedia = onOpenMedia,
             onOpenUser = onOpenUser,
+            player = viewModel.player,
             onShowContext = viewModel::showContext,
             onLeaveContext = viewModel::leaveContext,
             composer =
@@ -235,6 +236,7 @@ fun RoomScreen(
     onLeaveContext: () -> Unit,
     composer: ComposerActions,
     modifier: Modifier = Modifier,
+    player: InlinePlayer? = null,
 ) {
     val scope = rememberCoroutineScope()
     val overlays = remember { OverlayState() }
@@ -249,10 +251,11 @@ fun RoomScreen(
     val list by rememberUpdatedState(if (context != null) contextList else liveList)
     val showContext by rememberUpdatedState(onShowContext)
     val actions =
-        remember(onOpenMedia, onOpenUser) {
+        remember(onOpenMedia, onOpenUser, player) {
             TimelineActions(
                 openMedia = onOpenMedia,
                 openUser = onOpenUser,
+                player = player,
                 onUnsent = { overlays.unsent = it },
                 onMessageMenu = { overlays.menuFor = it },
                 onReaction = composer.emoji.onToggle,

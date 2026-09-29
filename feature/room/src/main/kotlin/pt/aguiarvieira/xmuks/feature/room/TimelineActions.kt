@@ -53,6 +53,8 @@ class TimelineActions(
     val openMedia: (ViewerMedia) -> Unit,
     /** Someone's profile. */
     val openUser: (userId: String) -> Unit = {},
+    /** Plays voice messages, audio and videos in their bubbles. */
+    val player: InlinePlayer? = null,
     /** Show this event: scroll to it if loaded, else load a window around it. */
     val jumpTo: (eventId: String) -> Unit,
     /** One of our messages that didn't go out: offer to resend or discard it. */

@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import android.content.Context
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.lifecycle.ViewModel
@@ -8,6 +9,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.commands.CommandParser
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
@@ -33,6 +36,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
+import javax.inject.Named
 
 @HiltViewModel(assistedFactory = RoomViewModel.Factory::class)
 class RoomViewModel
@@ -45,6 +49,8 @@ class RoomViewModel
         profiles: ProfileRepository,
         preparer: MediaPreparer,
         private val uploads: MediaSender,
+        @Named("media") mediaHttp: OkHttpClient,
+        @ApplicationContext context: Context,
         val media: MediaUrls,
     ) : ViewModel() {
         @AssistedFactory
@@ -107,6 +113,9 @@ class RoomViewModel
 
         /** Our per-message profiles here, and which one messages go out as. */
         val personas = PersonaActions(viewModelScope, roomId, profiles, rooms.ownProfile(), WHILE_VISIBLE)
+
+        /** Voice messages, audio and videos playing in their bubbles. */
+        val player = InlinePlayer(context, mediaHttp, viewModelScope)
 
         /** Attachments: the preview step, then the upload. */
         val attach =
@@ -249,6 +258,7 @@ class RoomViewModel
         }
 
         override fun onCleared() {
+            player.release()
             draftKeeper.flush()
             // Leaving the room: we're not typing any more. (The session's scope outlives this one.)
             if (typingNotifier.active) sessions.stopTyping(roomId)
