@@ -10,7 +10,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 import pt.aguiarvieira.xmuks.core.network.GomuksConnection
 
@@ -65,6 +67,28 @@ class ForegroundConnection(
     override fun onStop(owner: LifecycleOwner) {
         inForeground = false
         update()
+    }
+
+    /**
+     * In the background (a periodic worker): opens the stream until gomuks has sent everything new
+     * (or [timeoutMs] passes), then closes it — unless the app came to the foreground meanwhile,
+     * which then keeps it. Nothing to do when it's already running. True if it caught up.
+     */
+    suspend fun catchUp(timeoutMs: Long): Boolean {
+        if (!loggedIn.value) return false
+        val job =
+            synchronized(this) {
+                if (running?.isActive == true) return connection.state.value == ConnectionState.Live
+                scope.launch { connection.run() }.also { running = it }
+            }
+        val live = withTimeoutOrNull(timeoutMs) { connection.state.first { it == ConnectionState.Live } } != null
+        synchronized(this) {
+            if (!inForeground && running === job) {
+                job.cancel()
+                running = null
+            }
+        }
+        return live
     }
 
     /** Force a fresh attempt now (e.g. after re-login, or a user tapping "retry"). */

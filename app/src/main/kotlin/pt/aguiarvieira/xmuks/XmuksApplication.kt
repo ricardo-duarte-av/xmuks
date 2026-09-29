@@ -35,5 +35,7 @@ class XmuksApplication :
         outbox.start()
         // Opening a room is reading it: its notification goes.
         openRoom.onOpened = notifier::clear
+        // Push renewal and catch-up while the app isn't open.
+        CatchUpWorker.schedule(this)
     }
 }
