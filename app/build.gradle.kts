@@ -44,8 +44,8 @@ android {
     defaultConfig {
         applicationId = "pt.aguiarvieira.xmuks"
         // CI's verify-tag job checks that a `vX.Y.Z` tag matches versionName.
-        versionCode = 19
-        versionName = "0.0.19"
+        versionCode = 20
+        versionName = "0.0.20"
         manifestPlaceholders["mapsApiKey"] = mapsApiKey
     }
 
