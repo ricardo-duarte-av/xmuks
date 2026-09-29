@@ -288,8 +288,16 @@ class RoomViewModel
             }
         }
 
+        private var shown = false
+
+        /** The in-room blip for others' new messages (while the room is on screen). */
+        private val blip = NewMessageSound(context, viewModelScope, items) { shown }
+
         /** On screen (the app in front) or not: while it is, its messages don't notify, and its notification goes. */
-        fun onScreen(shown: Boolean) = if (shown) openRoom.opened(roomId) else openRoom.closed(roomId)
+        fun onScreen(shown: Boolean) {
+            this.shown = shown
+            if (shown) openRoom.opened(roomId) else openRoom.closed(roomId)
+        }
 
         fun loadOlder() {
             viewModelScope.launch { session.loadOlder() }
@@ -297,6 +305,7 @@ class RoomViewModel
 
         override fun onCleared() {
             player.release()
+            blip.release()
             draftKeeper.flush()
             // Leaving the room: we're not typing any more. (The session's scope outlives this one.)
             if (typingNotifier.active) sessions.stopTyping(roomId)

@@ -104,13 +104,7 @@ class RoomNotifier(
             (existing ?: MessagingStyle(person(latest.self, imageAuth)))
                 .setGroupConversation(!direct)
                 .setConversationTitle(if (direct) null else latest.roomName)
-        val people = HashMap<String, Person>()
-        fresh.forEach { m ->
-            val sender = people.getOrPut(m.sender.id) { person(m.sender, imageAuth) }
-            style.addMessage(
-                MessagingStyle.Message(m.text, m.timestamp, sender).apply { extras.putString(EVENT_ID, m.eventId) }
-            )
-        }
+        val people = addMessages(style, fresh, imageAuth)
         val avatar = loadBitmap(latest.roomAvatar, imageAuth)
         publishShortcut(
             roomId,
@@ -140,6 +134,35 @@ class RoomNotifier(
                 .apply { Actions.add(this, context, roomId, latest.eventId) }
                 .build()
         post(roomId, notification)
+    }
+
+    /** Adds [fresh] to [style] (a picture as itself, then its caption); the senders met, by ID. */
+    private suspend fun addMessages(
+        style: MessagingStyle,
+        fresh: List<PushMessage>,
+        imageAuth: String?,
+    ): Map<String, Person> {
+        val people = HashMap<String, Person>()
+        fresh.forEach { m ->
+            val sender = people.getOrPut(m.sender.id) { person(m.sender, imageAuth) }
+            val message =
+                MessagingStyle
+                    .Message(
+                        m.text,
+                        m.timestamp,
+                        sender
+                    ).apply { extras.putString(EVENT_ID, m.eventId) }
+            val picture = m.image?.let { pictureUri(it, m.eventId, imageAuth) }
+            if (picture != null) message.setData(JPEG, picture)
+            style.addMessage(message)
+            // A message with a picture shows only the picture: its caption follows as a line of its own.
+            if (picture != null &&
+                !m.text.looksLikeFileName()
+            ) {
+                style.addMessage(MessagingStyle.Message(m.text, m.timestamp, sender))
+            }
+        }
+        return people
     }
 
     private suspend fun person(
@@ -189,22 +212,52 @@ class RoomNotifier(
     private suspend fun loadBitmap(
         path: String?,
         imageAuth: String?,
+        sizePx: Int = AVATAR_PX,
     ): Bitmap? {
         val base = server() ?: return null
         val url =
             path?.let(base::resolve)?.newBuilder()?.apply {
-                addQueryParameter("thumbnail", "avatar")
+                if (sizePx == AVATAR_PX) addQueryParameter("thumbnail", "avatar")
                 imageAuth?.let { addQueryParameter("image_auth", it) }
             } ?: return null
         val request =
             ImageRequest
                 .Builder(context)
                 .data(url.build().toString())
-                .size(AVATAR_PX)
+                .size(sizePx)
                 .allowHardware(false)
                 .build()
         return (images.execute(request) as? SuccessResult)?.image?.toBitmap()
     }
+
+    /**
+     * A message's picture, saved where the system UI can read it (our FileProvider): a
+     * notification can only show images it's handed as content URIs. Old ones are cleared.
+     */
+    private suspend fun pictureUri(
+        path: String,
+        eventId: String,
+        imageAuth: String?,
+    ): Uri? {
+        val bitmap = loadBitmap(path, imageAuth, PICTURE_PX) ?: return null
+        val dir = java.io.File(context.cacheDir, PICTURES).apply { mkdirs() }
+        dir.listFiles()?.filter { clock() - it.lastModified() > PICTURE_TTL_MS }?.forEach { it.delete() }
+        val file = java.io.File(dir, "${eventId.hashCode().toUInt()}.jpg")
+        runCatching {
+            file.outputStream().use {
+                bitmap.compress(
+                    Bitmap.CompressFormat.JPEG,
+                    JPEG_QUALITY,
+                    it
+                )
+            }
+        }.getOrNull()
+            ?: return null
+        return androidx.core.content.FileProvider
+            .getUriForFile(context, context.packageName + ".notifications", file)
+    }
+
+    private fun String.looksLikeFileName() = isBlank() || FILE_NAME.matches(trim())
 
     private fun active(roomId: String): Notification? =
         manager.activeNotifications.firstOrNull { it.tag == roomId && it.id == NOTIFICATION_ID }?.notification
@@ -231,5 +284,11 @@ class RoomNotifier(
         /** gomuks marks a room read when we reply: its dismissal is ignored for this long after. */
         const val REPLY_GUARD_MS = 10_000L
         private const val AVATAR_PX = 192
+        private const val PICTURE_PX = 1024
+        private const val JPEG = "image/jpeg"
+        private val FILE_NAME = Regex("""[^\s/]+\.[A-Za-z0-9]{2,5}""")
+        private const val JPEG_QUALITY = 85
+        private const val PICTURES = "notification-images"
+        private const val PICTURE_TTL_MS = 24L * 60 * 60 * 1000
     }
 }

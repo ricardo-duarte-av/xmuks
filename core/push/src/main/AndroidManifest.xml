@@ -15,6 +15,17 @@
         <receiver
             android:name=".ActionReceiver"
             android:exported="false" />
+
+        <!-- Pictures in message notifications, read by the system UI. -->
+        <provider
+            android:name=".NotificationImages"
+            android:authorities="${applicationId}.notifications"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/notification_paths" />
+        </provider>
     </application>
 
 </manifest>

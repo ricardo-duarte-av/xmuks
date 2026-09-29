@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pictures shown inside message notifications. -->
+<paths>
+    <cache-path name="notification_images" path="notification-images/" />
+</paths>
