@@ -204,6 +204,7 @@ fun XmuksNavHost(
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
                                     onOpenUser = { backStack.add(UserKey(it)) },
                                     onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
+                                    onSendFiles = { uris -> backStack.add(ShareKey(uris, null, key.roomId)) },
                                 )
                             }
                         }
@@ -239,7 +240,9 @@ fun XmuksNavHost(
                                     request = ShareRequest(key.uris, key.text, key.roomId),
                                     onDone = { roomId ->
                                         backStack.remove(key)
-                                        if (roomId != null) backStack.openRoom(roomId, LINK_SCOPE)
+                                        // Back in the room it came from, or to the one chosen.
+                                        val here = (backStack.lastOrNull() as? RoomKey)?.roomId
+                                        if (roomId != null && roomId != here) backStack.openRoom(roomId, LINK_SCOPE)
                                     },
                                 )
                             }

@@ -95,6 +95,8 @@ fun RoomRoute(
     jumpTo: String? = null,
     onOpenLink: (uri: String) -> Unit = {},
     onOpenRoomInfo: () -> Unit = {},
+    /** Files to send with a caption each (the share screen, for this room). */
+    onSendFiles: (List<String>) -> Unit = {},
     viewModel: RoomViewModel = hiltViewModel<RoomViewModel, RoomViewModel.Factory>(key = roomId) { it.create(roomId) },
 ) {
     val room by viewModel.room.collectAsStateWithLifecycle()
@@ -186,6 +188,7 @@ fun RoomRoute(
                     attachments = SUPPORTED_ATTACHMENTS,
                     mediaDraft = mediaDraft,
                     onPickMedia = viewModel.attach::pick,
+                    onPickMany = { uris -> onSendFiles(uris.map { it.toString() }) },
                     onChooseSize = viewModel.attach::choose,
                     onSendMedia = viewModel.attach::send,
                     onCancelMedia = viewModel.attach::cancel,
@@ -223,6 +226,8 @@ class ComposerActions(
     /** A picked attachment waiting on its preview screen. */
     val mediaDraft: MediaDraft? = null,
     val onPickMedia: (android.net.Uri) -> Unit = {},
+    /** Several picked together: on to the share screen, one caption each. */
+    val onPickMany: (List<android.net.Uri>) -> Unit = {},
     val onChooseSize: (ImageSize) -> Unit = {},
     val onSendMedia: (caption: String) -> Unit = {},
     val onCancelMedia: () -> Unit = {},

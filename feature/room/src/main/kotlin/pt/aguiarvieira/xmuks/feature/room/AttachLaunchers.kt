@@ -24,14 +24,24 @@ internal val SUPPORTED_ATTACHMENTS =
  * system camera writing into a file of ours — and hands what comes back to [onPick].
  */
 @Composable
-internal fun rememberAttachLauncher(onPick: (Uri) -> Unit): (Attachment) -> Unit {
+internal fun rememberAttachLauncher(
+    onPick: (Uri) -> Unit,
+    /** Several at once: each gets its own caption, on the share screen. */
+    onPickMany: (List<Uri>) -> Unit = { it.forEach(onPick) },
+): (Attachment) -> Unit {
+    val picked: (List<Uri>) -> Unit = { uris ->
+        when (uris.size) {
+            0 -> Unit
+            1 -> onPick(uris.single())
+            else -> onPickMany(uris)
+        }
+    }
     val context = LocalContext.current
     // Where the camera writes; kept across the activity being recreated while the camera is up.
     var captureTo by rememberSaveable { mutableStateOf<String?>(null) }
     val gallery =
-        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(onPick) }
-    val document =
-        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(onPick) }
+        rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_PICKS), picked)
+    val document = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(), picked)
     val photo =
         rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
             captureTo?.takeIf { taken }?.let { onPick(Uri.parse(it)) }
@@ -71,6 +81,9 @@ internal fun rememberAttachLauncher(onPick: (Uri) -> Unit): (Attachment) -> Unit
         }
     }
 }
+
+/** The photo picker's cap on one pick. */
+private const val MAX_PICKS = 20
 
 /** A new file for the camera to fill, named for when it was taken, shared through our provider. */
 private fun captureUri(

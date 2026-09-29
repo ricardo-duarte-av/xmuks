@@ -349,7 +349,7 @@ private fun ComposerOverlays(
     composer: ComposerActions,
     resolver: MediaResolver,
 ) {
-    val launch = rememberAttachLauncher(composer.onPickMedia)
+    val launch = rememberAttachLauncher(composer.onPickMedia, composer.onPickMany)
     if (state.attaching) {
         AttachSheet(
             available = composer.attachments,
