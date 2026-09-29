@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,6 +50,7 @@ fun RoomInfoRoute(
     onBack: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
     onOpenUser: (userId: String) -> Unit,
+    onOpenMembers: () -> Unit,
     /** We left the room: nothing of it to go back to. */
     onLeft: () -> Unit,
     modifier: Modifier = Modifier,
@@ -69,7 +69,7 @@ fun RoomInfoRoute(
     LaunchedEffect(left) { if (left) leave() }
     val media = remember(viewModel) { ProfileMedia(viewModel.media::avatar, viewModel.media::full) }
     val actions =
-        remember(viewModel, onOpenUser, onOpenMedia) {
+        remember(viewModel, onOpenUser, onOpenMedia, onOpenMembers) {
             RoomInfoActions(
                 setName = viewModel::setName,
                 setTopic = viewModel::setTopic,
@@ -84,6 +84,7 @@ fun RoomInfoRoute(
                 personas = PersonaEdits.of(viewModel.personas),
                 openUser = onOpenUser,
                 openMedia = onOpenMedia,
+                openMembers = onOpenMembers,
             )
         }
     RoomInfoScreen(
@@ -197,7 +198,6 @@ private fun RoomInfoCards(
     actions: RoomInfoActions,
     padding: PaddingValues,
 ) {
-    val search = rememberTextFieldState()
     val card = Modifier.fillMaxWidth().padding(bottom = ScreenCards.Gap)
     LazyColumn(
         modifier = Modifier.padding(padding).padding(horizontal = ScreenCards.Gap).navigationBarsPadding(),
@@ -205,6 +205,7 @@ private fun RoomInfoCards(
     ) {
         item(key = "hero") { RoomHeroCard(info, me, media, actions, card) }
         item(key = "settings") { RoomSettingsCard(info, me, notifications, actions, card) }
+        item(key = "members") { MembersCard(info, actions.openMembers, card) }
         item(key = "personas") {
             PersonasCard(
                 personas,
@@ -216,7 +217,5 @@ private fun RoomInfoCards(
             )
         }
         item(key = "leave") { LeaveCard(info, actions.leave, card) }
-        // Last: a big room's members run to thousands of rows.
-        memberItems(info, me, search, media, actions)
     }
 }

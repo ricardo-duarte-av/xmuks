@@ -99,7 +99,6 @@
     <string name="members_search">Search members</string>
     <string name="members_invited">Invited</string>
     <string name="members_knocking">Asking to join</string>
-    <string name="members_banned">Banned</string>
     <string name="invite">Invite</string>
     <string name="invite_hint">@someone:example.org</string>
     <string name="role_creator">Creator</string>
@@ -122,4 +121,20 @@
     <string name="leave_confirm">Leave %1$s?</string>
     <string name="leave_private_warning">It isn\'t public: you\'ll need a new invite to come back.</string>
     <string name="confirm">OK</string>
+    <string name="group_creators">Creators</string>
+    <string name="group_admins">Admins</string>
+    <string name="group_moderators">Moderators</string>
+    <string name="group_level">Power level %1$d</string>
+    <plurals name="members_joined">
+        <item quantity="one">%1$d member</item>
+        <item quantity="other">%1$d members</item>
+    </plurals>
+    <plurals name="members_asking">
+        <item quantity="one">%1$d asking to join</item>
+        <item quantity="other">%1$d asking to join</item>
+    </plurals>
+    <plurals name="members_invited_count">
+        <item quantity="one">%1$d invited</item>
+        <item quantity="other">%1$d invited</item>
+    </plurals>
 </resources>

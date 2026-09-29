@@ -21,5 +21,6 @@ class RoomInfoActions(
     val leave: (reason: String?) -> Unit = {},
     val personas: PersonaEdits = PersonaEdits({ _, _ -> }, {}, { _, _ -> }),
     val openUser: (String) -> Unit = {},
+    val openMembers: () -> Unit = {},
     val openMedia: (ViewerMedia) -> Unit = {},
 )

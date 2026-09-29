@@ -38,6 +38,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.LocalSharedTransitionSc
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.feature.media.MediaViewerRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomInfoRoute
+import pt.aguiarvieira.xmuks.feature.profile.RoomMembersRoute
 import pt.aguiarvieira.xmuks.feature.profile.UserInfoRoute
 import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
@@ -66,6 +67,11 @@ import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
 
 /** A room's details, members and settings. */
 @Serializable data class RoomInfoKey(
+    val roomId: String,
+) : NavKey
+
+/** A room's member list, on its own. */
+@Serializable data class RoomMembersKey(
     val roomId: String,
 ) : NavKey
 
@@ -179,7 +185,17 @@ fun XmuksNavHost(
                                     onBack = { backStack.removeLastOrNull() },
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
                                     onOpenUser = { backStack.add(UserKey(it)) },
+                                    onOpenMembers = { backStack.add(RoomMembersKey(key.roomId)) },
                                     onLeft = { backStack.leftRoom(key.roomId) },
+                                )
+                            }
+                        }
+                        entry<RoomMembersKey> { key ->
+                            Destination {
+                                RoomMembersRoute(
+                                    roomId = key.roomId,
+                                    onBack = { backStack.removeLastOrNull() },
+                                    onOpenUser = { backStack.add(UserKey(it)) },
                                 )
                             }
                         }
@@ -225,7 +241,11 @@ private fun NavBackStack<NavKey>.openRoom(
 
 /** After leaving a room: its screens go, back to the list it was opened from. */
 private fun NavBackStack<NavKey>.leftRoom(roomId: String) {
-    removeAll { (it is RoomKey && it.roomId == roomId) || (it is RoomInfoKey && it.roomId == roomId) }
+    removeAll {
+        (it is RoomKey && it.roomId == roomId) ||
+            (it is RoomInfoKey && it.roomId == roomId) ||
+            (it is RoomMembersKey && it.roomId == roomId)
+    }
     if (isEmpty()) add(HomeKey)
 }
 
