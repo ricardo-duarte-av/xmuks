@@ -17,7 +17,8 @@ import pt.aguiarvieira.xmuks.core.network.GomuksConnection
 /**
  * Holds `/sse` open only while the app is in the foreground (and logged in). Leaving the
  * foreground keeps it for [lingerMs] so a quick app switch doesn't pay for a reconnect; after that
- * the stream closes and FCM takes over. Network changes cut any backoff short.
+ * the stream closes and FCM takes over. Network changes (and getting our network back when we
+ * return to the foreground) cut any backoff short; a kept stream gone silent is restarted.
  */
 class ForegroundConnection(
     private val context: Context,
@@ -37,6 +38,14 @@ class ForegroundConnection(
         context.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(
             object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) = connection.reconnectNow()
+
+                // Back in the foreground, Android gives the app its network back: stop waiting.
+                override fun onBlockedStatusChanged(
+                    network: Network,
+                    blocked: Boolean,
+                ) {
+                    if (!blocked) wakeUp()
+                }
             },
         )
         scope.launch { loggedIn.collect { update() } }
@@ -45,6 +54,12 @@ class ForegroundConnection(
     override fun onStart(owner: LifecycleOwner) {
         inForeground = true
         update()
+        wakeUp()
+    }
+
+    /** A stream kept through a short background spell may have died silently: start over now if so. */
+    private fun wakeUp() {
+        if (connection.isStale()) restart() else connection.reconnectNow()
     }
 
     override fun onStop(owner: LifecycleOwner) {

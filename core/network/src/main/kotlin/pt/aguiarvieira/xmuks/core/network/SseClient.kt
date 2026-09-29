@@ -41,6 +41,11 @@ class SseClient(
     private val server: () -> HttpUrl?,
     private val io: CoroutineContext,
 ) {
+    /** When the open stream last delivered anything, keepalive pings included (0: nothing yet). */
+    @Volatile
+    var lastLineAt: Long = 0
+        private set
+
     fun open(resume: ResumePoint): Flow<GomuksFrame> =
         channelFlow {
             val base = server() ?: throw IOException("Not logged in")
@@ -59,6 +64,7 @@ class SseClient(
                             val source = response.body.source()
                             while (true) {
                                 val line = source.readUtf8Line() ?: break
+                                lastLineAt = System.currentTimeMillis()
                                 FrameDecoder.decode(line)?.let { send(it) }
                             }
                         }

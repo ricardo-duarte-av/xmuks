@@ -92,6 +92,14 @@ class GomuksConnection(
 
     private val wake = Channel<Unit>(Channel.CONFLATED)
 
+    /**
+     * A stream that says it's live but hasn't delivered anything — not even gomuks' ~15 s keepalive
+     * — for a while: its socket most likely died while we were in the background (Android cuts a
+     * backgrounded app's network), and the read timeout would take far longer to notice.
+     */
+    fun isStale(now: Long = System.currentTimeMillis()): Boolean =
+        state.value is ConnectionState.Live && sse.lastLineAt != 0L && now - sse.lastLineAt > STALE_MS
+
     /** Skip the current backoff wait, e.g. when the network comes back. */
     fun reconnectNow() {
         wake.trySend(Unit)
@@ -241,6 +249,9 @@ class GomuksConnection(
 
     private companion object {
         const val ACK_INTERVAL_MS = 10_000L
+
+        /** More than one missed keepalive (gomuks pings every ~15 s). */
+        const val STALE_MS = 20_000L
         const val INITIAL_BACKOFF_MS = 1_000L
         const val MAX_BACKOFF_MS = 30_000L
     }
