@@ -18,6 +18,7 @@ import java.time.ZoneId
  */
 class TimelineItemBuilder(
     internal val me: String?,
+    private val options: TimelineOptions = TimelineOptions(),
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) {
     fun build(
@@ -27,36 +28,48 @@ class TimelineItemBuilder(
         val byEventId = snapshot.eventsByRowId.values.associateBy { it.eventId }
         val members = profiles + membersFromTimeline(snapshot.events)
         val myReactions = myReactions(snapshot.eventsByRowId.values)
-        val readers = readersByEvent(snapshot) { it.isShown() }
+        val readers = if (options.showReadReceipts) readersByEvent(snapshot) { it.isShown() } else emptyMap()
 
         val out = ArrayList<TimelineItem>(snapshot.events.size + DAY_SEPARATOR_SLACK)
         var previous: Event? = null
         var previousGroup: String? = null
-        for (event in snapshot.events) {
-            if (!event.isShown()) continue
+        // What's shown: left out by preference (or unrenderable) is as if it weren't there, so the
+        // messages around it still group, and a day of only such events gets no separator.
+        val shown =
+            snapshot.events.mapNotNull { event ->
+                itemFor(event, snapshot, byEventId, members, myReactions, readers)
+                    ?.takeIf(options::shows)
+                    ?.let { event to it }
+            }
+        for ((event, item) in shown) {
             val day = Instant.ofEpochMilli(event.timestamp).atZone(zone).toLocalDate()
             val previousDay = previous?.let { Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() }
-            if (day != previousDay) out += TimelineItem.DaySeparator("day:$day", day)
-
-            val item =
-                if (event.stateKey != null) {
-                    stateChange(event, members, myReactions, readers)
-                } else {
-                    message(event, snapshot, byEventId, members, myReactions, readers)
-                }
-            if (item != null) {
-                // Messages from the same sender (and profile) within minutes of each other form a
-                // group; emotes and state changes stand alone and end the group around them.
-                val group = (item as? TimelineItem.Message)?.takeUnless { it.isEmote }?.let { groupKey(event, it) }
-                val gap = previous?.let { event.timestamp - it.timestamp } ?: Long.MAX_VALUE
-                val continues = group != null && group == previousGroup && day == previousDay && gap < GROUP_GAP_MS
-                out.appendGrouped(item, continues)
-                previousGroup = group
-            }
+            if (day != previousDay && options.showDateSeparators) out += TimelineItem.DaySeparator("day:$day", day)
+            // Messages from the same sender (and profile) within minutes of each other form a
+            // group; emotes and state changes stand alone and end the group around them.
+            val group = (item as? TimelineItem.Message)?.takeUnless { it.isEmote }?.let { groupKey(event, it) }
+            val gap = previous?.let { event.timestamp - it.timestamp } ?: Long.MAX_VALUE
+            val continues = group != null && group == previousGroup && day == previousDay && gap < GROUP_GAP_MS
+            out.appendGrouped(item, continues)
+            previousGroup = group
             previous = event
         }
         return out
     }
+
+    private fun itemFor(
+        event: Event,
+        snapshot: TimelineSnapshot,
+        byEventId: Map<String, Event>,
+        members: Map<String, MemberProfile>,
+        myReactions: Map<String, Map<String, String>>,
+        readers: Map<String, List<Receipt>>,
+    ): TimelineItem? =
+        when {
+            !event.isShown() -> null
+            event.stateKey != null -> stateChange(event, members, myReactions, readers)
+            else -> message(event, snapshot, byEventId, members, myReactions, readers)
+        }
 
     // --- visibility ---------------------------------------------------------------------------
 

@@ -13,6 +13,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItemBuilder
+import pt.aguiarvieira.xmuks.core.data.timeline.TimelineOptions
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineSnapshot
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
@@ -305,5 +306,31 @@ class TimelineItemBuilderTest {
         val theirs = ev(content = """{"msgtype":"m.text","body":"yo"}""")
         val image = ev(sender = "@me:x", content = """{"msgtype":"m.image","body":"x.png","url":"mxc://x/y"}""")
         assertEquals(listOf("/me waves", "hi", null, null), build(mine, plain, theirs, image).messages().map { it.editSource })
+    }
+
+    @Test
+    fun `preferences leave out membership, profile changes, deletions and dates, and groups close over them`() {
+        val quiet =
+            TimelineItemBuilder(
+                me = "@me:x",
+                options = TimelineOptions(showRedacted = false, showMembership = false, showProfileChanges = false, showDateSeparators = false),
+                zone = ZoneOffset.UTC,
+            )
+        val events =
+            listOf(
+                ev(ts = t0),
+                ev(sender = "@ann:x", type = "m.room.member", stateKey = "@ann:x", content = """{"membership":"join"}""", ts = t0 + 1_000),
+                ev(content = "{}", ts = t0 + 2_000) { copy(redactedBy = "\$x") },
+                ev(sender = "@ann:x", type = "m.room.member", stateKey = "@ann:x", content = """{"membership":"join","displayname":"Annie"}""", ts = t0 + 3_000) {
+                    copy(unsigned = json("""{"prev_content":{"membership":"join","displayname":"Ann"}}"""))
+                },
+                ev(ts = t0 + 4_000),
+            )
+        val items = quiet.build(TimelineSnapshot("!r", events = events, eventsByRowId = events.associateBy { it.rowId }, loaded = true), emptyMap())
+        assertEquals(2, items.size)
+        val (first, second) = items.messages()
+        // The two messages still read as one group: what was between them is gone.
+        assertTrue(first.firstInGroup && !first.lastInGroup)
+        assertTrue(!second.firstInGroup && second.lastInGroup)
     }
 }

@@ -16,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
@@ -31,6 +32,8 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.media.UPLOAD_PREFIX
+import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
+import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
@@ -131,6 +134,17 @@ class RoomViewModel
         /** What's being written; kept per room when the room is left, and across restarts. */
         val draft = TextFieldState()
 
+        /** gomuks' preferences as they apply here. */
+        val prefs: StateFlow<PrefLayers> =
+            session.preferences.stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                PrefLayers.EMPTY
+            )
+
+        /** A command refused before it was sent (hide fingerprint: no bot commands). */
+        val refusal = OneShot<Int>()
+
         /** Our per-message profiles here, and which one messages go out as. */
         val personas = PersonaActions(viewModelScope, roomId, profiles, rooms.ownProfile(), WHILE_VISIBLE)
 
@@ -154,6 +168,7 @@ class RoomViewModel
                     }
                 },
                 onSent = { if (modes.mode.value is ComposeMode.Reply) modes.cancel() },
+                showDialog = { prefs.value.get(Prefs.uploadDialog) },
             )
 
         /** Reacting, stickers, recent emoji and pack subscriptions. */
@@ -204,6 +219,11 @@ class RoomViewModel
         private fun sendCommand(text: String): Boolean {
             if (!text.startsWith("/") || text.startsWith("//")) return false
             val command = CommandParser.match(text, commands.value)?.takeUnless { it.textPrefix } ?: return false
+            // As gomuks: with hide fingerprint on, bots' commands aren't sent at all (built-ins are).
+            if (command.source != BotCommand.GOMUKS && prefs.value.get(Prefs.hideFingerprint)) {
+                refusal.show(R.string.command_fingerprint)
+                return true
+            }
             val arguments = CommandParser.parse(command, text) ?: return false
             modes.sent()
             stopTyping()

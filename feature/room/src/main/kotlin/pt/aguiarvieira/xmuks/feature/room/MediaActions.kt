@@ -50,6 +50,8 @@ class MediaActions(
     /** What the message answers (the composer's reply), taken when it's sent. */
     private val replyTo: () -> ReplyTarget?,
     private val onSent: () -> Unit,
+    /** gomuks' `upload_dialog`: preview (size, caption) before sending, or send as picked. */
+    private val showDialog: () -> Boolean = { true },
 ) {
     private val _draft = MutableStateFlow<MediaDraft?>(null)
     val draft: StateFlow<MediaDraft?> = _draft.asStateFlow()
@@ -62,6 +64,10 @@ class MediaActions(
         cancel()
         scope.launch {
             val file = preparer.inspect(uri)
+            if (!showDialog()) {
+                sendAsPicked(file)
+                return@launch
+            }
             val preview =
                 when (file.kind) {
                     MediaKind.Image -> file.uri
@@ -119,6 +125,14 @@ class MediaActions(
             }.onFailure { e ->
                 _draft.update { it?.copy(sending = false, error = e.message ?: e.javaClass.simpleName) }
             }
+        }
+    }
+
+    /** No preview step: the file as it is, no caption. */
+    private suspend fun sendAsPicked(file: PickedFile) {
+        runCatching { preparer.prepare(file, null) }.onSuccess { prepared ->
+            sender.send(roomId, prepared, "", replyTo(), encrypted())
+            onSent()
         }
     }
 

@@ -144,7 +144,13 @@ internal val ENTRIES: List<PrefEntry> =
             R.string.pref_show_media_previews_desc,
             Section.Media
         ),
-        PrefEntry(Prefs.autoplayGifs, R.string.pref_autoplay_gifs, R.string.pref_autoplay_gifs_desc, Section.Media),
+        PrefEntry(
+            Prefs.autoplayGifs,
+            R.string.pref_autoplay_gifs,
+            R.string.pref_autoplay_gifs_desc,
+            Section.Media,
+            inXmuks = false
+        ),
         PrefEntry(
             Prefs.showInlineImages,
             R.string.pref_show_inline_images,

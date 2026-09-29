@@ -105,4 +105,6 @@
     </plurals>
     <string name="room_info">Room info</string>
     <string name="room_menu">More</string>
+    <string name="command_fingerprint">Bot commands are off while \"Hide fingerprint\" is on</string>
+    <string name="tap_to_show">Tap to show</string>
 </resources>

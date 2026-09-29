@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonArray
@@ -37,6 +38,8 @@ class RoomEmoji(
     private val dao: RoomListDao,
     private val exec: ExecClient,
     private val writer: RoomWriter,
+    /** gomuks' `show_room_emoji_packs`: this room's own packs offered (else only ours and subscribed ones). */
+    private val showRoomPacks: Flow<Boolean> = flowOf(true),
 ) {
     /** Subscribed packs' state events, fetched from their rooms (room ID + state key → event). */
     private val subscribedStates = MutableStateFlow<Map<Pair<String, String>, Event>>(emptyMap())
@@ -58,10 +61,10 @@ class RoomEmoji(
         combine(
             global(ImagePack.PERSONAL),
             global(ImagePack.PERSONAL_LEGACY),
-            roomState,
+            combine(roomState, showRoomPacks, ::Pair),
             subscriptions,
             subscribedStates,
-        ) { personal, personalLegacy, state, subscribed, others ->
+        ) { personal, personalLegacy, (state, showRoomPacks), subscribed, others ->
             fetchMissing(subscribed)
             buildList {
                 (personal ?: personalLegacy)
@@ -75,7 +78,10 @@ class RoomEmoji(
                     }?.let(::add)
                 state.filter { it.type == ImagePack.ROOM || it.type == ImagePack.ROOM_LEGACY }.forEach { evt ->
                     val key = evt.stateKey.orEmpty()
-                    val source = ImagePack.Source.Room(roomId, key, subscribed = (roomId to key) in subscribed)
+                    val isSubscribed = (roomId to key) in subscribed
+                    // Left out by preference, unless we subscribed to it (then it's one of ours).
+                    if (!showRoomPacks && !isSubscribed) return@forEach
+                    val source = ImagePack.Source.Room(roomId, key, subscribed = isSubscribed)
                     ImagePack.parse(evt.content, "$roomId/$key", null, source)?.let(::add)
                 }
                 others.filterKeys { it in subscribed && it.first != roomId }.forEach { (key, evt) ->

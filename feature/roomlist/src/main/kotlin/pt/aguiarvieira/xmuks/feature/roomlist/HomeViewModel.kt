@@ -8,10 +8,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
+import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
@@ -29,14 +31,29 @@ class HomeViewModel
         rooms: RoomListRepository,
         private val sync: SyncController,
         store: CredentialStore,
+        preferences: PreferenceStore,
     ) : ViewModel() {
         val search = SearchQueries()
 
+        private val prefs = preferences.layers()
+        val display: StateFlow<RoomListDisplay> =
+            prefs.map(RoomListDisplay::of).stateIn(viewModelScope, WHILE_VISIBLE, RoomListDisplay())
+
         /** Null until the database has answered: distinguishes "loading" from "empty". */
         val chats: StateFlow<List<RoomSummary>?> =
-            rooms.chats().filteredBy(search.chats) { it.name }.stateIn(viewModelScope, WHILE_VISIBLE, null)
+            rooms
+                .chats()
+                .ordered(
+                    prefs
+                ).filteredBy(search.chats) { it.name }
+                .stateIn(viewModelScope, WHILE_VISIBLE, null)
         val dms: StateFlow<List<RoomSummary>?> =
-            rooms.directMessages().filteredBy(search.dms) { it.name }.stateIn(viewModelScope, WHILE_VISIBLE, null)
+            rooms
+                .directMessages()
+                .ordered(
+                    prefs
+                ).filteredBy(search.dms) { it.name }
+                .stateIn(viewModelScope, WHILE_VISIBLE, null)
         val spaces: StateFlow<List<SpaceSummary>?> =
             rooms.topLevelSpaces().filteredBy(search.spaces) { it.name }.stateIn(viewModelScope, WHILE_VISIBLE, null)
         val connection: StateFlow<ConnectionState> = sync.state

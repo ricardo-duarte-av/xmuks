@@ -342,7 +342,8 @@ object DataModule {
         outbox: Outbox,
         uploads: MediaSender,
         scope: CoroutineScope,
-    ) = RoomSessions(timelines, exec, database, outbox, uploads, scope)
+        prefs: PreferenceStore,
+    ) = RoomSessions(timelines, exec, database, outbox, uploads, scope, prefs)
 
     /** Unsent messages: their own database, which (unlike the cache) survives schema changes. */
     @Provides @Singleton

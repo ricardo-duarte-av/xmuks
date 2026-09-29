@@ -35,6 +35,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -79,16 +80,19 @@ fun HomeRoute(
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val profile by viewModel.profile.collectAsStateWithLifecycle()
     val badges by viewModel.badges.collectAsStateWithLifecycle()
-    HomeScreen(
-        state = HomeUiState(tab, chats, dms, spaces, connection, refreshing, viewModel.account, profile, badges),
-        onTabChange = { tab = it },
-        onRefresh = viewModel::refresh,
-        onOpenRoom = onOpenRoom,
-        onOpenSpace = onOpenSpace,
-        onAccountClick = { profile?.userId?.let(onOpenProfile) },
-        modifier = modifier,
-        search = viewModel.search,
-    )
+    val display by viewModel.display.collectAsStateWithLifecycle()
+    CompositionLocalProvider(LocalRoomListDisplay provides display) {
+        HomeScreen(
+            state = HomeUiState(tab, chats, dms, spaces, connection, refreshing, viewModel.account, profile, badges),
+            onTabChange = { tab = it },
+            onRefresh = viewModel::refresh,
+            onOpenRoom = onOpenRoom,
+            onOpenSpace = onOpenSpace,
+            onAccountClick = { profile?.userId?.let(onOpenProfile) },
+            modifier = modifier,
+            search = viewModel.search,
+        )
+    }
 }
 
 data class HomeUiState(

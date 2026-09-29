@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,17 +50,20 @@ fun SpaceRoute(
     val subspaces by viewModel.subspaces.collectAsStateWithLifecycle()
     val rooms by viewModel.rooms.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
-    SpaceScreen(
-        spaceId = spaceId,
-        space = space,
-        subspaces = subspaces,
-        filter = filter,
-        rooms = rooms,
-        onSelect = viewModel::select,
-        onBack = onBack,
-        onOpenRoom = onOpenRoom,
-        modifier = modifier,
-    )
+    val display by viewModel.display.collectAsStateWithLifecycle()
+    CompositionLocalProvider(LocalRoomListDisplay provides display) {
+        SpaceScreen(
+            spaceId = spaceId,
+            space = space,
+            subspaces = subspaces,
+            filter = filter,
+            rooms = rooms,
+            onSelect = viewModel::select,
+            onBack = onBack,
+            onOpenRoom = onOpenRoom,
+            modifier = modifier,
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

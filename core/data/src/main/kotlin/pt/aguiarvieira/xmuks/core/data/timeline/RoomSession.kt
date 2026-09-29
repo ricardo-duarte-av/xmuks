@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -29,6 +30,9 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.toTimelineItem
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.outbox.toTimelineItems
+import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
+import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
+import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
@@ -50,8 +54,12 @@ class RoomSession(
     private val outbox: Outbox,
     private val uploads: MediaSender,
     private val scope: CoroutineScope,
+    prefs: PreferenceStore? = null,
 ) {
     private val dao = database.roomListDao()
+
+    /** gomuks' preferences as they apply in this room. */
+    val preferences: Flow<PrefLayers> = prefs?.layers(roomId) ?: flowOf(PrefLayers.EMPTY)
     private val profiles = MutableStateFlow<Map<String, MemberProfile>>(emptyMap())
     private val requested = HashSet<String>()
     private val profileLock = Mutex()
@@ -98,10 +106,18 @@ class RoomSession(
         }
 
     /** Everything this session sends: messages, deletions, receipts, typing. */
-    val writer = RoomWriter(roomId, exec, outbox)
+    val writer = RoomWriter(roomId, exec, outbox, preferences)
 
     /** Emoji and sticker packs usable here, recent emoji, reacting. */
-    val emoji = RoomEmoji(roomId, state, dao, exec, writer)
+    val emoji =
+        RoomEmoji(
+            roomId,
+            state,
+            dao,
+            exec,
+            writer,
+            preferences.map { it.get(Prefs.showRoomEmojiPacks) }.distinctUntilChanged()
+        )
 
     /**
      * Every version of [eventId], oldest first: the original, then each edit gomuks has
@@ -146,9 +162,14 @@ class RoomSession(
 
     /** Items for any snapshot of this room (the live one, or an event context), with its profiles. */
     fun itemsOf(snapshots: Flow<TimelineSnapshot>): Flow<List<TimelineItem>> =
-        combine(snapshots, profiles, dao.meta().map { it?.userId }.distinctUntilChanged()) { snap, known, me ->
+        combine(
+            snapshots,
+            profiles,
+            dao.meta().map { it?.userId }.distinctUntilChanged(),
+            preferences.map(TimelineOptions::of).distinctUntilChanged(),
+        ) { snap, known, me, options ->
             resolveMissing(snap, known)
-            TimelineItemBuilder(me).build(snap, known)
+            TimelineItemBuilder(me, options).build(snap, known)
         }.flowOn(Dispatchers.Default)
 
     /** Our read marker here (`m.fully_read`): the last event read; gomuks' mark_read moves it. */
@@ -325,8 +346,9 @@ class RoomSessions(
     private val outbox: Outbox,
     private val uploads: MediaSender,
     private val scope: CoroutineScope,
+    private val prefs: PreferenceStore? = null,
 ) {
-    fun open(roomId: String) = RoomSession(roomId, store, exec, database, outbox, uploads, scope)
+    fun open(roomId: String) = RoomSession(roomId, store, exec, database, outbox, uploads, scope, prefs)
 
     /** Stops our typing notification in [roomId], outliving whoever asked. */
     fun stopTyping(roomId: String) {

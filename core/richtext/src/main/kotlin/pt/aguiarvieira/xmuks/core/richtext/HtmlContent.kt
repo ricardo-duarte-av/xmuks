@@ -67,9 +67,10 @@ fun HtmlContent(
 ) {
     val images = InlineImages(mediaUrl, onOpenImage)
     val colors = htmlColors()
+    val options = LocalRichTextOptions.current
     val blocks =
-        remember(html, colors, prefix, preserveWhitespace) {
-            withPrefix(HtmlParser(colors, preserveWhitespace).parse(html), prefix)
+        remember(html, colors, prefix, preserveWhitespace, options.inlineImages) {
+            withPrefix(HtmlParser(colors, preserveWhitespace, options.inlineImages).parse(html), prefix)
         }
     // Only a closing paragraph has a last line a footer can share; quotes, lists and code don't.
     if (blocks.lastOrNull() !is HtmlBlock.Paragraph) lastLine?.clear()
@@ -153,16 +154,17 @@ private fun Block(
         }
 
         is HtmlBlock.Code -> {
+            val wrap = LocalRichTextOptions.current.wrapCode
             Text(
                 block.code,
                 style = style.copy(fontFamily = FontFamily.Monospace),
                 color = color,
-                softWrap = false,
+                softWrap = wrap,
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .background(colors.surfaceContainerHighest, RoundedCornerShape(8.dp))
-                        .horizontalScroll(rememberScrollState())
+                        .then(if (wrap) Modifier else Modifier.horizontalScroll(rememberScrollState()))
                         .padding(8.dp),
             )
         }

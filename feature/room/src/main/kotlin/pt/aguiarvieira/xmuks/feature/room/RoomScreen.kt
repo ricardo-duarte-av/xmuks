@@ -68,12 +68,15 @@ import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.emoji.ImagePack
 import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
+import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
+import pt.aguiarvieira.xmuks.core.richtext.LocalRichTextOptions
+import pt.aguiarvieira.xmuks.core.richtext.RichTextOptions
 import pt.aguiarvieira.xmuks.core.richtext.SafeUriHandler
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -108,16 +111,32 @@ fun RoomRoute(
     val recent by viewModel.emoji.recent.collectAsStateWithLifecycle()
     val personas by viewModel.personas.personas.collectAsStateWithLifecycle()
     val mediaDraft by viewModel.attach.draft.collectAsStateWithLifecycle()
+    val prefs by viewModel.prefs.collectAsStateWithLifecycle()
+    val refusal by viewModel.refusal.value.collectAsStateWithLifecycle()
     val resolver =
         remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media, viewModel.mediaImages) }
     val androidContext = LocalContext.current
     val uriHandler = remember(androidContext, onOpenLink) { SafeUriHandler(androidContext, onOpenLink) }
     LaunchedEffect(jumpTo) { jumpTo?.let(viewModel::showContext) }
+    LaunchedEffect(refusal) {
+        refusal?.let {
+            Toast.makeText(androidContext, it, Toast.LENGTH_LONG).show()
+            viewModel.refusal.shown()
+        }
+    }
     LifecycleResumeEffect(viewModel) {
         viewModel.onScreen(true)
         onPauseOrDispose { viewModel.onScreen(false) }
     }
-    CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+    CompositionLocalProvider(
+        LocalUriHandler provides uriHandler,
+        LocalRichTextOptions provides
+            RichTextOptions(
+                wrapCode = prefs.get(Prefs.codeBlockLineWrap),
+                inlineImages = prefs.get(Prefs.showInlineImages),
+            ),
+        LocalMediaDisplay provides MediaDisplay.of(prefs),
+    ) {
         RoomScreen(
             roomId = roomId,
             sharedScope = sharedScope,

@@ -79,6 +79,8 @@ class HtmlParser(
      * way a browser does, so source indentation and newlines never become line breaks.
      */
     private val preserveWhitespace: Boolean = false,
+    /** Images drawn; if not, their alt text instead (gomuks' `show_inline_images`). */
+    private val images: Boolean = true,
 ) {
     private val ws = WhitespaceWriter(preserveWhitespace)
 
@@ -152,6 +154,7 @@ class HtmlParser(
      * linking to a website). Text flowing around a picture that tall would only look broken.
      */
     private fun picture(el: Element): HtmlBlock.Picture? {
+        if (!images) return null
         if (el.normalName() == "a") {
             val shown = el.childNodes().filterNot { (it is TextNode && it.isBlank) || (it is Element && it.isHidden()) }
             val img = (shown.singleOrNull() as? Element)?.takeIf { it.normalName() == "img" } ?: return null
@@ -279,7 +282,7 @@ class HtmlParser(
      * without a size) at text height, others at their own size (see [imageSize]).
      */
     private fun AnnotatedString.Builder.appendImage(el: Element) {
-        val src = toMxc(el.attr("src"))
+        val src = toMxc(el.attr("src")).takeIf { images }
         val alt = el.attr("alt").ifBlank { el.attr("title") }.ifBlank { "🖼" }
         if (src == null) {
             ws.verbatim(this, alt)

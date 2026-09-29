@@ -1,5 +1,8 @@
 package pt.aguiarvieira.xmuks.core.data.timeline
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -7,6 +10,8 @@ import kotlinx.serialization.json.buildJsonObject
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
+import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
+import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
 
@@ -18,6 +23,8 @@ class RoomWriter(
     private val roomId: String,
     private val exec: ExecClient,
     private val outbox: Outbox,
+    /** gomuks' preferences here: whether receipts are public, whether we say we're typing. */
+    private val preferences: Flow<PrefLayers> = flowOf(PrefLayers.EMPTY),
 ) {
     /**
      * Sends [text] (markdown, `/me`, `/notice`…; gomuks renders it) through the durable outbox,
@@ -190,19 +197,21 @@ class RoomWriter(
         )
     }
 
-    /** Marks everything up to [eventId] read (a public read receipt). */
+    /** Marks everything up to [eventId] read: a public read receipt, or a private one if we don't send those. */
     suspend fun markRead(eventId: String) {
+        val public = preferences.first().get(Prefs.sendReadReceipts)
         val params =
             buildJsonObject {
                 put("room_id", JsonPrimitive(roomId))
                 put("event_id", JsonPrimitive(eventId))
-                put("receipt_type", JsonPrimitive("m.read"))
+                put("receipt_type", JsonPrimitive(if (public) "m.read" else "m.read.private"))
             }
         exec.exec("mark_read", params, ExecMode.Write)
     }
 
-    /** Typing for [timeoutMs] from now; 0 stops it. */
+    /** Typing for [timeoutMs] from now; 0 stops it. Not at all if we don't send typing notifications. */
     suspend fun setTyping(timeoutMs: Int) {
+        if (timeoutMs > 0 && !preferences.first().get(Prefs.sendTypingNotifications)) return
         val params =
             buildJsonObject {
                 put("room_id", JsonPrimitive(roomId))

@@ -12,7 +12,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
@@ -23,11 +25,15 @@ class SpaceViewModel
     constructor(
         @Assisted val spaceId: String,
         rooms: RoomListRepository,
+        private val preferences: PreferenceStore,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
             fun create(spaceId: String): SpaceViewModel
         }
+
+        val display: StateFlow<RoomListDisplay> =
+            preferences.layers().map(RoomListDisplay::of).stateIn(viewModelScope, WHILE_VISIBLE, RoomListDisplay())
 
         val space: StateFlow<SpaceSummary?> = rooms.space(spaceId).stateIn(viewModelScope, WHILE_VISIBLE, null)
         val subspaces: StateFlow<List<SpaceSummary>> =
@@ -44,6 +50,7 @@ class SpaceViewModel
         val rooms: StateFlow<List<RoomSummary>?> =
             _filter
                 .flatMapLatest { rooms.roomsInSpace(it ?: spaceId) }
+                .ordered(preferences.layers())
                 .stateIn(viewModelScope, WHILE_VISIBLE, null)
 
         fun select(subspaceId: String?) {

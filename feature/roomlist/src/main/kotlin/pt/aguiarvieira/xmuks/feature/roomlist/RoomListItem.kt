@@ -36,12 +36,13 @@ fun RoomListItem(
 ) {
     val unread = room.unread.any
     val colors = MaterialTheme.colorScheme
+    val display = LocalRoomListDisplay.current
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 16.dp, vertical = display.verticalPadding),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -49,6 +50,7 @@ fun RoomListItem(
             name = room.name,
             id = room.roomId,
             avatarUrl = room.avatarUrl,
+            size = display.avatar,
             modifier = Modifier.sharedElement(SharedKeys.avatar(room.roomId, sharedScope)),
         )
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -70,7 +72,7 @@ fun RoomListItem(
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = previewLine(room),
+                    text = if (display.showPreview) previewLine(room) else "",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
                     maxLines = 1,

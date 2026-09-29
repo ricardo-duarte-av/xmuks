@@ -30,7 +30,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -380,17 +384,24 @@ private fun MediaImage(
 ) {
     val ratio = media.aspectRatio() ?: DEFAULT_RATIO
     val placeholder = remember(media.blurhash) { media.blurhash?.let { Blurhash.decode(it)?.asImageBitmap() } }
-    val source = timelineSource(media, kind, resolver)
+    val display = LocalMediaDisplay.current
+    // Without previews, the blurhash waits for a tap (our own uploads always show).
+    var tapped by rememberSaveable(eventId) { mutableStateOf(false) }
+    val revealed = display.showPreviews || tapped || uploadProgress != null
+    val source = if (revealed) timelineSource(media, kind, resolver) else null
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(
             modifier =
                 Modifier
                     .sharedElement(SharedKeys.media(eventId))
-                    .widthIn(max = MEDIA_MAX)
-                    .heightIn(max = MEDIA_MAX_HEIGHT)
+                    .widthIn(max = display.maxWidth)
+                    .heightIn(max = display.maxHeight)
                     .aspectRatio(ratio.coerceIn(MIN_RATIO, MAX_RATIO))
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable(enabled = uploadProgress == null, onClick = onClick),
+                    .clickable(
+                        enabled = uploadProgress == null,
+                        onClick = if (revealed) onClick else ({ tapped = true })
+                    ),
             contentAlignment = Alignment.Center,
         ) {
             placeholder?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
@@ -402,35 +413,14 @@ private fun MediaImage(
                     AsyncImage(source, caption, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 }
             }
-            if (uploadProgress != null) {
-                UploadProgress(uploadProgress)
-            } else if (inline != null) {
-                InlineVideoLayer(inline)
-            } else if (kind == ViewerMedia.Kind.Video) {
-                Surface(shape = CircleShape, color = Color.Black.copy(alpha = SCRIM)) {
-                    Icon(
-                        painterResource(R.drawable.ic_play),
-                        null,
-                        tint = Color.White,
-                        modifier = Modifier.padding(12.dp).size(28.dp)
-                    )
-                }
+            when {
+                !revealed -> TapToShow()
+                uploadProgress != null -> UploadProgress(uploadProgress)
+                inline != null -> InlineVideoLayer(inline)
+                kind == ViewerMedia.Kind.Video -> PlayBadge()
             }
         }
         caption?.let { PlainContent(it, color, MaterialTheme.typography.bodyLarge) }
-    }
-}
-
-/** A ring filling up as the upload goes, on a dark disc so it reads over any image. */
-@Composable
-private fun UploadProgress(progress: Float) {
-    Surface(shape = CircleShape, color = Color.Black.copy(alpha = SCRIM)) {
-        CircularProgressIndicator(
-            progress = { progress },
-            color = Color.White,
-            trackColor = Color.White.copy(alpha = 0.3f),
-            modifier = Modifier.padding(10.dp).size(32.dp),
-        )
     }
 }
 
@@ -533,12 +523,9 @@ private const val BUBBLE_FRACTION = 0.86f
 private val BUBBLE_RADIUS = 20.dp
 private val GROUPED_RADIUS = 6.dp
 private val STICKER_SIZE = 140.dp
-private val MEDIA_MAX = 260.dp
-private val MEDIA_MAX_HEIGHT = 320.dp
 private const val DEFAULT_RATIO = 4f / 3f
 private const val MIN_RATIO = 0.5f
 private const val MAX_RATIO = 3f
 private const val FOOTER_ALPHA = 0.7f
 private const val NOTICE_ALPHA = 0.75f
 private const val REPLY_BG_ALPHA = 0.08f
-private const val SCRIM = 0.45f
