@@ -110,7 +110,8 @@ fun RoomRoute(
     val personas by viewModel.personas.personas.collectAsStateWithLifecycle()
     val mediaDraft by viewModel.attach.draft.collectAsStateWithLifecycle()
     val notificationSetting by viewModel.notifications.setting.collectAsStateWithLifecycle()
-    val resolver = remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media) }
+    val resolver =
+        remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media, viewModel.mediaImages) }
     val androidContext = LocalContext.current
     val uriHandler = remember(androidContext, onOpenLink) { SafeUriHandler(androidContext, onOpenLink) }
     LaunchedEffect(jumpTo) { jumpTo?.let(viewModel::showContext) }

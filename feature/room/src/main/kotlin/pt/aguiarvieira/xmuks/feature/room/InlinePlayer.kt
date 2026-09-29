@@ -8,7 +8,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.datasource.DataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import kotlinx.coroutines.CoroutineScope
@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
 
 /** What the inline player has loaded: which message ([key]), and where it is. */
 @Immutable
@@ -40,7 +39,8 @@ data class Playback(
  */
 class InlinePlayer(
     private val context: Context,
-    private val http: OkHttpClient,
+    /** gomuks through the player cache: played once, replayed from disk. */
+    private val source: DataSource.Factory,
     private val scope: CoroutineScope,
 ) {
     private var exo: ExoPlayer? = null
@@ -74,11 +74,11 @@ class InlinePlayer(
         if (_state.value?.key == key) exo?.pause()
     }
 
-    @OptIn(UnstableApi::class) // the OkHttp data source, as the media viewer uses it
+    @OptIn(UnstableApi::class) // the media source factory, as the media viewer uses it
     private fun create(): ExoPlayer =
         ExoPlayer
             .Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(OkHttpDataSource.Factory(http)))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(source))
             // Take the audio focus like any player (and give it back): no talking over music.
             .setAudioAttributes(
                 AudioAttributes

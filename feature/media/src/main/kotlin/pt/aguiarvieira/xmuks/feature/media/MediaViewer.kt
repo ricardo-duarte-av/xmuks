@@ -50,7 +50,10 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
+import coil3.ImageLoader
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
@@ -67,7 +70,7 @@ fun MediaViewerRoute(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: MediaViewerViewModel = hiltViewModel(key = media.url),
-) = MediaViewer(media, onBack, viewModel::player, modifier)
+) = MediaViewer(media, onBack, viewModel::player, modifier, viewModel.images)
 
 /** The viewer itself; [playerFor] supplies the player for video and audio. */
 @Composable
@@ -76,13 +79,15 @@ fun MediaViewer(
     onBack: () -> Unit,
     playerFor: (url: String) -> Player,
     modifier: Modifier = Modifier,
+    /** The cache tier to load pictures through; null uses the app's default loader. */
+    images: ImageLoader? = null,
 ) {
     var chrome by rememberSaveable { mutableStateOf(true) }
     ImmersiveWhile(hidden = !chrome)
     Box(modifier.fillMaxSize().background(Color.Black)) {
         when (media.kind) {
-            ViewerMedia.Kind.Image -> ZoomableImage(media, onTap = { chrome = !chrome })
-            ViewerMedia.Kind.Video, ViewerMedia.Kind.Audio -> MediaPlayer(media, playerFor)
+            ViewerMedia.Kind.Image -> ZoomableImage(media, images, onTap = { chrome = !chrome })
+            ViewerMedia.Kind.Video, ViewerMedia.Kind.Audio -> MediaPlayer(media, playerFor, images)
         }
         AnimatedVisibility(visible = chrome, enter = fadeIn(), exit = fadeOut()) {
             TopBar(media, onBack)
@@ -95,17 +100,20 @@ fun MediaViewer(
 @Composable
 private fun ZoomableImage(
     media: ViewerMedia,
+    images: ImageLoader?,
     onTap: () -> Unit,
 ) {
+    val loader = images ?: SingletonImageLoader.get(LocalPlatformContext.current)
     val state = rememberZoomableImageState()
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // What was already on screen (thumbnail, else blurhash) stands in — and carries the shared
         // element — until the original is displayed.
-        if (!state.isImageDisplayed) Preview(media)
+        if (!state.isImageDisplayed) Preview(media, loader)
         ZoomableAsyncImage(
             model = media.url,
             contentDescription = media.title,
             state = state,
+            imageLoader = loader,
             onClick = { onTap() },
             modifier = Modifier.fillMaxSize(),
         )
@@ -117,7 +125,10 @@ private fun ZoomableImage(
 }
 
 @Composable
-private fun Preview(media: ViewerMedia) {
+private fun Preview(
+    media: ViewerMedia,
+    loader: ImageLoader,
+) {
     val ratio = ratioOf(media)
     val shared = media.sharedKey?.let { Modifier.sharedElement(it) } ?: Modifier
     val frame = shared.fillMaxWidth().then(if (ratio != null) Modifier.aspectRatio(ratio) else Modifier.fillMaxSize())
@@ -128,6 +139,7 @@ private fun Preview(media: ViewerMedia) {
             AsyncImage(
                 it,
                 null,
+                loader,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize()
             )
@@ -146,12 +158,13 @@ private fun ratioOf(media: ViewerMedia): Float? {
 private fun MediaPlayer(
     media: ViewerMedia,
     playerFor: (url: String) -> Player,
+    images: ImageLoader?,
 ) {
     val player = remember(media.url) { playerFor(media.url) }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { player.pause() }
     val audio = media.kind == ViewerMedia.Kind.Audio
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        if (!audio) Preview(media)
+        if (!audio) Preview(media, images ?: SingletonImageLoader.get(LocalPlatformContext.current))
         AndroidView(
             factory = { context ->
                 PlayerView(context).apply {

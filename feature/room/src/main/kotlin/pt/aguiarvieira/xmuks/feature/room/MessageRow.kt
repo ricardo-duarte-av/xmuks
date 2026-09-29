@@ -395,12 +395,12 @@ private fun MediaImage(
         ) {
             placeholder?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
             if (source != null) {
-                AsyncImage(
-                    model = source,
-                    contentDescription = caption,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
+                val loader = resolver.images
+                if (loader != null) {
+                    AsyncImage(source, caption, loader, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                } else {
+                    AsyncImage(source, caption, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                }
             }
             if (uploadProgress != null) {
                 UploadProgress(uploadProgress)

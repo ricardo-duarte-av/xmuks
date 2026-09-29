@@ -5,6 +5,8 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.datasource.DataSource
+import coil3.ImageLoader
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -23,7 +25,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.commands.CommandParser
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
@@ -53,7 +54,9 @@ class RoomViewModel
         profiles: ProfileRepository,
         preparer: MediaPreparer,
         private val uploads: MediaSender,
-        @Named("media") mediaHttp: OkHttpClient,
+        @Named("player") playerSource: DataSource.Factory,
+        /** Timeline pictures' own cache tier. */
+        @Named("media") val mediaImages: ImageLoader,
         @ApplicationContext context: Context,
         private val openRoom: OpenRoom,
         pushRules: RoomPushRules,
@@ -137,7 +140,7 @@ class RoomViewModel
         val notifications = RoomNotificationActions(viewModelScope, roomId, pushRules, WHILE_VISIBLE)
 
         /** Voice messages, audio and videos playing in their bubbles. */
-        val player = InlinePlayer(context, mediaHttp, viewModelScope)
+        val player = InlinePlayer(context, playerSource, viewModelScope)
 
         /** Attachments: the preview step, then the upload. */
         val attach =

@@ -5,12 +5,12 @@ import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.datasource.DataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import coil3.ImageLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import okhttp3.OkHttpClient
 import javax.inject.Inject
 import javax.inject.Named
 
@@ -20,7 +20,9 @@ class MediaViewerViewModel
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
-        @param:Named("media") private val http: OkHttpClient,
+        @param:Named("player") private val source: DataSource.Factory,
+        /** The timeline pictures' cache tier: what the viewer shows is mostly already there. */
+        @param:Named("media") val images: ImageLoader,
     ) : ViewModel() {
         private var player: ExoPlayer? = null
 
@@ -29,7 +31,7 @@ class MediaViewerViewModel
         fun player(url: String): ExoPlayer =
             player ?: ExoPlayer
                 .Builder(context)
-                .setMediaSourceFactory(DefaultMediaSourceFactory(OkHttpDataSource.Factory(http)))
+                .setMediaSourceFactory(DefaultMediaSourceFactory(source))
                 .build()
                 .apply {
                     setMediaItem(MediaItem.fromUri(url))

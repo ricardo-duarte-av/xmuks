@@ -69,7 +69,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 @Suppress("TooManyFunctions") // one provider per binding: splitting would only scatter the graph
 object DataModule {
-    private const val IMAGE_DISK_CACHE_BYTES = 256L * 1024 * 1024
+    private const val SMALL_IMAGES_BYTES = 128L * 1024 * 1024
+    private const val MEDIA_IMAGES_BYTES = 512L * 1024 * 1024
 
     @Provides @Singleton
     fun appScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -240,14 +241,32 @@ object DataModule {
 
     /**
      * Coil loads media through the same authenticated client as the API (session cookie, token
-     * refresh). Disk cache sized for avatars and thumbnails; M6 adds the tiered media cache.
+     * refresh). Two tiers, each with its own disk cache so neither pushes the other out: this one
+     * (the app's default) for avatars, emoji and stickers — small, seen everywhere, kept long —
+     * and [mediaImageLoader] for timeline pictures and the viewer.
      */
-    @OptIn(ExperimentalCoilApi::class)
     @Provides
     @Singleton
     fun imageLoader(
         @ApplicationContext context: Context,
         @Named("api") api: OkHttpClient,
+    ): ImageLoader = buildImageLoader(context, api, "images", SMALL_IMAGES_BYTES)
+
+    /** Timeline pictures, thumbnails and the viewer's full images: bigger, and churning faster. */
+    @Provides
+    @Singleton
+    @Named("media")
+    fun mediaImageLoader(
+        @ApplicationContext context: Context,
+        @Named("api") api: OkHttpClient,
+    ): ImageLoader = buildImageLoader(context, api, "media-images", MEDIA_IMAGES_BYTES)
+
+    @OptIn(ExperimentalCoilApi::class)
+    private fun buildImageLoader(
+        context: Context,
+        api: OkHttpClient,
+        directory: String,
+        maxBytes: Long,
     ): ImageLoader =
         ImageLoader
             .Builder(context)
@@ -269,8 +288,8 @@ object DataModule {
             }.diskCache {
                 DiskCache
                     .Builder()
-                    .directory(context.cacheDir.resolve("images").toOkioPath())
-                    .maxSizeBytes(IMAGE_DISK_CACHE_BYTES)
+                    .directory(context.cacheDir.resolve(directory).toOkioPath())
+                    .maxSizeBytes(maxBytes)
                     .build()
             }.build()
 
