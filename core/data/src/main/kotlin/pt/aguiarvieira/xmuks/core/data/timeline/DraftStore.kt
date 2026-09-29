@@ -34,6 +34,17 @@ class DraftStore(
 
     suspend fun load(roomId: String): String? = dataStore.data.first()[stringPreferencesKey(roomId)]
 
+    /** The message the draft answers, if it's a reply. */
+    suspend fun loadReply(roomId: String): String? = dataStore.data.first()[stringPreferencesKey(REPLY + roomId)]
+
+    /** Keeps (or with null, forgets) the message the draft answers. */
+    fun saveReply(
+        roomId: String,
+        eventId: String?,
+    ) {
+        writes.trySend(REPLY + roomId to eventId.orEmpty())
+    }
+
     /** Saves in the background (it outlives the screen that asked); blank text removes the draft. */
     fun save(
         roomId: String,
@@ -44,5 +55,10 @@ class DraftStore(
 
     override suspend fun clearAccountData() {
         dataStore.edit { it.clear() }
+    }
+
+    private companion object {
+        /** Reply targets sit beside the texts, under their own prefix (room IDs start with "!"). */
+        const val REPLY = "reply:"
     }
 }

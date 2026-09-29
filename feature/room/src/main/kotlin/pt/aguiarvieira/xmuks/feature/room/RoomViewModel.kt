@@ -177,7 +177,7 @@ class RoomViewModel
         /** Whether the next send is a new message, a reply or an edit. */
         val modes = ComposeModes(draft)
 
-        private val draftKeeper = DraftKeeper(viewModelScope, roomId, draft, { modes.draftText }, drafts)
+        private val draftKeeper = DraftKeeper(viewModelScope, roomId, draft, { modes.draftText }, drafts, modes, items)
 
         /** Slash commands usable in this room (gomuks' built-ins, text prefixes, the room's bots). */
         val commands: StateFlow<List<BotCommand>> = session.commands.stateIn(viewModelScope, WHILE_VISIBLE, emptyList())
