@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
-import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
@@ -29,7 +28,6 @@ class HomeViewModel
     constructor(
         rooms: RoomListRepository,
         private val sync: SyncController,
-        private val session: SessionRepository,
         store: CredentialStore,
     ) : ViewModel() {
         val search = SearchQueries()
@@ -65,10 +63,6 @@ class HomeViewModel
                     _refreshing.value = false
                 }
             }
-        }
-
-        fun logout() {
-            viewModelScope.launch { session.logout() }
         }
 
         private companion object {

@@ -71,6 +71,7 @@ dependencies {
     implementation(projects.feature.roomlist)
     implementation(projects.feature.room)
     implementation(projects.feature.media)
+    implementation(projects.feature.profile)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

@@ -1,8 +1,9 @@
-package pt.aguiarvieira.xmuks.feature.room
+package pt.aguiarvieira.xmuks.core.richtext
 
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -89,7 +90,7 @@ fun PlainContent(
 }
 
 /** How inline images (custom emoji) load, and what tapping one does. */
-internal class InlineImages(
+private class InlineImages(
     val url: (String) -> String?,
     val open: ((mxc: String, alt: String) -> Unit)?,
 )
@@ -228,7 +229,7 @@ private fun headingScale(level: Int) = if (level <= 2) HEADING_LARGE else HEADIN
 
 private val URL = Regex("""https?://[^\s<>"']+[^\s<>"'.,;:!?)\]]""")
 
-internal fun linkify(
+private fun linkify(
     body: String,
     linkColor: Color,
 ): AnnotatedString =
@@ -245,13 +246,19 @@ internal fun linkify(
     }
 
 /**
- * Opens links without ever crashing: `matrix:` and other schemes no app handles are ignored (in-app
- * navigation for them comes later), unlike the default handler which throws.
+ * Opens links without ever crashing: user mentions (`matrix:u/…`) go to [onOpenUser]; other
+ * `matrix:` links, and schemes no app handles, are ignored — unlike the default handler, which throws.
  */
 class SafeUriHandler(
     private val context: Context,
+    private val onOpenUser: (userId: String) -> Unit = {},
 ) : UriHandler {
     override fun openUri(uri: String) {
+        if (uri.startsWith(MATRIX_USER)) {
+            val id = Uri.decode(uri.removePrefix(MATRIX_USER).substringBefore('?').substringBefore('/'))
+            if (id.isNotEmpty()) onOpenUser("@$id")
+            return
+        }
         if (uri.startsWith("matrix:")) return
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, uri.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -261,6 +268,7 @@ class SafeUriHandler(
     }
 }
 
+private const val MATRIX_USER = "matrix:u/"
 private const val EMOJI_EM = 1.3f
 private const val QUOTE_ALPHA = 0.8f
 private const val HEADING_LARGE = 1.3f

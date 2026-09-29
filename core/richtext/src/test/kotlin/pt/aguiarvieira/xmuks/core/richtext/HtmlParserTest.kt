@@ -1,4 +1,4 @@
-package pt.aguiarvieira.xmuks.feature.room
+package pt.aguiarvieira.xmuks.core.richtext
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.LinkAnnotation

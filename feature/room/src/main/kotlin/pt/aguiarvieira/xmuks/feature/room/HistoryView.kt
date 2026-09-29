@@ -22,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageVersion
+import pt.aguiarvieira.xmuks.core.richtext.HtmlContent
+import pt.aguiarvieira.xmuks.core.richtext.PlainContent
 import java.text.DateFormat
 import java.util.Date
 

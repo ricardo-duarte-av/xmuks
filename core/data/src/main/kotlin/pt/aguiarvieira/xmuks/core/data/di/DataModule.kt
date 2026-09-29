@@ -34,6 +34,7 @@ import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.media.MediaCacheStrategy
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
+import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
@@ -158,6 +159,15 @@ object DataModule {
         database: XmuksDatabase,
         media: MediaUrls,
     ) = RoomListRepository(database, media)
+
+    @Provides @Singleton
+    fun profileRepository(
+        exec: ExecClient,
+        @Named("api") api: OkHttpClient,
+        store: CredentialStore,
+        database: XmuksDatabase,
+        ingestor: SyncIngestor,
+    ) = ProfileRepository(exec, api, { store.credentials()?.serverUrl }, database, ingestor, Dispatchers.IO)
 
     @Provides @Singleton
     fun syncController(

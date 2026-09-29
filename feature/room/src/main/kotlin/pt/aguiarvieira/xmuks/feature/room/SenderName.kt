@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
-import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
 
 /**
@@ -81,7 +80,7 @@ internal const val ASCENT_GAP = 0.23f
 internal fun Header(
     message: TimelineItem.Message,
     resolver: MediaResolver,
-    onOpenMedia: (ViewerMedia) -> Unit,
+    actions: TimelineActions,
 ) {
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(bottom = 4.dp)) {
         RoomAvatar(
@@ -91,7 +90,7 @@ internal fun Header(
             size = AVATAR_SIZE,
             modifier =
                 Modifier.clip(CircleShape).clickable {
-                    resolver.image(message.senderAvatarMxc, message.senderName)?.let(onOpenMedia)
+                    resolver.image(message.senderAvatarMxc, message.senderName)?.let(actions.openMedia)
                 },
         )
         Spacer(Modifier.width(8.dp))
@@ -100,7 +99,11 @@ internal fun Header(
             MaterialTheme.typography.labelLarge.copy(
                 lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Top, LineHeightStyle.Trim.FirstLineTop),
             )
-        SenderName(message.label, nameStyle, Modifier.raise(nameStyle.fontSize * ASCENT_GAP))
+        SenderName(
+            message.label,
+            nameStyle,
+            Modifier.raise(nameStyle.fontSize * ASCENT_GAP).clickable { actions.openUser(message.sender) },
+        )
     }
 }
 

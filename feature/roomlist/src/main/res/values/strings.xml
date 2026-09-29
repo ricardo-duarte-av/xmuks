@@ -22,10 +22,6 @@
     <string name="status_catching_up">Catching up…</string>
     <string name="status_offline">Offline · retrying</string>
     <string name="status_auth_failed">Signed out: password rejected</string>
-    <string name="status_paused">Paused</string>
-    <string name="status_live">Connected</string>
-    <string name="log_out">Log out</string>
-    <string name="sign_in_again">Sign in again</string>
     <string name="unread_mentions">%1$d mentions</string>
     <string name="search_chats">Search chats</string>
     <string name="search_dms">Search people</string>

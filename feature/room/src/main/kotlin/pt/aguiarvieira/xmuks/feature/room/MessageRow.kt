@@ -65,6 +65,9 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.core.designsystem.component.sharedElement
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
 import pt.aguiarvieira.xmuks.core.designsystem.util.Blurhash
+import pt.aguiarvieira.xmuks.core.richtext.HtmlContent
+import pt.aguiarvieira.xmuks.core.richtext.LastLine
+import pt.aguiarvieira.xmuks.core.richtext.PlainContent
 import java.text.DateFormat
 import java.util.Date
 
@@ -92,7 +95,7 @@ fun MessageRow(
                 .padding(top = if (message.firstInGroup) GROUP_GAP else MESSAGE_GAP),
         horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
     ) {
-        if (!mine && message.firstInGroup) Header(message, resolver, actions.openMedia)
+        if (!mine && message.firstInGroup) Header(message, resolver, actions)
         val open = {
             media: Media,
             kind: ViewerMedia.Kind,
@@ -157,7 +160,11 @@ private fun BubbleRow(
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom,
     ) {
-        if (mine && receipts.isNotEmpty()) ReadReceipts(receipts, resolver, Modifier.padding(end = RECEIPT_GAP))
+        if (mine &&
+            receipts.isNotEmpty()
+        ) {
+            ReadReceipts(receipts, resolver, actions.openUser, Modifier.padding(end = RECEIPT_GAP))
+        }
         // Without receipts beside it a bubble still leaves the far side free.
         val cap = if (receipts.isEmpty()) Modifier.maxWidthFraction(BUBBLE_FRACTION) else Modifier
         Column(
@@ -171,7 +178,11 @@ private fun BubbleRow(
                 Bubble(message) { color -> BubbleContent(message, resolver, color, open, actions) }
             }
         }
-        if (!mine && receipts.isNotEmpty()) ReadReceipts(receipts, resolver, Modifier.padding(start = RECEIPT_GAP))
+        if (!mine &&
+            receipts.isNotEmpty()
+        ) {
+            ReadReceipts(receipts, resolver, actions.openUser, Modifier.padding(start = RECEIPT_GAP))
+        }
     }
 }
 

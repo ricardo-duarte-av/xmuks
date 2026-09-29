@@ -70,6 +70,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
+import pt.aguiarvieira.xmuks.core.richtext.SafeUriHandler
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -80,6 +81,7 @@ fun RoomRoute(
     sharedScope: String,
     onBack: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
+    onOpenUser: (userId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RoomViewModel = hiltViewModel<RoomViewModel, RoomViewModel.Factory>(key = roomId) { it.create(roomId) },
 ) {
@@ -97,7 +99,7 @@ fun RoomRoute(
     val recent by viewModel.emoji.recent.collectAsStateWithLifecycle()
     val resolver = remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media) }
     val androidContext = LocalContext.current
-    val uriHandler = remember(androidContext) { SafeUriHandler(androidContext) }
+    val uriHandler = remember(androidContext, onOpenUser) { SafeUriHandler(androidContext, onOpenUser) }
     CompositionLocalProvider(LocalUriHandler provides uriHandler) {
         RoomScreen(
             roomId = roomId,
@@ -110,6 +112,7 @@ fun RoomRoute(
             onBack = onBack,
             onLoadOlder = viewModel::loadOlder,
             onOpenMedia = onOpenMedia,
+            onOpenUser = onOpenUser,
             onShowContext = viewModel::showContext,
             onLeaveContext = viewModel::leaveContext,
             composer =
@@ -201,6 +204,7 @@ fun RoomScreen(
     onBack: () -> Unit,
     onLoadOlder: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
+    onOpenUser: (userId: String) -> Unit,
     onShowContext: (String) -> Unit,
     onLeaveContext: () -> Unit,
     composer: ComposerActions,
@@ -219,9 +223,10 @@ fun RoomScreen(
     val list by rememberUpdatedState(if (context != null) contextList else liveList)
     val showContext by rememberUpdatedState(onShowContext)
     val actions =
-        remember(onOpenMedia) {
+        remember(onOpenMedia, onOpenUser) {
             TimelineActions(
                 openMedia = onOpenMedia,
+                openUser = onOpenUser,
                 onUnsent = { overlays.unsent = it },
                 onMessageMenu = { overlays.menuFor = it },
                 onReaction = composer.emoji.onToggle,

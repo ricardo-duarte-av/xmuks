@@ -40,6 +40,9 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
+import pt.aguiarvieira.xmuks.core.richtext.HtmlContent
+import pt.aguiarvieira.xmuks.core.richtext.LastLine
+import pt.aguiarvieira.xmuks.core.richtext.PlainContent
 
 /**
  * A line for things people *do* rather than say — /me emotes and state changes (joins, renames,
@@ -89,6 +92,7 @@ private fun ActionLine(
                 ReadReceipts(
                     readBy,
                     resolver,
+                    actions.openUser,
                     Modifier.align(Alignment.Bottom).padding(start = GAP)
                 )
             }

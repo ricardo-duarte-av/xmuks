@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="back">Back</string>
+    <string name="edit">Edit</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="remove">Remove</string>
+    <string name="clear">Clear</string>
+    <string name="view">View</string>
+    <string name="change">Change</string>
+    <string name="not_set">Not set</string>
+    <string name="profile_load_failed">Couldn\'t load the profile: %1$s</string>
+    <string name="retry">Retry</string>
+    <string name="action_failed">That didn\'t work: %1$s</string>
+    <string name="copied_user_id">User ID copied</string>
+
+    <string name="display_name">Display name</string>
+    <string name="avatar">Avatar</string>
+    <string name="banner">Banner</string>
+    <string name="about">About</string>
+    <string name="bio_hint">Markdown works here</string>
+    <string name="bio_empty">Nothing here yet</string>
+    <string name="status">Status</string>
+    <string name="status_emoji">Emoji</string>
+    <string name="status_text">What\'s happening?</string>
+    <string name="pronouns">Pronouns</string>
+    <string name="pronouns_hint">e.g. they/them</string>
+    <string name="timezone">Time zone</string>
+    <string name="local_time">%1$s (%2$s)</string>
+    <string name="timezone_search">Search time zones</string>
+    <string name="timezone_device">Use this device\'s: %1$s</string>
+
+    <string name="pmp_title">Per-message profiles</string>
+    <string name="pmp_explainer">Send as another name and avatar: always (the default), or when a message starts and ends with a profile\'s trigger.</string>
+    <string name="pmp_add">Add profile</string>
+    <string name="pmp_new">New profile</string>
+    <string name="pmp_default">Default</string>
+    <string name="pmp_use_default">Use for every message</string>
+    <string name="pmp_triggers">Triggers</string>
+    <string name="pmp_trigger_prefix">Starts with</string>
+    <string name="pmp_trigger_suffix">Ends with</string>
+    <string name="pmp_trigger_keep">Keep the trigger in the message</string>
+    <string name="pmp_add_trigger">Add trigger</string>
+    <string name="pmp_no_triggers">No triggers</string>
+    <string name="pmp_delete">Delete profile</string>
+    <string name="pmp_set_avatar">Set avatar</string>
+
+    <string name="account">Account</string>
+    <string name="log_out">Log out</string>
+    <string name="sign_in_again">Sign in again</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_syncing">Syncing…</string>
+    <string name="status_catching_up">Catching up…</string>
+    <string name="status_offline">Offline · retrying</string>
+    <string name="status_auth_failed">Signed out: password rejected</string>
+    <string name="status_paused">Paused</string>
+    <string name="status_live">Connected</string>
+</resources>

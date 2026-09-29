@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "pt.aguiarvieira.xmuks.feature.room"
+    namespace = "pt.aguiarvieira.xmuks.feature.profile"
 }
 
 dependencies {

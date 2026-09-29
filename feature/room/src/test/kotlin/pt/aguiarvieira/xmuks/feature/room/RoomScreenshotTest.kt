@@ -161,6 +161,7 @@ class RoomScreenshotTest {
         onBack = {},
         onLoadOlder = {},
         onOpenMedia = {},
+        onOpenUser = {},
         onShowContext = {},
         onLeaveContext = {},
         composer = ComposerActions(TextFieldState(), {}, {}, {}),

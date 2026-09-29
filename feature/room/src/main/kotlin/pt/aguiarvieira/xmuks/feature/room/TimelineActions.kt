@@ -51,6 +51,8 @@ import java.util.Date
 @Immutable
 class TimelineActions(
     val openMedia: (ViewerMedia) -> Unit,
+    /** Someone's profile. */
+    val openUser: (userId: String) -> Unit = {},
     /** Show this event: scroll to it if loaded, else load a window around it. */
     val jumpTo: (eventId: String) -> Unit,
     /** One of our messages that didn't go out: offer to resend or discard it. */
@@ -81,6 +83,7 @@ internal fun Modifier.highlight(on: Boolean): Modifier {
 internal fun ReadReceipts(
     readers: List<Reader>,
     resolver: MediaResolver,
+    onOpenUser: (userId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -119,7 +122,12 @@ internal fun ReadReceipts(
             )
         }
     }
-    if (open) ReadersDialog(readers, resolver) { open = false }
+    if (open) {
+        ReadersDialog(readers, resolver, onOpenUser = {
+            open = false
+            onOpenUser(it)
+        }) { open = false }
+    }
 }
 
 /** Everyone whose receipt is on this message: avatar, name, Matrix ID and when they read it. */
@@ -127,6 +135,7 @@ internal fun ReadReceipts(
 private fun ReadersDialog(
     readers: List<Reader>,
     resolver: MediaResolver,
+    onOpenUser: (userId: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -138,7 +147,10 @@ private fun ReadersDialog(
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
                 )
                 LazyColumn(Modifier.heightIn(max = DIALOG_MAX_HEIGHT).padding(top = 8.dp)) {
-                    items(readers, key = { it.userId }) { reader -> ReaderRow(reader, resolver) }
+                    items(
+                        readers,
+                        key = { it.userId }
+                    ) { reader -> ReaderRow(reader, resolver) { onOpenUser(reader.userId) } }
                 }
             }
         }
@@ -149,10 +161,11 @@ private fun ReadersDialog(
 private fun ReaderRow(
     reader: Reader,
     resolver: MediaResolver,
+    onClick: () -> Unit,
 ) {
     val time = remember(reader.timestamp) { readTime(reader.timestamp) }
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

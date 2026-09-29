@@ -21,6 +21,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.LocalAnimatedVisibility
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalSharedTransitionScope
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.feature.media.MediaViewerRoute
+import pt.aguiarvieira.xmuks.feature.profile.UserInfoRoute
 import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
@@ -35,6 +36,11 @@ import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
 @Serializable data class RoomKey(
     val roomId: String,
     val scope: String,
+) : NavKey
+
+/** Anyone's profile; our own is where it's edited, and where the account lives. */
+@Serializable data class UserKey(
+    val userId: String,
 ) : NavKey
 
 /** Full-screen media, over whatever opened it (never a list-detail pane). */
@@ -71,6 +77,7 @@ fun XmuksNavHost(modifier: Modifier = Modifier) {
                                 HomeRoute(
                                     onOpenRoom = backStack::openRoom,
                                     onOpenSpace = { backStack.add(SpaceKey(it)) },
+                                    onOpenProfile = { backStack.add(UserKey(it)) },
                                 )
                             }
                         }
@@ -88,6 +95,16 @@ fun XmuksNavHost(modifier: Modifier = Modifier) {
                                 RoomRoute(
                                     roomId = key.roomId,
                                     sharedScope = key.scope,
+                                    onBack = { backStack.removeLastOrNull() },
+                                    onOpenMedia = { backStack.add(MediaKey(it)) },
+                                    onOpenUser = { backStack.add(UserKey(it)) },
+                                )
+                            }
+                        }
+                        entry<UserKey> { key ->
+                            Destination {
+                                UserInfoRoute(
+                                    userId = key.userId,
                                     onBack = { backStack.removeLastOrNull() },
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
                                 )

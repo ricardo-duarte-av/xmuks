@@ -67,11 +67,11 @@ import pt.aguiarvieira.xmuks.core.network.ConnectionState
 fun HomeRoute(
     onOpenRoom: (roomId: String, scope: String) -> Unit,
     onOpenSpace: (String) -> Unit,
+    onOpenProfile: (userId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     var tab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
-    var accountOpen by rememberSaveable { mutableStateOf(false) }
     val chats by viewModel.chats.collectAsStateWithLifecycle()
     val dms by viewModel.dms.collectAsStateWithLifecycle()
     val spaces by viewModel.spaces.collectAsStateWithLifecycle()
@@ -85,19 +85,10 @@ fun HomeRoute(
         onRefresh = viewModel::refresh,
         onOpenRoom = onOpenRoom,
         onOpenSpace = onOpenSpace,
-        onAccountClick = { accountOpen = true },
+        onAccountClick = { profile?.userId?.let(onOpenProfile) },
         modifier = modifier,
         search = viewModel.search,
     )
-    if (accountOpen) {
-        AccountSheet(
-            account = viewModel.account,
-            profile = profile,
-            connection = connection,
-            onLogout = viewModel::logout,
-            onDismiss = { accountOpen = false },
-        )
-    }
 }
 
 data class HomeUiState(
@@ -221,7 +212,7 @@ fun HomeScreen(
     }
 }
 
-/** Our display name and Matrix ID beside our avatar, which opens the account sheet. */
+/** Our display name and Matrix ID beside our avatar, which opens our profile (and the account). */
 @Composable
 private fun AccountButton(
     state: HomeUiState,
