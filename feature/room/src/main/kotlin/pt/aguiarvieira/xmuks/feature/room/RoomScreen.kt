@@ -21,6 +21,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -50,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.SoftwareKeyboardController
@@ -66,6 +69,7 @@ import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.emoji.ImagePack
 import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
+import pt.aguiarvieira.xmuks.core.data.push.RoomNotifications
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
@@ -105,10 +109,24 @@ fun RoomRoute(
     val recent by viewModel.emoji.recent.collectAsStateWithLifecycle()
     val personas by viewModel.personas.personas.collectAsStateWithLifecycle()
     val mediaDraft by viewModel.attach.draft.collectAsStateWithLifecycle()
+    val notificationSetting by viewModel.notifications.setting.collectAsStateWithLifecycle()
     val resolver = remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media) }
     val androidContext = LocalContext.current
     val uriHandler = remember(androidContext, onOpenLink) { SafeUriHandler(androidContext, onOpenLink) }
     LaunchedEffect(jumpTo) { jumpTo?.let(viewModel::showContext) }
+    val resources = LocalResources.current
+    val notificationError by viewModel.notifications.error.collectAsStateWithLifecycle()
+    LaunchedEffect(notificationError) {
+        notificationError?.let {
+            Toast
+                .makeText(
+                    androidContext,
+                    resources.getString(R.string.notify_failed, it),
+                    Toast.LENGTH_LONG
+                ).show()
+            viewModel.notifications.errorShown()
+        }
+    }
     LifecycleResumeEffect(viewModel) {
         viewModel.onScreen(true)
         onPauseOrDispose { viewModel.onScreen(false) }
@@ -165,6 +183,8 @@ fun RoomRoute(
                     onCancelMedia = viewModel.attach::cancel,
                     onSendVoice = viewModel.attach::sendVoice,
                     onSendLocation = viewModel::sendLocation,
+                    notifications = notificationSetting,
+                    onSetNotifications = viewModel.notifications::set,
                 ),
             modifier = modifier,
         )
@@ -202,6 +222,9 @@ class ComposerActions(
     val onCancelMedia: () -> Unit = {},
     val onSendVoice: (java.io.File) -> Unit = {},
     val onSendLocation: (PickedLocation) -> Unit = {},
+    /** How the room notifies, and changing it. */
+    val notifications: RoomNotifications = RoomNotifications.Default,
+    val onSetNotifications: (RoomNotifications) -> Unit = {},
 )
 
 /** What the emoji/sticker pickers show, and what picking does. */
@@ -298,7 +321,12 @@ fun RoomScreen(
         // Each card handles its own insets: the header the status bar, the composer the
         // navigation bar and the keyboard.
         contentWindowInsets = WindowInsets(0),
-        topBar = { HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia) },
+        topBar = {
+            HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia) {
+                overlays.notificationSettings =
+                    true
+            }
+        },
         bottomBar = {
             ComposerArea(overlays, composer, resolver) {
                 ComposerCard(
@@ -348,7 +376,9 @@ private fun HeaderCard(
     resolver: MediaResolver,
     onBack: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
+    onNotifications: () -> Unit,
 ) {
+    var menu by remember { mutableStateOf(false) }
     ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
         TopAppBar(
             windowInsets = WindowInsets(0),
@@ -367,6 +397,20 @@ private fun HeaderCard(
                     subtitle = typingText(typing),
                     onAvatarClick = { resolver.image(room?.avatarMxc, room?.name)?.let(onOpenMedia) },
                 )
+            },
+            actions = {
+                IconButton(onClick = { menu = true }) {
+                    Icon(painterResource(R.drawable.ic_more), contentDescription = stringResource(R.string.room_menu))
+                }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.room_notifications)) },
+                        onClick = {
+                            menu = false
+                            onNotifications()
+                        },
+                    )
+                }
             },
         )
     }

@@ -43,6 +43,7 @@ import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
 import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
 import pt.aguiarvieira.xmuks.core.data.push.PushTokenSource
+import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
@@ -218,6 +219,12 @@ object DataModule {
 
     @Provides @Singleton
     fun openRoom() = OpenRoom()
+
+    @Provides @Singleton
+    fun roomPushRules(
+        database: XmuksDatabase,
+        exec: ExecClient,
+    ) = RoomPushRules(database, exec)
 
     @Provides @Singleton
     fun linkResolver(

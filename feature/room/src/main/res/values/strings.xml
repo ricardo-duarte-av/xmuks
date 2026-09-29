@@ -103,4 +103,15 @@
         <item quantity="one">%1$d new message</item>
         <item quantity="other">%1$d new messages</item>
     </plurals>
+    <string name="room_menu">More</string>
+    <string name="room_notifications">Notifications</string>
+    <string name="notify_default">Default</string>
+    <string name="notify_default_detail">As your account\'s settings say for this kind of room</string>
+    <string name="notify_all">All messages</string>
+    <string name="notify_all_detail">Every message, with sound</string>
+    <string name="notify_mentions">Mentions and keywords</string>
+    <string name="notify_mentions_detail">Only when you\'re mentioned or a keyword matches</string>
+    <string name="notify_off">Off</string>
+    <string name="notify_off_detail">Nothing, not even mentions</string>
+    <string name="notify_failed">Couldn\'t change notifications: %1$s</string>
 </resources>
