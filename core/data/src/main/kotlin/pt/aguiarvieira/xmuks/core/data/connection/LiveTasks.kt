@@ -16,6 +16,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient
@@ -39,6 +40,7 @@ class LiveTasks(
     private val media: MediaUrls,
     private val imageLoader: ImageLoader,
     private val scope: CoroutineScope,
+    private val push: PushRegistrar,
 ) {
     private var running: Job? = null
 
@@ -48,6 +50,8 @@ class LiveTasks(
         running =
             scope.launch {
                 refreshOwnProfile()
+                // Pushes keep coming while we're away only if the registration is kept fresh.
+                runCatching { push.ensureRegistered() }
                 prefetchAvatars()
             }
     }

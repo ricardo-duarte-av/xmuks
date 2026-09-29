@@ -1,12 +1,25 @@
 package pt.aguiarvieira.xmuks.navigation
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.core.content.ContextCompat
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -16,7 +29,10 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.scene.SinglePaneSceneStrategy
 import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import androidx.navigation3.ui.NavDisplay
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import pt.aguiarvieira.xmuks.R
+import pt.aguiarvieira.xmuks.core.data.links.LinkTarget
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalAnimatedVisibilityScope
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalSharedTransitionScope
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
@@ -32,10 +48,14 @@ import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
     val spaceId: String,
 ) : NavKey
 
-/** [scope] is the list the room was opened from, so only that row's avatar flies into the header. */
+/**
+ * [scope] is the list the room was opened from, so only that row's avatar flies into the header;
+ * [eventId], an event to show (a link to a message).
+ */
 @Serializable data class RoomKey(
     val roomId: String,
     val scope: String,
+    val eventId: String? = null,
 ) : NavKey
 
 /** Anyone's profile; our own is where it's edited, and where the account lives. */
@@ -55,9 +75,51 @@ import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
-fun XmuksNavHost(modifier: Modifier = Modifier) {
+fun XmuksNavHost(
+    modifier: Modifier = Modifier,
+    link: String? = null,
+    onLinkConsume: () -> Unit = {},
+    links: LinkViewModel = hiltViewModel(),
+) {
     val backStack = rememberNavBackStack(HomeKey)
     val listDetail = rememberListDetailSceneStrategy<NavKey>()
+    val context = LocalContext.current
+    val resources = LocalResources.current
+    val scope = rememberCoroutineScope()
+    val openLink: (String) -> Unit = { uri ->
+        scope.launch {
+            when (val target = links.resolve(uri)) {
+                is LinkTarget.User -> {
+                    backStack.add(UserKey(target.userId))
+                }
+
+                is LinkTarget.Room -> {
+                    backStack.openRoom(target.roomId, LINK_SCOPE, target.eventId)
+                }
+
+                is LinkTarget.NotJoined -> {
+                    Toast
+                        .makeText(
+                            context,
+                            resources.getString(R.string.link_not_joined, target.roomIdOrAlias),
+                            Toast.LENGTH_LONG
+                        ).show()
+                }
+
+                LinkTarget.Unknown -> {
+                    Toast.makeText(context, R.string.link_unknown, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+    NotificationPermission()
+    val consumed by rememberUpdatedState(onLinkConsume)
+    LaunchedEffect(link) {
+        if (link != null) {
+            openLink(link)
+            consumed()
+        }
+    }
     SharedTransitionLayout(modifier = modifier) {
         CompositionLocalProvider(LocalSharedTransitionScope provides this) {
             NavDisplay(
@@ -95,6 +157,8 @@ fun XmuksNavHost(modifier: Modifier = Modifier) {
                                 RoomRoute(
                                     roomId = key.roomId,
                                     sharedScope = key.scope,
+                                    jumpTo = key.eventId,
+                                    onOpenLink = openLink,
                                     onBack = { backStack.removeLastOrNull() },
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
                                     onOpenUser = { backStack.add(UserKey(it)) },
@@ -105,6 +169,7 @@ fun XmuksNavHost(modifier: Modifier = Modifier) {
                             Destination {
                                 UserInfoRoute(
                                     userId = key.userId,
+                                    onOpenLink = openLink,
                                     onBack = { backStack.removeLastOrNull() },
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
                                 )
@@ -134,7 +199,24 @@ private fun Destination(content: @Composable () -> Unit) {
 private fun NavBackStack<NavKey>.openRoom(
     roomId: String,
     scope: String,
+    eventId: String? = null,
 ) {
     if (lastOrNull() is RoomKey) removeAt(lastIndex)
-    add(RoomKey(roomId, scope))
+    add(RoomKey(roomId, scope, eventId))
+}
+
+/** Rooms opened from a link have no list row to fly from. */
+private const val LINK_SCOPE = "link"
+
+/** Asked once logged in (Android 13+): without it, no notifications. Android stops asking after two no's. */
+@Composable
+private fun NotificationPermission() {
+    val context = LocalContext.current
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    LaunchedEffect(Unit) {
+        val granted =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        if (!granted) ask.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
 }

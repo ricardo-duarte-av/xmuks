@@ -65,6 +65,7 @@ class SessionRepository(
 
     /** Forgets the account and everything cached for it. Flipping [loggedIn] stops the stream first. */
     suspend fun logout() {
+        accountScoped.forEach { it.beforeLogout() }
         store.clear()
         clearAccountData()
     }

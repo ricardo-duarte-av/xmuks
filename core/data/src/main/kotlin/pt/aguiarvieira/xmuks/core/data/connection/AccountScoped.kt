@@ -7,5 +7,8 @@ package pt.aguiarvieira.xmuks.core.data.connection
  * catch-up from the old server's timeline.
  */
 interface AccountScoped {
+    /** Last chance to talk to gomuks as this account (still logged in): undo what it holds for us. */
+    suspend fun beforeLogout() {}
+
     suspend fun clearAccountData()
 }

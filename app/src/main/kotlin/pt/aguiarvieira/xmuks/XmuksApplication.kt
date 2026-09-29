@@ -7,6 +7,8 @@ import coil3.SingletonImageLoader
 import dagger.hilt.android.HiltAndroidApp
 import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
+import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
+import pt.aguiarvieira.xmuks.core.push.RoomNotifier
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -19,6 +21,10 @@ class XmuksApplication :
 
     @Inject lateinit var outbox: Outbox
 
+    @Inject lateinit var openRoom: OpenRoom
+
+    @Inject lateinit var notifier: RoomNotifier
+
     /** Every Coil image in the app loads through gomuks' authenticated client. */
     override fun newImageLoader(context: PlatformContext): ImageLoader = imageLoader
 
@@ -27,5 +33,7 @@ class XmuksApplication :
         connection.install()
         // Messages left unsent by a previous run go out as soon as the app is up.
         outbox.start()
+        // Opening a room is reading it: its notification goes.
+        openRoom.onOpened = notifier::clear
     }
 }

@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.xmuks.hilt)
     alias(libs.plugins.xmuks.screenshots)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.google.services)
 }
 
 // Release signing: keystore.properties (local, gitignored) first, then environment variables (CI).
@@ -82,6 +83,7 @@ dependencies {
     implementation(projects.feature.room)
     implementation(projects.feature.media)
     implementation(projects.feature.profile)
+    implementation(projects.core.push)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

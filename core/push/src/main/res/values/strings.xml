@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channel_dm">Direct messages</string>
+    <string name="channel_dm_description">Messages in one-to-one chats</string>
+    <string name="channel_group">Group messages</string>
+    <string name="channel_group_description">Messages in rooms with more people</string>
+    <string name="channel_silent">Quiet messages</string>
+    <string name="channel_silent_description">Messages your notification settings say shouldn\'t make a sound</string>
+    <string name="action_reply">Reply</string>
+    <string name="action_mark_read">Mark as read</string>
+    <string name="reply_hint">Message</string>
+</resources>

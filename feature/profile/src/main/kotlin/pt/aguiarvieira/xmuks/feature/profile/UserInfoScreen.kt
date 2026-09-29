@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +47,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -63,6 +66,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
+import pt.aguiarvieira.xmuks.core.richtext.SafeUriHandler
 
 /** What we can change on our own profile; absent on anyone else's. */
 @Immutable
@@ -99,6 +103,7 @@ fun UserInfoRoute(
     onBack: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenLink: (uri: String) -> Unit = {},
     viewModel: UserInfoViewModel =
         hiltViewModel<UserInfoViewModel, UserInfoViewModel.Factory>(key = userId) { it.create(userId) },
 ) {
@@ -125,19 +130,23 @@ fun UserInfoRoute(
                 logout = viewModel::logout,
             )
         }
-    UserInfoScreen(
-        userId = userId,
-        state = state,
-        media = media,
-        busy = busy,
-        error = error,
-        onErrorShow = viewModel.tasks::errorShown,
-        onRetry = viewModel::refresh,
-        onBack = onBack,
-        onOpenMedia = onOpenMedia,
-        modifier = modifier,
-        own = if (isMe) OwnProfile(edits, personas, viewModel.account, connection) else null,
-    )
+    val context = LocalContext.current
+    val uriHandler = remember(context, onOpenLink) { SafeUriHandler(context, onOpenLink) }
+    CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+        UserInfoScreen(
+            userId = userId,
+            state = state,
+            media = media,
+            busy = busy,
+            error = error,
+            onErrorShow = viewModel.tasks::errorShown,
+            onRetry = viewModel::refresh,
+            onBack = onBack,
+            onOpenMedia = onOpenMedia,
+            modifier = modifier,
+            own = if (isMe) OwnProfile(edits, personas, viewModel.account, connection) else null,
+        )
+    }
 }
 
 /** Only on our own profile: the edits, our per-message profiles and the account. */

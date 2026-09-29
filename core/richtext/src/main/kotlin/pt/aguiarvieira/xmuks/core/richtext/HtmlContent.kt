@@ -3,7 +3,6 @@ package pt.aguiarvieira.xmuks.core.richtext
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -307,20 +306,18 @@ private fun linkify(
     }
 
 /**
- * Opens links without ever crashing: user mentions (`matrix:u/…`) go to [onOpenUser]; other
- * `matrix:` links, and schemes no app handles, are ignored — unlike the default handler, which throws.
+ * Opens links without ever crashing: Matrix links (`matrix:` URIs, matrix.to) go to [onOpenMatrixLink]
+ * to open in the app; schemes no app handles are ignored — unlike the default handler, which throws.
  */
 class SafeUriHandler(
     private val context: Context,
-    private val onOpenUser: (userId: String) -> Unit = {},
+    private val onOpenMatrixLink: (uri: String) -> Unit = {},
 ) : UriHandler {
     override fun openUri(uri: String) {
-        if (uri.startsWith(MATRIX_USER)) {
-            val id = Uri.decode(uri.removePrefix(MATRIX_USER).substringBefore('?').substringBefore('/'))
-            if (id.isNotEmpty()) onOpenUser("@$id")
+        if (uri.startsWith("matrix:") || uri.startsWith(MATRIX_TO)) {
+            onOpenMatrixLink(uri)
             return
         }
-        if (uri.startsWith("matrix:")) return
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, uri.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: ActivityNotFoundException) {
@@ -329,7 +326,7 @@ class SafeUriHandler(
     }
 }
 
-private const val MATRIX_USER = "matrix:u/"
+private const val MATRIX_TO = "https://matrix.to/#/"
 
 /** `pic:<w>x<h>:<mxc>` → (width, height, mxc); null for anything else. */
 private fun parsePicture(id: String): Triple<Int, Int, String>? {

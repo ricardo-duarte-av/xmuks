@@ -57,6 +57,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -84,6 +85,9 @@ fun RoomRoute(
     onOpenMedia: (ViewerMedia) -> Unit,
     onOpenUser: (userId: String) -> Unit,
     modifier: Modifier = Modifier,
+    /** An event to show once the room is open (a link to a message). */
+    jumpTo: String? = null,
+    onOpenLink: (uri: String) -> Unit = {},
     viewModel: RoomViewModel = hiltViewModel<RoomViewModel, RoomViewModel.Factory>(key = roomId) { it.create(roomId) },
 ) {
     val room by viewModel.room.collectAsStateWithLifecycle()
@@ -103,7 +107,12 @@ fun RoomRoute(
     val mediaDraft by viewModel.attach.draft.collectAsStateWithLifecycle()
     val resolver = remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media) }
     val androidContext = LocalContext.current
-    val uriHandler = remember(androidContext, onOpenUser) { SafeUriHandler(androidContext, onOpenUser) }
+    val uriHandler = remember(androidContext, onOpenLink) { SafeUriHandler(androidContext, onOpenLink) }
+    LaunchedEffect(jumpTo) { jumpTo?.let(viewModel::showContext) }
+    LifecycleResumeEffect(viewModel) {
+        viewModel.onScreen(true)
+        onPauseOrDispose { viewModel.onScreen(false) }
+    }
     CompositionLocalProvider(LocalUriHandler provides uriHandler) {
         RoomScreen(
             roomId = roomId,

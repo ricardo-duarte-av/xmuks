@@ -32,6 +32,7 @@ import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
 import pt.aguiarvieira.xmuks.core.data.connection.LiveTasks
 import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
+import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
 import pt.aguiarvieira.xmuks.core.data.media.MediaCacheStrategy
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
@@ -39,6 +40,9 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
+import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
+import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
+import pt.aguiarvieira.xmuks.core.data.push.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
@@ -103,7 +107,20 @@ object DataModule {
         outbox: Outbox,
         drafts: DraftStore,
         uploads: MediaSender,
-    ): Set<AccountScoped> = setOf(ingestor, stats, timelines, outbox, drafts, uploads)
+        push: PushRegistrar,
+    ): Set<AccountScoped> = setOf(ingestor, stats, timelines, outbox, drafts, uploads, push)
+
+    @Provides @Singleton
+    fun pushRegistrar(
+        @ApplicationContext context: Context,
+        exec: ExecClient,
+        tokens: PushTokenSource,
+    ) = PushRegistrar(
+        exec,
+        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("push") },
+        KeystoreSecretCipher("xmuks-push"),
+        tokens,
+    )
 
     @Provides @Singleton
     fun mediaPreparer(
@@ -200,6 +217,15 @@ object DataModule {
     ) = ProfileRepository(exec, uploader, database, ingestor)
 
     @Provides @Singleton
+    fun openRoom() = OpenRoom()
+
+    @Provides @Singleton
+    fun linkResolver(
+        exec: ExecClient,
+        rooms: RoomListRepository,
+    ) = LinkResolver(exec, rooms)
+
+    @Provides @Singleton
     fun syncController(
         ingestor: SyncIngestor,
         connection: ForegroundConnection,
@@ -244,13 +270,14 @@ object DataModule {
     @Provides @Singleton
     fun liveTasks(
         @ApplicationContext context: Context,
+        push: PushRegistrar,
         exec: ExecClient,
         ingestor: SyncIngestor,
         database: XmuksDatabase,
         media: MediaUrls,
         imageLoader: ImageLoader,
         scope: CoroutineScope,
-    ) = LiveTasks(context, exec, ingestor, database, media, imageLoader, scope)
+    ) = LiveTasks(context, exec, ingestor, database, media, imageLoader, scope, push)
 
     @Provides @Singleton
     fun roomSessions(

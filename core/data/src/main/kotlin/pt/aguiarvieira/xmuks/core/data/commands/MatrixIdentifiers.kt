@@ -46,7 +46,7 @@ internal object MatrixIdentifiers {
 }
 
 /** A `matrix:` URI or matrix.to link: the ID it points at, an event in it, and via servers. */
-internal data class MatrixLink(
+data class MatrixLink(
     val id: String,
     val eventId: String?,
     val via: List<String>,

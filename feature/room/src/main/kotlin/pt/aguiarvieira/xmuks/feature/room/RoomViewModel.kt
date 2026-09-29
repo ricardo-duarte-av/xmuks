@@ -31,6 +31,7 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.media.UPLOAD_PREFIX
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
+import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
@@ -53,6 +54,7 @@ class RoomViewModel
         private val uploads: MediaSender,
         @Named("media") mediaHttp: OkHttpClient,
         @ApplicationContext context: Context,
+        private val openRoom: OpenRoom,
         val media: MediaUrls,
     ) : ViewModel() {
         @AssistedFactory
@@ -277,6 +279,9 @@ class RoomViewModel
                 if (count > 0) session.readMarker()?.let { marker.value = UnreadMarker(it, count) }
             }
         }
+
+        /** On screen (the app in front) or not: while it is, its messages don't notify, and its notification goes. */
+        fun onScreen(shown: Boolean) = if (shown) openRoom.opened(roomId) else openRoom.closed(roomId)
 
         fun loadOlder() {
             viewModelScope.launch { session.loadOlder() }
