@@ -3,7 +3,6 @@ package pt.aguiarvieira.xmuks.feature.room
 import android.text.format.Formatter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -109,7 +109,9 @@ fun MessageRow(
             ->
             actions.openMedia(viewerMedia(message, media, kind, resolver))
         }
-        BubbleRow(message, resolver, actions, open)
+        CompositionLocalProvider(LocalMessageHold provides { actions.onMessageMenu(message) }) {
+            BubbleRow(message, resolver, actions, open)
+        }
         if (message.reactions.isNotEmpty()) {
             Reactions(message.reactions, resolver, Modifier.maxWidthFraction(BUBBLE_FRACTION).padding(top = 4.dp)) {
                 actions.onReaction(message, it)
@@ -262,7 +264,7 @@ private fun Content(
             AsyncImage(
                 model = resolver.media(c.media.mxc, c.media.encrypted),
                 contentDescription = c.body.ifBlank { stringResource(R.string.sticker) },
-                modifier = Modifier.size(STICKER_SIZE).clickable { onOpen(c.media, ViewerMedia.Kind.Image) },
+                modifier = Modifier.size(STICKER_SIZE).tapOrHold { onOpen(c.media, ViewerMedia.Kind.Image) },
             )
         }
 
@@ -276,7 +278,13 @@ private fun Content(
 
         is MessageContent.File -> {
             Box(contentAlignment = Alignment.Center) {
-                FileCard(R.drawable.ic_file, c.name, c.media.size, color)
+                FileCard(
+                    R.drawable.ic_file,
+                    c.name,
+                    c.media.size,
+                    color,
+                    Modifier.tapOrHold(enabled = message.uploadProgress == null) { actions.saveMedia(c.media) },
+                )
                 message.uploadProgress?.let { UploadProgress(it) }
             }
         }
@@ -399,10 +407,7 @@ private fun MediaImage(
                     .heightIn(max = display.maxHeight)
                     .aspectRatio(ratio.coerceIn(MIN_RATIO, MAX_RATIO))
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable(
-                        enabled = uploadProgress == null,
-                        onClick = click,
-                    ),
+                    .tapOrHold(enabled = uploadProgress == null, onClick = click),
             contentAlignment = Alignment.Center,
         ) {
             placeholder?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
@@ -489,7 +494,7 @@ internal fun Reply(
             Modifier
                 .height(IntrinsicSize.Min)
                 .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = onClick)
+                .tapOrHold(onClick = onClick)
                 .background(color.copy(alpha = REPLY_BG_ALPHA)),
     ) {
         val sender = reply.sender

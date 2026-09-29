@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.Reader
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
@@ -63,6 +64,8 @@ class TimelineActions(
     val onMessageMenu: (TimelineItem.Message) -> Unit = {},
     /** Tapping a reaction under a message. */
     val onReaction: (TimelineItem.Message, String) -> Unit = { _, _ -> },
+    /** Saving a message's file where the user picks. */
+    val saveMedia: (Media) -> Unit = {},
 )
 
 /** Briefly tints the row a jump landed on, so the eye finds it. */

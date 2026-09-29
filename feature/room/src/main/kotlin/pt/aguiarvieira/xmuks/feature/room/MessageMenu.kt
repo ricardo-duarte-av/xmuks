@@ -38,6 +38,8 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 @Composable
 internal fun MessageMenu(
     message: TimelineItem.Message,
+    /** Its file saved where the user picks; null when it has none. */
+    onSave: (() -> Unit)?,
     onReply: () -> Unit,
     onEdit: () -> Unit,
     onHistory: () -> Unit,
@@ -54,12 +56,8 @@ internal fun MessageMenu(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
             if (sent) QuickReactions(quickReactions, onReact, onMoreReactions)
-            if (sent) Item(R.drawable.ic_reply, R.string.reply) { onReply() }
-            if (sent && message.editSource != null) Item(R.drawable.ic_edit, R.string.edit) { onEdit() }
-            if (sent && message.edited) Item(R.drawable.ic_history, R.string.view_edits) { onHistory() }
-            if (sent && message.content == MessageContent.Redacted) {
-                Item(R.drawable.ic_history, R.string.view_deleted) { onHistory() }
-            }
+            if (sent) SentItems(message, onReply, onEdit, onHistory)
+            if (onSave != null && message.uploadProgress == null) Item(R.drawable.ic_download, R.string.save, onSave)
             if (text != null) {
                 Item(R.drawable.ic_copy, R.string.copy_text) {
                     clipboard.setText(AnnotatedString(text))
@@ -71,6 +69,20 @@ internal fun MessageMenu(
             }
         }
     }
+}
+
+/** What only a sent message offers: reply, edit (ours), its edits, what a deletion removed. */
+@Composable
+private fun SentItems(
+    message: TimelineItem.Message,
+    onReply: () -> Unit,
+    onEdit: () -> Unit,
+    onHistory: () -> Unit,
+) {
+    Item(R.drawable.ic_reply, R.string.reply) { onReply() }
+    if (message.editSource != null) Item(R.drawable.ic_edit, R.string.edit) { onEdit() }
+    if (message.edited) Item(R.drawable.ic_history, R.string.view_edits) { onHistory() }
+    if (message.content == MessageContent.Redacted) Item(R.drawable.ic_history, R.string.view_deleted) { onHistory() }
 }
 
 @Composable

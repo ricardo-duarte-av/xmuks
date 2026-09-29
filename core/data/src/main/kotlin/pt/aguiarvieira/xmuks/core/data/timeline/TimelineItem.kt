@@ -203,6 +203,8 @@ data class Media(
     val blurhash: String?,
     val thumbnailMxc: String?,
     val thumbnailEncrypted: Boolean,
+    /** The file's name (`filename`, else the body when it's not a caption): what to save it as. */
+    val name: String? = null,
 ) {
     /** An animated image (a GIF): its thumbnail is a still, the file itself can be large. */
     val animated: Boolean get() = mimeType == "image/gif"
@@ -267,3 +269,15 @@ data class Reaction(
     /** Custom emoji (image) reactions use an mxc URI as their key. */
     val isImage: Boolean get() = key.startsWith("mxc://")
 }
+
+/** The file a message carries (a picture, video, sound, file or sticker), if any. */
+val MessageContent.media: Media?
+    get() =
+        when (this) {
+            is MessageContent.Image -> media
+            is MessageContent.Video -> media
+            is MessageContent.Audio -> media
+            is MessageContent.File -> media
+            is MessageContent.Sticker -> media
+            else -> null
+        }

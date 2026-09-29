@@ -47,7 +47,7 @@ internal fun LocationCard(
     val map = remember(point) { point?.let { staticMapUrl(context, it) } }
     Column(
         modifier =
-            Modifier.widthIn(max = MAP_WIDTH).clip(RoundedCornerShape(12.dp)).clickable {
+            Modifier.widthIn(max = MAP_WIDTH).clip(RoundedCornerShape(12.dp)).tapOrHold {
                 point?.let { openInMaps(context, it) }
             },
     ) {

@@ -36,7 +36,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
+import pt.aguiarvieira.xmuks.core.data.timeline.media
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 
@@ -72,10 +74,18 @@ internal fun RoomOverlays(
     state: OverlayState,
     composer: ComposerActions,
     resolver: MediaResolver,
+    onSaveMedia: (Media) -> Unit = {},
 ) {
     state.menuFor?.let { message ->
         MessageMenu(
             message,
+            onSave =
+                message.content.media?.let { media ->
+                    {
+                        onSaveMedia(media)
+                        state.menuFor = null
+                    }
+                },
             onReply = {
                 composer.onReply(message)
                 state.menuFor = null

@@ -34,6 +34,7 @@ import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
 import pt.aguiarvieira.xmuks.core.data.media.MediaCacheStrategy
+import pt.aguiarvieira.xmuks.core.data.media.MediaDownloads
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
@@ -218,6 +219,14 @@ object DataModule {
         database: XmuksDatabase,
         media: MediaUrls,
     ) = RoomListRepository(database, media)
+
+    @Provides @Singleton
+    fun mediaDownloads(
+        @ApplicationContext context: Context,
+        @Named("media") http: OkHttpClient,
+        media: MediaUrls,
+        scope: CoroutineScope,
+    ) = MediaDownloads(http, media, context.contentResolver, scope, Dispatchers.IO)
 
     @Provides @Singleton
     fun mediaUploader(

@@ -70,6 +70,7 @@ import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
+import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
@@ -151,6 +152,7 @@ fun RoomRoute(
             onOpenUser = onOpenUser,
             onOpenRoomInfo = onOpenRoomInfo,
             player = viewModel.player,
+            onSaveMedia = rememberMediaSaver(),
             onShowContext = viewModel::showContext,
             onLeaveContext = viewModel::leaveContext,
             composer =
@@ -274,6 +276,7 @@ fun RoomScreen(
     modifier: Modifier = Modifier,
     onOpenRoomInfo: () -> Unit = {},
     player: InlinePlayer? = null,
+    onSaveMedia: (Media) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val overlays = remember { OverlayState() }
@@ -288,8 +291,9 @@ fun RoomScreen(
     val list by rememberUpdatedState(if (context != null) contextList else liveList)
     val showContext by rememberUpdatedState(onShowContext)
     val actions =
-        remember(onOpenMedia, onOpenUser, player) {
+        remember(onOpenMedia, onOpenUser, player, onSaveMedia) {
             TimelineActions(
+                saveMedia = onSaveMedia,
                 openMedia = onOpenMedia,
                 openUser = onOpenUser,
                 player = player,
@@ -315,7 +319,7 @@ fun RoomScreen(
         }
     }
     BackHandler(enabled = context != null, onBack = onLeaveContext)
-    RoomOverlays(overlays, composer, resolver)
+    RoomOverlays(overlays, composer, resolver, onSaveMedia)
 
     Scaffold(
         modifier = modifier,

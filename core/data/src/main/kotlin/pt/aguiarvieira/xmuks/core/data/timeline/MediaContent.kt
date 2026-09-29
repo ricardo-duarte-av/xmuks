@@ -35,6 +35,7 @@ internal fun media(content: JsonObject): Media? {
         blurhash = info?.str("xyz.amorgan.blurhash") ?: content.str("xyz.amorgan.blurhash"),
         thumbnailMxc = info?.str("thumbnail_url") ?: thumbFile?.str("url"),
         thumbnailEncrypted = thumbFile != null,
+        name = content.str("filename") ?: content.str("body"),
     )
 }
 

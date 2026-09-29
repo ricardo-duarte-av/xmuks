@@ -108,4 +108,8 @@
     <string name="command_fingerprint">Bot commands are off while \"Hide fingerprint\" is on</string>
     <string name="tap_to_show">Tap to show</string>
     <string name="gif">GIF</string>
+    <string name="save">Save</string>
+    <string name="saving">Saving %1$s…</string>
+    <string name="saved">Saved %1$s</string>
+    <string name="save_failed">Couldn\'t save %1$s: %2$s</string>
 </resources>
