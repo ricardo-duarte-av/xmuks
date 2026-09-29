@@ -13,11 +13,29 @@ import pt.aguiarvieira.xmuks.core.data.timeline.str
  * client does is edit the account data. Fields we don't know are kept as they were.
  */
 data class PerMessageProfiles(
+    /** Null: no default set. Empty: explicitly none (a room's way to override the global one). */
     val defaultId: String?,
     val profiles: List<PerMessageProfile>,
     private val raw: JsonObject = JsonObject(emptyMap()),
 ) {
-    val default: PerMessageProfile? get() = profiles.firstOrNull { it.id == defaultId }
+    val default: PerMessageProfile? get() = byId(defaultId)
+
+    fun byId(id: String?): PerMessageProfile? =
+        id?.takeIf { it.isNotEmpty() }?.let {
+            profiles.firstOrNull { p ->
+                p.id ==
+                    id
+            }
+        }
+
+    /** The first profile with a trigger around [text], as gomuks matches them. */
+    fun match(text: String): PerMessageProfile? =
+        profiles.firstOrNull { profile ->
+            profile.triggers.any {
+                text.length >= it.prefix.length + it.suffix.length && text.startsWith(it.prefix) &&
+                    text.endsWith(it.suffix)
+            }
+        }
 
     fun toJson(): JsonObject =
         JsonObject(
@@ -54,7 +72,22 @@ data class PerMessageProfiles(
                         PerMessageProfile::parse
                     )
                 }
-            return PerMessageProfiles(content.str(DEFAULT_ID)?.takeIf { it.isNotEmpty() }, profiles, content)
+            return PerMessageProfiles(content.str(DEFAULT_ID), profiles, content)
+        }
+
+        /**
+         * Which profile gomuks will send [text] as (mautrix `PickPerMessageProfile`): a room trigger,
+         * a global trigger, then the room's default (even an explicit none), then the global one.
+         */
+        fun pick(
+            global: PerMessageProfiles,
+            room: PerMessageProfiles,
+            text: String,
+        ): PerMessageProfile? {
+            room.match(text)?.let { return it }
+            global.match(text)?.let { return it }
+            val defaultId = room.defaultId ?: global.defaultId
+            return room.byId(defaultId) ?: global.byId(defaultId)
         }
     }
 }

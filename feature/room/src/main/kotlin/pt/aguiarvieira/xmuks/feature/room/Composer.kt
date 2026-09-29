@@ -53,6 +53,9 @@ internal fun ComposerCard(
     onSticker: () -> Unit = {},
     /** The message box got focus (a tap into it): the keyboard is coming back. */
     onFocus: () -> Unit = {},
+    personas: Personas = Personas(),
+    avatarUrl: (String?) -> String? = { null },
+    onChoosePersona: (String?) -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
     ScreenCard(
@@ -68,6 +71,7 @@ internal fun ComposerCard(
                 IconButton(onClick = onEmoji) {
                     Icon(painterResource(R.drawable.ic_mood), contentDescription = stringResource(R.string.emoji))
                 }
+                PersonaButton(personas, state, avatarUrl, onChoosePersona)
                 val style = MaterialTheme.typography.bodyLarge.copy(color = colors.onSurface)
                 BasicTextField(
                     state = state,

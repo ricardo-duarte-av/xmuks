@@ -42,9 +42,12 @@ class ProfileRepository(
     /** Our user ID; null until the first sync has told us. */
     val me: Flow<String?> = dao.meta().map { it?.userId }.distinctUntilChanged()
 
-    val perMessageProfiles: Flow<PerMessageProfiles> =
+    val perMessageProfiles: Flow<PerMessageProfiles> = perMessageProfiles("")
+
+    /** Per-message profiles for one room ([roomId] "" = the global ones). */
+    fun perMessageProfiles(roomId: String): Flow<PerMessageProfiles> =
         dao
-            .accountData("", PerMessageProfiles.TYPE)
+            .accountData(roomId, PerMessageProfiles.TYPE)
             .map { json ->
                 PerMessageProfiles.parse(
                     json?.let { runCatching { GomuksJson.parseToJsonElement(it) as? JsonObject }.getOrNull() }
@@ -87,9 +90,13 @@ class ProfileRepository(
             setField(ProfileFields.BIO_GOMUKS, JsonPrimitive(markdown))
         }
 
-    suspend fun savePerMessageProfiles(profiles: PerMessageProfiles): Result<Unit> {
+    suspend fun savePerMessageProfiles(
+        profiles: PerMessageProfiles,
+        roomId: String? = null,
+    ): Result<Unit> {
         val params =
             buildJsonObject {
+                roomId?.let { put("room_id", JsonPrimitive(it)) }
                 put("type", JsonPrimitive(PerMessageProfiles.TYPE))
                 put("content", profiles.toJson())
             }

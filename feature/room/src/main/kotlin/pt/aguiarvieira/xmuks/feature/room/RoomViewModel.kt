@@ -1,7 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.room
 
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -23,8 +22,10 @@ import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.commands.CommandParser
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
+import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
@@ -37,6 +38,8 @@ class RoomViewModel
         @Assisted val roomId: String,
         rooms: RoomListRepository,
         private val sessions: RoomSessions,
+        drafts: DraftStore,
+        profiles: ProfileRepository,
         val media: MediaUrls,
     ) : ViewModel() {
         @AssistedFactory
@@ -94,14 +97,19 @@ class RoomViewModel
                     }
                 }.stateIn(viewModelScope, WHILE_VISIBLE, null)
 
-        /** What's being written. Survives rotation with the view model; kept per open room. */
+        /** What's being written; kept per room when the room is left, and across restarts. */
         val draft = TextFieldState()
+
+        /** Our per-message profiles here, and which one messages go out as. */
+        val personas = PersonaActions(viewModelScope, roomId, profiles, rooms.ownProfile(), WHILE_VISIBLE)
 
         /** Reacting, stickers, recent emoji and pack subscriptions. */
         val emoji = EmojiActions(viewModelScope, session, WHILE_VISIBLE)
 
         /** Whether the next send is a new message, a reply or an edit. */
         val modes = ComposeModes(draft)
+
+        private val draftKeeper = DraftKeeper(viewModelScope, roomId, draft, { modes.draftText }, drafts)
 
         /** Slash commands usable in this room (gomuks' built-ins, text prefixes, the room's bots). */
         val commands: StateFlow<List<BotCommand>> = session.commands.stateIn(viewModelScope, WHILE_VISIBLE, emptyList())
@@ -113,8 +121,7 @@ class RoomViewModel
             if (sendCommand(text)) return
             val mode = modes.mode.value
             val outgoing = emoji.expandShortcodes(text)
-            draft.clearText()
-            modes.mode.value = ComposeMode.New
+            modes.sent()
             stopTyping()
             viewModelScope.launch {
                 when (mode) {
@@ -145,8 +152,7 @@ class RoomViewModel
             if (!text.startsWith("/") || text.startsWith("//")) return false
             val command = CommandParser.match(text, commands.value)?.takeUnless { it.textPrefix } ?: return false
             val arguments = CommandParser.parse(command, text) ?: return false
-            draft.clearText()
-            modes.mode.value = ComposeMode.New
+            modes.sent()
             stopTyping()
             viewModelScope.launch { session.writer.sendCommand(command, arguments, text) }
             return true
@@ -203,6 +209,7 @@ class RoomViewModel
         }
 
         override fun onCleared() {
+            draftKeeper.flush()
             // Leaving the room: we're not typing any more. (The session's scope outlives this one.)
             if (typingNotifier.active) sessions.stopTyping(roomId)
         }

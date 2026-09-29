@@ -97,6 +97,7 @@ fun RoomRoute(
     val commands by viewModel.commands.collectAsStateWithLifecycle()
     val packs by viewModel.emoji.packs.collectAsStateWithLifecycle()
     val recent by viewModel.emoji.recent.collectAsStateWithLifecycle()
+    val personas by viewModel.personas.personas.collectAsStateWithLifecycle()
     val resolver = remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media) }
     val androidContext = LocalContext.current
     val uriHandler = remember(androidContext, onOpenUser) { SafeUriHandler(androidContext, onOpenUser) }
@@ -141,6 +142,8 @@ fun RoomRoute(
                             onUsed = viewModel.emoji::used,
                             onSubscribe = viewModel.emoji::setSubscribed,
                         ),
+                    personas = personas,
+                    onChoosePersona = viewModel.personas::choose,
                 ),
             modifier = modifier,
         )
@@ -165,6 +168,8 @@ class ComposerActions(
     val onDelete: (TimelineItem.Message) -> Unit = {},
     val commands: List<BotCommand> = emptyList(),
     val emoji: EmojiState = EmojiState(),
+    val personas: Personas = Personas(),
+    val onChoosePersona: (String?) -> Unit = {},
 )
 
 /** What the emoji/sticker pickers show, and what picking does. */
@@ -272,6 +277,9 @@ fun RoomScreen(
                     onEmoji = { openPanel(overlays, PickerMode.Emoji, keyboard, focus) },
                     onSticker = { openPanel(overlays, PickerMode.Sticker, keyboard, focus) },
                     onFocus = { if (overlays.picker?.reactTo == null) overlays.picker = null },
+                    personas = composer.personas,
+                    avatarUrl = resolver.avatar,
+                    onChoosePersona = composer.onChoosePersona,
                 )
             }
         },

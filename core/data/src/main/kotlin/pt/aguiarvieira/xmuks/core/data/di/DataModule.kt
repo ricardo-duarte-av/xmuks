@@ -38,6 +38,7 @@ import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
+import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineStore
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
@@ -97,7 +98,14 @@ object DataModule {
         stats: StreamStatsTracker,
         timelines: TimelineStore,
         outbox: Outbox,
-    ): Set<AccountScoped> = setOf(ingestor, stats, timelines, outbox)
+        drafts: DraftStore,
+    ): Set<AccountScoped> = setOf(ingestor, stats, timelines, outbox, drafts)
+
+    @Provides @Singleton
+    fun draftStore(
+        @ApplicationContext context: Context,
+        scope: CoroutineScope,
+    ) = DraftStore(PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("drafts") }, scope)
 
     /** Session-only timelines, paged from gomuks with `paginate` and kept live by the stream. */
     @Provides @Singleton

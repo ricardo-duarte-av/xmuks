@@ -72,4 +72,6 @@
     <string name="emoji">Emoji</string>
     <string name="sticker_button">Stickers</string>
     <string name="react_with">React with “%1$s”</string>
+    <string name="send_as">Sending as %1$s</string>
+    <string name="send_as_me">Yourself</string>
 </resources>

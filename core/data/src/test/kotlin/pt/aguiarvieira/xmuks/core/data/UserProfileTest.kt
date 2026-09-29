@@ -101,4 +101,20 @@ class UserProfileTest {
         assertEquals(listOf("A", "Bee"), edited.profiles.map { it.displayName })
         assertTrue(edited.upsert(PerMessageProfile("c", null, null, emptyList())).profiles.size == 3)
     }
+
+    @Test
+    fun `picking follows gomuks - room trigger, global trigger, room default, global default`() {
+        fun p(
+            id: String,
+            prefix: String = "",
+        ) = PerMessageProfile(id, id, null, if (prefix.isEmpty()) emptyList() else listOf(PerMessageProfile.Trigger(prefix, "")))
+        val global = PerMessageProfiles("g", listOf(p("g"), p("t", prefix = "&t")))
+        val room = PerMessageProfiles(null, listOf(p("r", prefix = "r:")))
+        assertEquals("r", PerMessageProfiles.pick(global, room, "r: hi")?.id)
+        assertEquals("t", PerMessageProfiles.pick(global, room, "&t hi")?.id)
+        assertEquals("g", PerMessageProfiles.pick(global, room, "hi")?.id)
+        // A room's explicit "none" beats the global default.
+        assertNull(PerMessageProfiles.pick(global, room.copy(defaultId = ""), "hi"))
+        assertEquals("r", PerMessageProfiles.pick(global, room.copy(defaultId = "r"), "hi")?.id)
+    }
 }
