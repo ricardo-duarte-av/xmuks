@@ -45,6 +45,8 @@ import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
 import pt.aguiarvieira.xmuks.feature.settings.PreferencesRoute
+import pt.aguiarvieira.xmuks.feature.share.ShareRequest
+import pt.aguiarvieira.xmuks.feature.share.ShareRoute
 
 @Serializable data object HomeKey : NavKey
 
@@ -70,6 +72,13 @@ import pt.aguiarvieira.xmuks.feature.settings.PreferencesRoute
 /** gomuks' preferences: the global ones ([roomId] null), or one room's. */
 @Serializable data class PreferencesKey(
     val roomId: String? = null,
+) : NavKey
+
+/** Something shared from another app, on its way to a room. */
+@Serializable data class ShareKey(
+    val uris: List<String>,
+    val text: String?,
+    val roomId: String?,
 ) : NavKey
 
 /** Everyone we ignore. */
@@ -108,6 +117,8 @@ fun XmuksNavHost(
     modifier: Modifier = Modifier,
     link: String? = null,
     onLinkConsume: () -> Unit = {},
+    share: ShareRequest? = null,
+    onShareConsume: () -> Unit = {},
     links: LinkViewModel = hiltViewModel(),
 ) {
     val backStack = rememberNavBackStack(HomeKey)
@@ -141,6 +152,13 @@ fun XmuksNavHost(
         if (link != null) {
             openLink(link)
             consumed()
+        }
+    }
+    val shareConsumed by rememberUpdatedState(onShareConsume)
+    LaunchedEffect(share) {
+        if (share != null) {
+            backStack.add(ShareKey(share.uris, share.text, share.roomId))
+            shareConsumed()
         }
     }
     SharedTransitionLayout(modifier = modifier) {
@@ -211,6 +229,17 @@ fun XmuksNavHost(
                                     onOpenRoom = { roomId ->
                                         backStack.remove(key)
                                         backStack.openRoom(roomId, LINK_SCOPE, key.eventId)
+                                    },
+                                )
+                            }
+                        }
+                        entry<ShareKey> { key ->
+                            Destination {
+                                ShareRoute(
+                                    request = ShareRequest(key.uris, key.text, key.roomId),
+                                    onDone = { roomId ->
+                                        backStack.remove(key)
+                                        if (roomId != null) backStack.openRoom(roomId, LINK_SCOPE)
                                     },
                                 )
                             }

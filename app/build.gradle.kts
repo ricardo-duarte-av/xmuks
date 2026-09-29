@@ -84,6 +84,7 @@ dependencies {
     implementation(projects.feature.media)
     implementation(projects.feature.profile)
     implementation(projects.feature.settings)
+    implementation(projects.feature.share)
     implementation(projects.core.push)
 
     implementation(libs.androidx.core.ktx)

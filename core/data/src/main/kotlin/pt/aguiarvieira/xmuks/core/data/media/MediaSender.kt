@@ -7,6 +7,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -18,6 +19,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.messageParams
 import pt.aguiarvieira.xmuks.core.data.timeline.obj
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 
 /** A file on its way up, as the timeline shows it until the message is in the outbox. */
 data class PendingUpload(
@@ -54,7 +56,11 @@ class MediaSender(
         val replyTo: ReplyTarget?,
         val encrypt: Boolean,
         val job: Job? = null,
+        /** Order of sending: messages go out in it, however their uploads race. */
+        val seq: Long = 0,
     )
+
+    private val sequence = AtomicLong()
 
     private val uploads = MutableStateFlow<Map<String, Upload>>(emptyMap())
 
@@ -88,7 +94,7 @@ class MediaSender(
                 height = media.height ?: thumbnail?.height,
                 blurhash = thumbnail?.blurhash,
             )
-        start(Upload(shown, media, replyTo, encrypt))
+        start(Upload(shown, media, replyTo, encrypt, seq = sequence.incrementAndGet()))
     }
 
     fun retry(id: String) {
@@ -114,7 +120,14 @@ class MediaSender(
                     }
             }
         val restarted =
-            Upload(upload.shown.copy(progress = 0f, error = null), upload.media, upload.replyTo, upload.encrypt, job)
+            Upload(
+                upload.shown.copy(progress = 0f, error = null),
+                upload.media,
+                upload.replyTo,
+                upload.encrypt,
+                job,
+                upload.seq
+            )
         uploads.update { it + (id to restarted) }
         job.start()
     }
@@ -137,6 +150,11 @@ class MediaSender(
                     change(upload.shown.id) { it.copy(progress = p) }
                 }.getOrThrow()
         val roomId = upload.shown.roomId
+        // Files picked together arrive in the order they were picked: a small one that finished
+        // first waits for those before it (one that failed doesn't hold the rest up).
+        uploads.first { all ->
+            all.values.none { it.shown.roomId == roomId && it.seq < upload.seq && it.shown.error == null }
+        }
         outbox.sendMessage(
             roomId,
             messageParams(
@@ -154,7 +172,9 @@ class MediaSender(
     ) {
         uploads.update { all ->
             val upload = all[id] ?: return@update all
-            all + (id to Upload(edit(upload.shown), upload.media, upload.replyTo, upload.encrypt, upload.job))
+            // Everything but what's shown stays as it was: the job, and the place in the send order.
+            all +
+                (id to Upload(edit(upload.shown), upload.media, upload.replyTo, upload.encrypt, upload.job, upload.seq))
         }
     }
 

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="back">Back</string>
+    <string name="share_to">Send to…</string>
+    <string name="share_search">Search rooms</string>
+    <string name="share_no_rooms">No rooms match</string>
+    <string name="share_caption">Caption</string>
+    <string name="share_send">Send</string>
+    <string name="share_change_room">Change</string>
+    <string name="share_remove">Remove</string>
+    <string name="share_preparing">Getting the files ready…</string>
+    <string name="share_unreadable">Couldn\'t read %1$s</string>
+    <plurals name="share_count">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+</resources>
