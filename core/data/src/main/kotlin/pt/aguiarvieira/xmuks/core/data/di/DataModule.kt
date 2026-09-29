@@ -10,6 +10,7 @@ import coil3.gif.AnimatedImageDecoder
 import coil3.network.ConnectivityChecker
 import coil3.network.DeDupeConcurrentRequestStrategy
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.svg.SvgDecoder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -192,6 +193,8 @@ object DataModule {
                 // Animated GIF / WebP / HEIF (custom emoji, stickers, images) play, not just their
                 // first frame. The platform decoder: our minSdk (31) always has it.
                 add(AnimatedImageDecoder.Factory())
+                // Bio banners and the odd custom emoji are SVG.
+                add(SvgDecoder.Factory())
                 add(
                     OkHttpNetworkFetcherFactory(
                         callFactory = { api },
