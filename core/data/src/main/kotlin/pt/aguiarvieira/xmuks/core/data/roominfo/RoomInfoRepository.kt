@@ -146,7 +146,12 @@ class RoomInfoRepository(
         reason: String? = null,
     ) = buildJsonObject {
         put("room_id_or_alias", JsonPrimitive(roomIdOrAlias))
-        if (via.isNotEmpty()) put("via", buildJsonArray { via.forEach { add(JsonPrimitive(it)) } })
+        // A room ID alone can't be looked up remotely: its own server (older room versions have one) at least.
+        val servers =
+            via.ifEmpty {
+                listOfNotNull(roomIdOrAlias.takeIf { it.startsWith("!") }?.substringAfter(':', "")?.ifEmpty { null })
+            }
+        if (servers.isNotEmpty()) put("via", buildJsonArray { servers.forEach { add(JsonPrimitive(it)) } })
         reason?.takeIf { it.isNotBlank() }?.let { put("reason", JsonPrimitive(it)) }
     }
 

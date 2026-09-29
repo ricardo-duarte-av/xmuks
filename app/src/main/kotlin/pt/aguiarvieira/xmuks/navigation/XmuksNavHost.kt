@@ -17,7 +17,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -39,6 +38,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.feature.media.MediaViewerRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomInfoRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomMembersRoute
+import pt.aguiarvieira.xmuks.feature.profile.RoomPreviewRoute
 import pt.aguiarvieira.xmuks.feature.profile.UserInfoRoute
 import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
@@ -75,6 +75,13 @@ import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
     val roomId: String,
 ) : NavKey
 
+/** A room we're not in: its preview, and joining or knocking ([eventId]: shown once in). */
+@Serializable data class RoomPreviewKey(
+    val roomIdOrAlias: String,
+    val via: List<String> = emptyList(),
+    val eventId: String? = null,
+) : NavKey
+
 /** Full-screen media, over whatever opened it (never a list-detail pane). */
 @Serializable data class MediaKey(
     val media: ViewerMedia,
@@ -96,7 +103,6 @@ fun XmuksNavHost(
     val backStack = rememberNavBackStack(HomeKey)
     val listDetail = rememberListDetailSceneStrategy<NavKey>()
     val context = LocalContext.current
-    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val openLink: (String) -> Unit = { uri ->
         scope.launch {
@@ -110,12 +116,7 @@ fun XmuksNavHost(
                 }
 
                 is LinkTarget.NotJoined -> {
-                    Toast
-                        .makeText(
-                            context,
-                            resources.getString(R.string.link_not_joined, target.roomIdOrAlias),
-                            Toast.LENGTH_LONG
-                        ).show()
+                    backStack.add(RoomPreviewKey(target.roomIdOrAlias, target.via, target.eventId))
                 }
 
                 LinkTarget.Unknown -> {
@@ -187,6 +188,19 @@ fun XmuksNavHost(
                                     onOpenUser = { backStack.add(UserKey(it)) },
                                     onOpenMembers = { backStack.add(RoomMembersKey(key.roomId)) },
                                     onLeft = { backStack.leftRoom(key.roomId) },
+                                )
+                            }
+                        }
+                        entry<RoomPreviewKey> { key ->
+                            Destination {
+                                RoomPreviewRoute(
+                                    roomIdOrAlias = key.roomIdOrAlias,
+                                    via = key.via,
+                                    onBack = { backStack.removeLastOrNull() },
+                                    onOpenRoom = { roomId ->
+                                        backStack.remove(key)
+                                        backStack.openRoom(roomId, LINK_SCOPE, key.eventId)
+                                    },
                                 )
                             }
                         }

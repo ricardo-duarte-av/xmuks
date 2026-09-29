@@ -12,6 +12,7 @@ import org.junit.Test
 import pt.aguiarvieira.xmuks.core.data.roominfo.Membership
 import pt.aguiarvieira.xmuks.core.data.roominfo.PowerLevels
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
+import pt.aguiarvieira.xmuks.core.data.roominfo.RoomPreview
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 
@@ -98,5 +99,24 @@ class RoomInfoTest {
         assertEquals(50L, promoted["users"]!!.jsonObject["@carol:x"]!!.jsonPrimitive.long)
         assertEquals(100L, promoted["state_default"]!!.jsonPrimitive.long)
         assertNull(pl.withUser("@bob:x", 0)["users"]!!.jsonObject["@bob:x"])
+    }
+
+    @Test
+    fun `a room summary as a server returns it`() {
+        val json =
+            GomuksJson
+                .parseToJsonElement(
+                    """{"room_id":"!spec","avatar_url":"mxc://matrix.org/x","canonical_alias":"#matrix-spec:matrix.org",
+                    "guest_can_join":true,"join_rule":"public","name":"Matrix Spec","num_joined_members":1002,
+                    "room_type":"","topic":"Discuss the spec","world_readable":true,"room_version":"12","membership":"leave"}""",
+                ).jsonObject
+        val preview = RoomPreview.parse(json)
+        assertEquals("Matrix Spec", preview.name)
+        assertEquals(1002, preview.joinedMembers)
+        assertEquals("public", preview.joinRule)
+        assertEquals("leave", preview.membership)
+        assertTrue(preview.worldReadable)
+        assertFalse(preview.isSpace)
+        assertFalse(preview.canKnock)
     }
 }

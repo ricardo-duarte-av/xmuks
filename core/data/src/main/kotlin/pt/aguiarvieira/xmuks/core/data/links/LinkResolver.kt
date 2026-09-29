@@ -1,9 +1,11 @@
 package pt.aguiarvieira.xmuks.core.data.links
 
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import pt.aguiarvieira.xmuks.core.data.commands.MatrixLink
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.timeline.str
@@ -27,6 +29,8 @@ sealed interface LinkTarget {
     data class NotJoined(
         val roomIdOrAlias: String,
         val via: List<String> = emptyList(),
+        /** The event the link points at, to show once joined. */
+        val eventId: String? = null,
     ) : LinkTarget
 
     /** Not a Matrix link, or an alias that doesn't resolve. */
@@ -53,8 +57,11 @@ class LinkResolver(
             }
 
             link.id.startsWith("#") -> {
-                resolveAlias(link.id)?.let { room(it, link.eventId, link.via) }
-                    ?: LinkTarget.NotJoined(link.id, link.via)
+                // The alias's servers are where the room can be reached from: kept as via.
+                resolveAlias(link.id)?.let { (roomId, servers) ->
+                    room(roomId, link.eventId, (link.via + servers).distinct())
+                }
+                    ?: LinkTarget.NotJoined(link.id, link.via, link.eventId)
             }
 
             else -> {
@@ -68,14 +75,27 @@ class LinkResolver(
         eventId: String?,
         via: List<String>,
     ): LinkTarget =
-        if (rooms.room(roomId).first() != null) LinkTarget.Room(roomId, eventId) else LinkTarget.NotJoined(roomId, via)
+        if (rooms.room(roomId).first() !=
+            null
+        ) {
+            LinkTarget.Room(roomId, eventId)
+        } else {
+            LinkTarget.NotJoined(roomId, via, eventId)
+        }
 
-    private suspend fun resolveAlias(alias: String): String? {
+    /** The room an alias points at, and the servers it can be reached through. */
+    private suspend fun resolveAlias(alias: String): Pair<String, List<String>>? {
         val result = exec.exec("resolve_alias", buildJsonObject { put("alias", JsonPrimitive(alias)) }, ExecMode.Read)
-        return ((result as? ExecResult.Ok)?.data as? JsonObject)?.str("room_id")
+        val data = (result as? ExecResult.Ok)?.data as? JsonObject ?: return null
+        val roomId = data.str("room_id") ?: return null
+        val servers = (data["servers"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+        return roomId to servers.take(MAX_VIA)
     }
 
     companion object {
+        /** As clients do for matrix.to links: a few servers are plenty. */
+        private const val MAX_VIA = 3
+
         /** Whether [uri] is a Matrix link we'd open in the app. */
         fun isMatrixLink(uri: String) = MatrixLink.parse(uri) != null
 

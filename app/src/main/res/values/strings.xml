@@ -1,5 +1,4 @@
 <resources>
     <string name="app_name">xmuks</string>
-    <string name="link_not_joined">You\'re not in %1$s</string>
     <string name="link_unknown">Can\'t open that link</string>
 </resources>
