@@ -277,13 +277,7 @@ private fun Content(
         }
 
         is MessageContent.Audio -> {
-            FileCard(
-                R.drawable.ic_audio,
-                stringResource(R.string.audio),
-                c.media.size,
-                color,
-                Modifier.clickable { onOpen(c.media, ViewerMedia.Kind.Audio) },
-            )
+            AudioCard(c, color, Modifier.clickable { onOpen(c.media, ViewerMedia.Kind.Audio) })
         }
 
         is MessageContent.File -> {

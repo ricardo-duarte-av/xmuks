@@ -13,6 +13,8 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.PreparedMedia
 import pt.aguiarvieira.xmuks.core.data.media.Thumbnail
 import pt.aguiarvieira.xmuks.core.data.media.UploadSource
+import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
+import pt.aguiarvieira.xmuks.core.data.timeline.mediaMessage
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 import java.io.File
 
@@ -76,5 +78,25 @@ class MediaSendingTest {
         val info = out["info"]!!.jsonObject
         assertFalse("thumbnail_url" in info)
         assertTrue(info["thumbnail_file"].toString().contains("mxc://s/new"))
+    }
+
+    @Test
+    fun `voice messages bring their waveform, scaled to the loudest sample, and duration`() {
+        val content =
+            json(
+                """
+                {"msgtype": "m.audio", "body": "voice.ogg", "filename": "voice.ogg", "url": "mxc://s/a",
+                 "info": {"mimetype": "audio/ogg", "duration": 3120},
+                 "org.matrix.msc1767.audio": {"duration": 3120, "waveform": [0, 64, 256, 128]},
+                 "org.matrix.msc3245.voice": {}}
+                """,
+            )
+        val audio = mediaMessage("m.audio", content, "voice.ogg") as MessageContent.Audio
+        assertEquals(listOf(0f, 0.25f, 1f, 0.5f), audio.waveform)
+        assertEquals(3120L, audio.durationMs)
+        assertTrue(audio.voice)
+        val plain = mediaMessage("m.audio", json("""{"msgtype": "m.audio", "body": "song.mp3", "url": "mxc://s/b"}"""), "song.mp3")
+        assertEquals(null, (plain as MessageContent.Audio).waveform)
+        assertFalse(plain.voice)
     }
 }

@@ -1,6 +1,9 @@
 package pt.aguiarvieira.xmuks.core.data.timeline
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.intOrNull
 
 internal fun mediaMessage(
     msgtype: String,
@@ -11,7 +14,7 @@ internal fun mediaMessage(
     return when (msgtype) {
         "m.image" -> MessageContent.Image(media, caption(content))
         "m.video" -> MessageContent.Video(media, caption(content))
-        "m.audio" -> MessageContent.Audio(media, content.obj("info")?.long("duration"))
+        "m.audio" -> audioMessage(media, content, body)
         else -> MessageContent.File(media, content.str("filename") ?: body)
     }
 }
@@ -40,4 +43,30 @@ internal fun caption(content: JsonObject): String? {
     val body = content.str("body") ?: return null
     val filename = content.str("filename") ?: return null
     return body.takeIf { it != filename && it.isNotBlank() }
+}
+
+/** Audio, with MSC1767's duration and waveform and MSC3245's voice flag when present. */
+private fun audioMessage(
+    media: Media,
+    content: JsonObject,
+    body: String,
+): MessageContent.Audio {
+    val extensible = content.obj("org.matrix.msc1767.audio") ?: content.obj("m.audio")
+    val samples =
+        (extensible?.get("waveform") as? JsonArray)
+            ?.mapNotNull { (it as? JsonPrimitive)?.intOrNull }
+            ?.takeIf { it.isNotEmpty() }
+    // Senders use different ranges (MSC3246 says 0..1024, gomuks writes 0..256): scale to the loudest.
+    val waveform =
+        samples?.let { values ->
+            val loudest = values.max().coerceAtLeast(1)
+            values.map { it.toFloat() / loudest }
+        }
+    return MessageContent.Audio(
+        media = media,
+        durationMs = content.obj("info")?.long("duration") ?: extensible?.long("duration"),
+        waveform = waveform,
+        voice = content.containsKey("org.matrix.msc3245.voice") || content.containsKey("m.voice"),
+        name = content.str("filename") ?: body.takeIf { it.isNotBlank() },
+    )
 }

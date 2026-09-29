@@ -138,6 +138,11 @@ sealed interface MessageContent {
     data class Audio(
         val media: Media,
         val durationMs: Long?,
+        /** Loudness over time (MSC1767 audio), scaled to 0..1 by the loudest sample; null if none. */
+        val waveform: List<Float>? = null,
+        /** A voice message (MSC3245), not a music file or the like. */
+        val voice: Boolean = false,
+        val name: String? = null,
     ) : MessageContent
 
     data class File(

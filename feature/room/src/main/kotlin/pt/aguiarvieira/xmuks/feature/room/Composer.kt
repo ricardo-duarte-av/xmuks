@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -70,11 +71,17 @@ internal fun ComposerCard(
                 modifier = Modifier.padding(start = 4.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
-                IconButton(onClick = onAttach) {
-                    Icon(painterResource(R.drawable.ic_attach), contentDescription = stringResource(R.string.attach))
-                }
-                IconButton(onClick = onEmoji) {
-                    Icon(painterResource(R.drawable.ic_mood), contentDescription = stringResource(R.string.emoji))
+                // Drawn close together: each keeps its full touch target, overlapping a little.
+                Row(horizontalArrangement = Arrangement.spacedBy(BUTTON_OVERLAP)) {
+                    IconButton(onClick = onAttach) {
+                        Icon(
+                            painterResource(R.drawable.ic_attach),
+                            contentDescription = stringResource(R.string.attach)
+                        )
+                    }
+                    IconButton(onClick = onEmoji) {
+                        Icon(painterResource(R.drawable.ic_mood), contentDescription = stringResource(R.string.emoji))
+                    }
                 }
                 val style = MaterialTheme.typography.bodyLarge.copy(color = colors.onSurface)
                 BasicTextField(
@@ -215,3 +222,5 @@ internal fun DeleteDialog(
 }
 
 private const val MAX_LINES = 6
+
+private val BUTTON_OVERLAP = (-12).dp

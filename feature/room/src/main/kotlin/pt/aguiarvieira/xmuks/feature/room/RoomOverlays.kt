@@ -3,6 +3,7 @@ package pt.aguiarvieira.xmuks.feature.room
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -23,11 +26,13 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -198,29 +203,50 @@ internal fun ComposerPanel(
             // The card's bottom margin counts against the keyboard's height, so the box doesn't move.
             .height(if (searching) SEARCHING_HEIGHT else (keyboardHeight - ScreenCards.Gap).coerceAtLeast(MIN_PANEL)),
     ) {
+        var searching by remember(request.mode) { mutableStateOf(false) }
         Column {
-            PrimaryTabRow(selectedTabIndex = request.mode.ordinal, containerColor = Color.Transparent) {
-                PickerMode.entries.forEach { mode ->
-                    Tab(
-                        selected = request.mode == mode,
-                        onClick = { onModeChange(mode) },
-                        text = {
-                            Text(
-                                stringResource(
-                                    if (mode ==
-                                        PickerMode.Emoji
-                                    ) {
-                                        R.string.emoji
-                                    } else {
-                                        R.string.sticker_button
-                                    }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PrimaryTabRow(
+                    selectedTabIndex = request.mode.ordinal,
+                    containerColor = Color.Transparent,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    PickerMode.entries.forEach { mode ->
+                        Tab(
+                            selected = request.mode == mode,
+                            onClick = { onModeChange(mode) },
+                            text = {
+                                Text(
+                                    stringResource(
+                                        if (mode ==
+                                            PickerMode.Emoji
+                                        ) {
+                                            R.string.emoji
+                                        } else {
+                                            R.string.sticker_button
+                                        }
+                                    )
                                 )
-                            )
-                        },
+                            },
+                        )
+                    }
+                }
+                IconButton(onClick = { searching = !searching }) {
+                    Icon(
+                        painterResource(if (searching) R.drawable.ic_close else R.drawable.ic_search),
+                        stringResource(
+                            if (request.mode ==
+                                PickerMode.Sticker
+                            ) {
+                                R.string.search_stickers
+                            } else {
+                                R.string.search_emoji
+                            }
+                        ),
                     )
                 }
             }
-            PickerContent(request, composer, resolver, onClose)
+            PickerContent(request, composer, resolver, searching, onClose)
         }
     }
 }
@@ -230,6 +256,7 @@ private fun PickerContent(
     request: PickerRequest,
     composer: ComposerActions,
     resolver: MediaResolver,
+    searching: Boolean,
     onClose: () -> Unit,
 ) {
     // Keyed by mode: switching tabs starts a fresh search and scroll.
@@ -251,6 +278,7 @@ private fun PickerContent(
             },
             onSubscribe = composer.emoji.onSubscribe,
             modifier = Modifier.padding(top = 8.dp),
+            showSearch = searching,
         )
     }
 }
