@@ -14,7 +14,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -62,9 +64,18 @@ class RoomViewModel
 
         val room: StateFlow<RoomSummary?> = rooms.room(roomId).stateIn(viewModelScope, WHILE_VISIBLE, null)
 
+        private val marker = MutableStateFlow<UnreadMarker?>(null)
+
+        /** Where reading stopped when the room was opened (null when nothing was unread). */
+        val unread: StateFlow<UnreadMarker?> =
+            combine(marker, session.snapshot) { m, snapshot ->
+                m?.copy(timestamp = snapshot.events.firstOrNull { it.eventId == m.eventId }?.timestamp)
+            }.stateIn(viewModelScope, WHILE_VISIBLE, null)
+
         /** Newest first, for a bottom-anchored (reversed) list. Null until the first page is in. */
         val items: StateFlow<List<TimelineItem>?> =
-            session.items.map { it.asReversed() }.stateIn(viewModelScope, WHILE_VISIBLE, null)
+            combine(session.items, unread) { items, u -> items.asReversed().withUnreadSeparator(u?.timestamp) }
+                .stateIn(viewModelScope, WHILE_VISIBLE, null)
 
         val loadingOlder: StateFlow<Boolean> =
             session.snapshot
@@ -98,9 +109,13 @@ class RoomViewModel
                             if (snapshot == null) {
                                 emit(ContextView(eventId, items = null, failed = true))
                             } else {
+                                val markerTs =
+                                    marker.value?.let { m ->
+                                        snapshot.events.firstOrNull { it.eventId == m.eventId }?.timestamp
+                                    }
                                 emitAll(
                                     session.itemsOf(flowOf(snapshot)).map<List<TimelineItem>, ContextView?> {
-                                        ContextView(eventId, it.asReversed())
+                                        ContextView(eventId, it.asReversed().withUnreadSeparator(markerTs))
                                     },
                                 )
                             }
@@ -251,6 +266,16 @@ class RoomViewModel
 
         init {
             viewModelScope.launch { session.open() }
+            // Taken once, before reading at the bottom moves the marker on.
+            viewModelScope.launch {
+                val count =
+                    rooms
+                        .room(roomId)
+                        .first()
+                        ?.unread
+                        ?.messages ?: 0
+                if (count > 0) session.readMarker()?.let { marker.value = UnreadMarker(it, count) }
+            }
         }
 
         fun loadOlder() {

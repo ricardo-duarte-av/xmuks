@@ -92,6 +92,7 @@ fun RoomRoute(
     val loadingOlder by viewModel.loadingOlder.collectAsStateWithLifecycle()
     val hasMoreBefore by viewModel.hasMoreBefore.collectAsStateWithLifecycle()
     val loadedEvents by viewModel.loadedEvents.collectAsStateWithLifecycle()
+    val unread by viewModel.unread.collectAsStateWithLifecycle()
     val context by viewModel.context.collectAsStateWithLifecycle()
     val mode by viewModel.modes.current.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
@@ -108,7 +109,7 @@ fun RoomRoute(
             roomId = roomId,
             sharedScope = sharedScope,
             room = room,
-            timeline = TimelineState(items, loadingOlder, hasMoreBefore, loadedEvents),
+            timeline = TimelineState(items, loadingOlder, hasMoreBefore, loadedEvents, unread),
             context = context,
             typing = typing,
             resolver = resolver,
@@ -212,6 +213,8 @@ data class TimelineState(
     val hasMoreBefore: Boolean = true,
     /** Raw events loaded, shown or not: moves with every page. */
     val loadedEvents: Int = 0,
+    /** Where reading stopped when the room opened, for "New messages" and the jump to it. */
+    val unread: UnreadMarker? = null,
 )
 
 /**
@@ -390,6 +393,15 @@ private fun LiveTimeline(
                 FollowNewest(items, list, followNext)
                 LoadOlderNearTop(list, timeline, onLoadOlder)
                 Timeline(items, list, resolver, actions, highlighted, loadingOlder = timeline.loadingOlder)
+                val scope = rememberCoroutineScope()
+                UnreadJump(items, list, timeline.unread) { divider ->
+                    if (divider != null) {
+                        scope.launch { list.animateScrollToItem(divider, list.focusOffset()) }
+                    } else {
+                        // Not loaded: a window around the marker.
+                        timeline.unread?.let { actions.jumpTo(it.eventId) }
+                    }
+                }
             }
         }
     }
@@ -440,6 +452,7 @@ private fun Timeline(
                 is TimelineItem.Message -> MessageRow(item, resolver, actions, Modifier.animateItem(), lit)
                 is TimelineItem.StateChange -> StateChangeRow(item, resolver, actions, Modifier.animateItem(), lit)
                 is TimelineItem.DaySeparator -> DayRow(item.day, Modifier.animateItem())
+                TimelineItem.UnreadSeparator -> UnreadRow(Modifier.animateItem())
             }
         }
         if (loadingOlder) {
@@ -563,6 +576,7 @@ private val TimelineItem.eventId: String?
             is TimelineItem.Message -> eventId
             is TimelineItem.StateChange -> eventId
             is TimelineItem.DaySeparator -> null
+            TimelineItem.UnreadSeparator -> null
         }
 
 private fun List<TimelineItem>.indexOfEvent(eventId: String) = indexOfFirst { it.eventId == eventId }

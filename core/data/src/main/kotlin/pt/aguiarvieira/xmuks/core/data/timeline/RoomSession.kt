@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -149,6 +150,14 @@ class RoomSession(
             resolveMissing(snap, known)
             TimelineItemBuilder(me).build(snap, known)
         }.flowOn(Dispatchers.Default)
+
+    /** Our read marker here (`m.fully_read`): the last event read; gomuks' mark_read moves it. */
+    suspend fun readMarker(): String? =
+        dao
+            .accountData(roomId, "m.fully_read")
+            .first()
+            ?.let { runCatching { GomuksJson.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+            ?.str("event_id")
 
     /**
      * A detached window around [eventId] (`get_event_context`) for jumping to something older than

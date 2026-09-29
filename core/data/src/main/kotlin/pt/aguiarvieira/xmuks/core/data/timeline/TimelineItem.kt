@@ -68,6 +68,11 @@ sealed interface TimelineItem {
         override val key: String,
         val day: LocalDate,
     ) : TimelineItem
+
+    /** "New messages": what came after our read marker when the room was opened. */
+    data object UnreadSeparator : TimelineItem {
+        override val key: String = "unread-separator"
+    }
 }
 
 sealed interface Change {

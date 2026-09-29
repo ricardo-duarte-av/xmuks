@@ -98,4 +98,9 @@
     <string name="location_send">Send this location</string>
     <string name="location_open">Open in maps</string>
     <string name="fullscreen">Full screen</string>
+    <string name="new_messages">New messages</string>
+    <plurals name="unread_jump">
+        <item quantity="one">%1$d new message</item>
+        <item quantity="other">%1$d new messages</item>
+    </plurals>
 </resources>
