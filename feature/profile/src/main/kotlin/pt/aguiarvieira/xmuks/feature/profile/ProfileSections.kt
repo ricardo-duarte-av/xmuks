@@ -177,6 +177,7 @@ internal fun AboutCard(
     profile: UserProfile,
     media: ProfileMedia,
     edits: ProfileEdits?,
+    onOpenMedia: (ViewerMedia) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val bio = profile.bio
@@ -203,6 +204,7 @@ internal fun AboutCard(
                     MaterialTheme.typography.bodyLarge,
                     mediaUrl = { media.full(it) },
                     modifier = Modifier.padding(end = 12.dp),
+                    onOpenImage = { mxc, alt -> media.viewer(mxc, alt)?.let(onOpenMedia) },
                 )
             } else {
                 Text(stringResource(R.string.bio_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)

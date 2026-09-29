@@ -243,7 +243,7 @@ private fun ProfileCards(
     ) {
         item(key = "hero") { HeroCard(profile, media, own?.edits, onOpenMedia, cardModifier) }
         item(key = "details") { DetailsCard(profile, own?.edits, cardModifier) }
-        item(key = "about") { AboutCard(profile, media, own?.edits, cardModifier) }
+        item(key = "about") { AboutCard(profile, media, own?.edits, onOpenMedia, cardModifier) }
         if (own != null) {
             item(key = "personas") { PersonasCard(own.personas, media, own.edits, cardModifier) }
             item(key = "account") { AccountCard(own.account, own.connection, own.edits.logout, cardModifier) }

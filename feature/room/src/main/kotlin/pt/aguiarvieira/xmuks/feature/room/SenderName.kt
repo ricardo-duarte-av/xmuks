@@ -107,4 +107,30 @@ internal fun Header(
     }
 }
 
+/** On our own messages sent as a per-message profile: its name and avatar, at the right. */
+@Composable
+internal fun OwnProfileHeader(
+    message: TimelineItem.Message,
+    resolver: MediaResolver,
+) {
+    val label = message.label
+    val name = label.profileName ?: return
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
+        Text(
+            name,
+            style = MaterialTheme.typography.labelLarge,
+            color = senderColor(label.profileId ?: message.sender),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.width(8.dp))
+        RoomAvatar(
+            name,
+            label.profileId ?: message.sender,
+            resolver.avatar(message.senderAvatarMxc),
+            size = AVATAR_SIZE
+        )
+    }
+}
+
 private val AVATAR_SIZE = 28.dp

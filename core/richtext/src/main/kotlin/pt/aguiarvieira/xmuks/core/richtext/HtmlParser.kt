@@ -45,6 +45,15 @@ sealed interface HtmlBlock {
     ) : HtmlBlock
 
     data object Rule : HtmlBlock
+
+    /** A sized image (not an emoji), in dp; [link] when it's wrapped in one. */
+    data class Picture(
+        val mxc: String,
+        val width: Int,
+        val height: Int,
+        val alt: String,
+        val link: String?,
+    ) : HtmlBlock
 }
 
 /** Colours the parser needs from the theme. */
@@ -134,9 +143,26 @@ class HtmlParser(
             }
 
             else -> {
-                null
+                picture(el)?.let(::listOf)
             }
         }
+
+    /**
+     * A sized image stands as a block of its own, as does a link around nothing but one (a banner
+     * linking to a website). Text flowing around a picture that tall would only look broken.
+     */
+    private fun picture(el: Element): HtmlBlock.Picture? {
+        if (el.normalName() == "a") {
+            val shown = el.childNodes().filterNot { (it is TextNode && it.isBlank) || (it is Element && it.isHidden()) }
+            val img = (shown.singleOrNull() as? Element)?.takeIf { it.normalName() == "img" } ?: return null
+            val href = el.attr("href").takeIf { it.startsWith("https://") || it.startsWith("http://") }
+            return picture(img)?.copy(link = href)
+        }
+        if (el.normalName() != "img" || el.hasClass("hicli-custom-emoji") || el.hasAttr("data-mx-emoticon")) return null
+        val (width, height) = imageSize(el) ?: return null
+        val src = toMxc(el.attr("src")).takeIf { it.startsWith("mxc://") } ?: return null
+        return HtmlBlock.Picture(src, width, height, el.attr("alt").ifBlank { el.attr("title") }, link = null)
+    }
 
     private fun inlineText(nodes: List<Node>): AnnotatedString {
         ws.reset()
@@ -148,7 +174,7 @@ class HtmlParser(
             is TextNode -> ws.text(this, node.wholeText)
 
             // gomuks pairs each inline image with a hidden fallback link: never shown.
-            is Element -> if (!node.attr("style").replace(" ", "").contains("display:none")) appendElement(node)
+            is Element -> if (!node.isHidden()) appendElement(node)
         }
     }
 
@@ -248,7 +274,10 @@ class HtmlParser(
         }
     }
 
-    /** Inline image (custom emoji); rendered by the caller through InlineTextContent. */
+    /**
+     * Inline image, rendered by the caller through InlineTextContent: custom emoji (and images
+     * without a size) at text height, others at their own size (see [imageSize]).
+     */
     private fun AnnotatedString.Builder.appendImage(el: Element) {
         val src = toMxc(el.attr("src"))
         val alt = el.attr("alt").ifBlank { el.attr("title") }.ifBlank { "🖼" }
@@ -256,35 +285,52 @@ class HtmlParser(
             ws.verbatim(this, alt)
             return
         }
-        appendInlineContent("$IMAGE_PREFIX$src", alt)
+        val emoji = el.hasClass("hicli-custom-emoji") || el.hasAttr("data-mx-emoticon")
+        val size = if (emoji) null else imageSize(el)
+        appendInlineContent(
+            if (size ==
+                null
+            ) {
+                "$IMAGE_PREFIX$src"
+            } else {
+                "$PICTURE_PREFIX${size.first}x${size.second}:$src"
+            },
+            alt
+        )
         ws.wroteContent()
     }
 
     /**
-     * gomuks rewrites inline images to its own media path (`_gomuks/media/{server}/{id}?…`); back to
-     * the `mxc://` the rest of the app resolves. Anything else is left alone.
+     * Colours and spoilers. gomuks rewrites `data-mx-color`, `color` and `data-mx-bg-color` into a
+     * `style` attribute and spoilers into the `hicli-spoiler` class; raw HTML keeps the originals.
      */
-    private fun toMxc(src: String): String {
-        val path = src.substringBefore('?').removePrefix("/").takeIf { it.startsWith(GOMUKS_MEDIA) } ?: return src
-        val (server, id) = path.removePrefix(GOMUKS_MEDIA).split('/', limit = 2).takeIf { it.size == 2 } ?: return src
-        return "mxc://$server/$id"
-    }
-
     private fun AnnotatedString.Builder.appendSpan(el: Element) {
-        if (el.hasAttr("data-mx-spoiler")) {
+        if (el.hasAttr("data-mx-spoiler") || el.hasClass("hicli-spoiler")) {
             withStyle(SpanStyle(color = colors.spoiler, background = colors.spoiler)) { children(el) }
             return
         }
-        val color = (el.attr("data-mx-color").ifBlank { el.attr("color") }).let(::parseColor)
-        val background = el.attr("data-mx-bg-color").let(::parseColor)
+        val style = el.attr("style")
+        val color =
+            parseColor(
+                CSS_COLOR
+                    .find(style)
+                    ?.groupValues
+                    ?.get(1)
+                    .orEmpty()
+            )
+                ?: parseColor(el.attr("data-mx-color").ifBlank { el.attr("color") })
+        val background =
+            parseColor(
+                CSS_BACKGROUND
+                    .find(style)
+                    ?.groupValues
+                    ?.get(1)
+                    .orEmpty()
+            )
+                ?: parseColor(el.attr("data-mx-bg-color"))
         withStyle(
             SpanStyle(color = color ?: Color.Unspecified, background = background ?: Color.Unspecified)
         ) { children(el) }
-    }
-
-    private fun parseColor(value: String): Color? {
-        if (!value.matches(HEX_COLOR)) return null
-        return Color(("FF" + value.removePrefix("#")).toLong(HEX_RADIX))
     }
 
     private fun AnnotatedString.hasImages() = getStringAnnotations(INLINE_TAG, 0, length).isNotEmpty()
@@ -302,6 +348,9 @@ class HtmlParser(
 
     companion object {
         const val IMAGE_PREFIX = "img:"
+
+        /** A sized picture: `pic:<width>x<height>:<mxc>`, in dp. */
+        const val PICTURE_PREFIX = "pic:"
         private val CONTAINERS =
             setOf(
                 "p",
@@ -330,8 +379,7 @@ class HtmlParser(
 
         private const val INLINE_TAG = "androidx.compose.foundation.text.inlineContent"
         private const val SMALL = 0.75f
-        private const val GOMUKS_MEDIA = "_gomuks/media/"
-        private const val HEX_RADIX = 16
-        private val HEX_COLOR = Regex("#[0-9a-fA-F]{6}")
     }
 }
+
+private fun Element.isHidden() = attr("style").replace(" ", "").contains("display:none")

@@ -103,4 +103,35 @@ class HtmlParserTest {
         )
         assertTrue(!text.text.contains(":shiggy::shiggy:"))
     }
+
+    @Test
+    fun `gomuks colours and spoilers - style attribute and class`() {
+        val text =
+            para(
+                """<span class="hicli-spoiler">secret</span> <span style="background-color: #000000;color: #39ff14;">M</span>""",
+            )
+        assertTrue(text.spanStyles.any { it.item.background == Color.DarkGray })
+        assertTrue(text.spanStyles.any { it.item.color == Color(0xFF39FF14) && it.item.background == Color(0xFF000000) })
+    }
+
+    @Test
+    fun `sized images stand as blocks, emoji and sizeless ones stay inline`() {
+        val html =
+            "<img src=\"mxc://a/pic\" class=\"hicli-inline-img hicli-sized-inline-img\" style=\"width: 320.00px; height: 99.00px;\">" +
+                "<img src=\"mxc://a/raw\" width=\"640\" height=\"240\" alt=\"raw\">" +
+                "<img src=\"mxc://a/emo\" class=\"hicli-inline-img hicli-custom-emoji\">" +
+                "<img src=\"mxc://a/none\">"
+        val blocks = parser.parse(html)
+        assertEquals(HtmlBlock.Picture("mxc://a/pic", 320, 99, "", null), blocks[0])
+        assertEquals(HtmlBlock.Picture("mxc://a/raw", 320, 120, "raw", null), blocks[1])
+        val text = (blocks[2] as HtmlBlock.Paragraph).text
+        assertEquals(listOf("img:mxc://a/emo", "img:mxc://a/none"), text.getStringAnnotations(0, text.length).map { it.item })
+    }
+
+    @Test
+    fun `a link around only a picture makes a linked picture`() {
+        val html =
+            "<a href=\"https://vrkknn.net\"> <img src=\"mxc://v/b\" width=\"320\" height=\"120\" alt=\"vrkknn.net\"></a>"
+        assertEquals(listOf(HtmlBlock.Picture("mxc://v/b", 320, 120, "vrkknn.net", "https://vrkknn.net")), parser.parse(html))
+    }
 }

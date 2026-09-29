@@ -96,6 +96,8 @@ fun MessageRow(
         horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
     ) {
         if (!mine && message.firstInGroup) Header(message, resolver, actions)
+        // Ours carry no header, except to say which per-message profile they went out as.
+        if (mine && message.firstInGroup && message.label.profileName != null) OwnProfileHeader(message, resolver)
         val open = {
             media: Media,
             kind: ViewerMedia.Kind,

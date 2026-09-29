@@ -12,11 +12,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
@@ -26,7 +29,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -176,7 +184,38 @@ private fun Block(
         HtmlBlock.Rule -> {
             HorizontalDivider()
         }
+
+        is HtmlBlock.Picture -> {
+            Picture(block, images)
+        }
     }
+}
+
+/** A sized image: its own size, narrower when the space is; opens its link, or the viewer. */
+@Composable
+private fun Picture(
+    picture: HtmlBlock.Picture,
+    images: InlineImages,
+) {
+    val uriHandler = LocalUriHandler.current
+    val open = images.open
+    val onClick =
+        when {
+            picture.link != null -> ({ uriHandler.openUri(picture.link) })
+            open != null -> ({ open(picture.mxc, picture.alt) })
+            else -> null
+        }
+    AsyncImage(
+        model = images.url(picture.mxc),
+        contentDescription = picture.alt,
+        contentScale = ContentScale.Fit,
+        modifier =
+            Modifier
+                .widthIn(max = picture.width.dp)
+                .aspectRatio(picture.width.toFloat() / picture.height)
+                .clip(RoundedCornerShape(4.dp))
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+    )
 }
 
 /** Annotated text with inline images (custom emoji) sized to the line. */
@@ -193,18 +232,40 @@ private fun RichText(
             text
                 .getStringAnnotations(0, text.length)
                 .map { it.item }
-                .filter { it.startsWith(HtmlParser.IMAGE_PREFIX) }
+                .filter { it.startsWith(HtmlParser.IMAGE_PREFIX) || it.startsWith(HtmlParser.PICTURE_PREFIX) }
                 .distinct()
         }
+    val density = LocalDensity.current
+    // Pictures never run wider than most of the window (a bubble or a card is a little narrower).
+    val maxWidth =
+        with(density) {
+            LocalWindowInfo.current.containerSize.width
+                .toDp()
+        } * MAX_PICTURE_FRACTION
     val inline =
         ids.associateWith { id ->
-            val mxc = id.removePrefix(HtmlParser.IMAGE_PREFIX)
-            InlineTextContent(Placeholder(EMOJI_EM.em, EMOJI_EM.em, PlaceholderVerticalAlign.TextCenter)) { alt ->
+            val picture = parsePicture(id)
+            val mxc = picture?.third ?: id.removePrefix(HtmlParser.IMAGE_PREFIX)
+            val placeholder =
+                if (picture == null) {
+                    Placeholder(EMOJI_EM.em, EMOJI_EM.em, PlaceholderVerticalAlign.TextCenter)
+                } else {
+                    val scale = minOf(1f, maxWidth / picture.first.dp)
+                    with(density) {
+                        Placeholder(
+                            (picture.first.dp * scale).toSp(),
+                            (picture.second.dp * scale).toSp(),
+                            PlaceholderVerticalAlign.TextBottom,
+                        )
+                    }
+                }
+            InlineTextContent(placeholder) { alt ->
                 val open = images.open
                 AsyncImage(
                     model = images.url(mxc),
                     contentDescription = alt,
-                    modifier = if (open != null) Modifier.clickable { open(mxc, alt) } else Modifier,
+                    contentScale = ContentScale.Fit,
+                    modifier = (if (open != null) Modifier.clickable { open(mxc, alt) } else Modifier).fillMaxSize(),
                 )
             }
         }
@@ -269,7 +330,19 @@ class SafeUriHandler(
 }
 
 private const val MATRIX_USER = "matrix:u/"
+
+/** `pic:<w>x<h>:<mxc>` → (width, height, mxc); null for anything else. */
+private fun parsePicture(id: String): Triple<Int, Int, String>? {
+    if (!id.startsWith(HtmlParser.PICTURE_PREFIX)) return null
+    val size = id.removePrefix(HtmlParser.PICTURE_PREFIX).substringBefore(':')
+    val mxc = id.removePrefix(HtmlParser.PICTURE_PREFIX).substringAfter(':')
+    val w = size.substringBefore('x').toIntOrNull() ?: return null
+    val h = size.substringAfter('x').toIntOrNull() ?: return null
+    return Triple(w, h, mxc)
+}
+
 private const val EMOJI_EM = 1.3f
+private const val MAX_PICTURE_FRACTION = 0.7f
 private const val QUOTE_ALPHA = 0.8f
 private const val HEADING_LARGE = 1.3f
 private const val HEADING_SMALL = 1.1f
