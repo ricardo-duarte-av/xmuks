@@ -55,6 +55,7 @@ private val TimelineItem.time: Long?
         when (this) {
             is TimelineItem.Message -> timestamp
             is TimelineItem.StateChange -> timestamp
+            is TimelineItem.Hidden -> timestamp
             else -> null
         }
 

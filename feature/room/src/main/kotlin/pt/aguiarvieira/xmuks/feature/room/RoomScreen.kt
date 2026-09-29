@@ -503,6 +503,7 @@ private fun Timeline(
             when (item) {
                 is TimelineItem.Message -> MessageRow(item, resolver, actions, Modifier.animateItem(), lit)
                 is TimelineItem.StateChange -> StateChangeRow(item, resolver, actions, Modifier.animateItem(), lit)
+                is TimelineItem.Hidden -> HiddenRow(item, Modifier.animateItem())
                 is TimelineItem.DaySeparator -> DayRow(item.day, Modifier.animateItem())
                 TimelineItem.UnreadSeparator -> UnreadRow(Modifier.animateItem())
             }
@@ -627,6 +628,7 @@ private val TimelineItem.eventId: String?
         when (this) {
             is TimelineItem.Message -> eventId
             is TimelineItem.StateChange -> eventId
+            is TimelineItem.Hidden -> eventId
             is TimelineItem.DaySeparator -> null
             TimelineItem.UnreadSeparator -> null
         }

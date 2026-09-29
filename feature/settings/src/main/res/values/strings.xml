@@ -26,8 +26,6 @@
     <string name="section_timeline">Timeline</string>
     <string name="section_media">Media and emoji</string>
     <string name="section_room_list">Room list</string>
-    <string name="section_room">Room</string>
-    <string name="section_device">This device</string>
 
     <string name="pref_send_read_receipts">Send read receipts</string>
     <string name="pref_send_read_receipts_desc">Should read receipts be sent to other users? If off, they use the private type, which only syncs to your own devices.</string>
@@ -39,18 +37,14 @@
     <string name="pref_display_read_receipts_desc">Should read receipts be shown in the timeline?</string>
     <string name="pref_show_media_previews">Show image and video previews</string>
     <string name="pref_show_media_previews_desc">If off, images and videos only appear (and download) once tapped. This also hides images in URL previews.</string>
-    <string name="pref_autoplay_gifs">Autoplay video GIFs</string>
-    <string name="pref_autoplay_gifs_desc">Whether GIF-like videos (animated stickers) should play in a loop on their own.</string>
+    <string name="pref_autoplay_gifs">Autoplay GIFs</string>
+    <string name="pref_autoplay_gifs_desc">Whether GIFs in the timeline play on their own. If off, they show still (downloading only a thumbnail, if there is one) until tapped.</string>
     <string name="pref_show_inline_images">Show inline images</string>
     <string name="pref_show_inline_images_desc">If off, custom emoji and other inline images aren\'t drawn: their text is shown instead.</string>
-    <string name="pref_show_invite_avatars">Show avatars in invites</string>
-    <string name="pref_show_invite_avatars_desc">If off, the avatar of the room or inviter isn\'t shown for invites.</string>
     <string name="pref_code_block_line_wrap">Code block line wrap</string>
     <string name="pref_code_block_line_wrap_desc">Whether long lines in code blocks wrap instead of scrolling sideways.</string>
-    <string name="pref_code_block_theme">Code block theme</string>
-    <string name="pref_code_block_theme_desc">The syntax highlighting theme for code blocks.</string>
     <string name="pref_show_hidden_events">Show hidden events</string>
-    <string name="pref_show_hidden_events_desc">Whether hidden events should be visible in the room timeline.</string>
+    <string name="pref_show_hidden_events_desc">Events with nothing of their own to show (reactions, edits, deletions, unknown types) as a line with their type.</string>
     <string name="pref_show_redacted_events">Show deleted message placeholders</string>
     <string name="pref_show_redacted_events_desc">Whether deleted messages should leave a placeholder behind in the timeline.</string>
     <string name="pref_show_membership_events">Show membership events</string>
@@ -59,8 +53,6 @@
     <string name="pref_show_profile_changes_desc">Whether name and avatar changes should be visible in the timeline.</string>
     <string name="pref_render_url_previews">Show URL previews</string>
     <string name="pref_render_url_previews_desc">Whether to show URL previews bundled in messages (MSC4095).</string>
-    <string name="pref_small_replies">Compact reply style</string>
-    <string name="pref_small_replies_desc">Whether replies should use a compact, Discord-like style instead of the traditional one.</string>
     <string name="pref_small_threads">Compact thread messages</string>
     <string name="pref_small_threads_desc">Whether thread messages should only take a single line in the main timeline.</string>
     <string name="pref_show_date_separators">Show date separators</string>
@@ -71,8 +63,6 @@
     <string name="pref_upload_dialog_desc">Whether to show the screen for adjusting media (resizing, caption) before it\'s sent.</string>
     <string name="pref_hide_fingerprint">Hide fingerprint</string>
     <string name="pref_hide_fingerprint_desc">Avoid sending data that\'s easily fingerprintable: no URL previews in messages, and no commands for bots.</string>
-    <string name="pref_gif_provider">GIF provider</string>
-    <string name="pref_gif_provider_desc">The service to search for GIFs with.</string>
     <string name="pref_max_image_width">Max image width</string>
     <string name="pref_max_image_width_desc">The widest images get in the timeline (gomuks web pixels; 320 by default).</string>
     <string name="pref_room_list_preview">Previews in room list</string>
@@ -87,17 +77,8 @@
     <string name="pref_mute_low_priority_desc">Don\'t count unread messages in low priority rooms. Notifications and mentions still count.</string>
     <string name="pref_alphabetical_order">Alphabetical room list</string>
     <string name="pref_alphabetical_order_desc">Sort rooms by name instead of recent activity.</string>
-    <string name="pref_room_view_type">Room type override</string>
-    <string name="pref_room_view_type_desc">Show this room as a specific kind instead of what it says it is.</string>
-    <string name="pref_low_bandwidth">Low bandwidth mode</string>
-    <string name="pref_low_bandwidth_desc">Save data where possible.</string>
 
     <string name="choice_default">Default</string>
     <string name="choice_compact">Compact</string>
     <string name="choice_spacious">Spacious</string>
-    <string name="choice_room_type_none">As the room says</string>
-    <string name="choice_room_type_room">Normal room</string>
-    <string name="choice_room_type_space">Space</string>
-    <string name="choice_room_type_call">Call</string>
-    <string name="choice_room_type_pack">Emoji pack</string>
 </resources>

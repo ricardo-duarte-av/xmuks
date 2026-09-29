@@ -30,6 +30,19 @@ internal fun PlayBadge() {
     }
 }
 
+/** Over a GIF shown still: tap to play it. */
+@Composable
+internal fun GifBadge() {
+    Surface(shape = RoundedCornerShape(50), color = Color.Black.copy(alpha = SCRIM)) {
+        Text(
+            stringResource(R.string.gif),
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+    }
+}
+
 /** Over a preview that waits for a tap (gomuks' "show image and video previews" off). */
 @Composable
 internal fun TapToShow() {

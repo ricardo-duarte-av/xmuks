@@ -29,12 +29,18 @@ internal fun viewerMedia(
 
 /**
  * What the timeline loads: the sender's thumbnail when there is one (gomuks only makes avatar
- * thumbnails itself), else the original for images — Coil downsamples it to the bubble.
+ * thumbnails itself), else the original for images — Coil downsamples it to the bubble. A GIF
+ * loads itself only when it's to [animate]: otherwise its still thumbnail, or nothing (a GIF can be
+ * many megabytes, to show as a still).
  */
 internal fun timelineSource(
     media: Media,
     kind: ViewerMedia.Kind,
     resolver: MediaResolver,
-): String? =
-    media.thumbnailMxc?.let { resolver.media(it, media.thumbnailEncrypted) }
-        ?: resolver.media(media.mxc, media.encrypted).takeIf { kind == ViewerMedia.Kind.Image }
+    animate: Boolean = false,
+): String? {
+    val original = resolver.media(media.mxc, media.encrypted)
+    if (media.animated && animate) return original
+    return media.thumbnailMxc?.let { resolver.media(it, media.thumbnailEncrypted) }
+        ?: original.takeIf { kind == ViewerMedia.Kind.Image && !media.animated }
+}

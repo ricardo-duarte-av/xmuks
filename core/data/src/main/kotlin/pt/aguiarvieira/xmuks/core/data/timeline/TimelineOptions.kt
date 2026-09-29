@@ -10,12 +10,15 @@ data class TimelineOptions(
     val showProfileChanges: Boolean = true,
     val showDateSeparators: Boolean = true,
     val showReadReceipts: Boolean = true,
+    /** Events with nothing to render of their own, as their type (gomuks' `show_hidden_events`). */
+    val showHidden: Boolean = true,
 ) {
     /** Whether [item] is shown at all. */
     fun shows(item: TimelineItem): Boolean =
         when (item) {
             is TimelineItem.Message -> showRedacted || item.content != MessageContent.Redacted
             is TimelineItem.StateChange -> shows(item.change)
+            is TimelineItem.Hidden -> showHidden
             else -> true
         }
 
@@ -34,6 +37,7 @@ data class TimelineOptions(
                 showProfileChanges = layers.get(Prefs.showProfileChanges),
                 showDateSeparators = layers.get(Prefs.showDateSeparators),
                 showReadReceipts = layers.get(Prefs.displayReadReceipts),
+                showHidden = layers.get(Prefs.showHiddenEvents),
             )
     }
 }

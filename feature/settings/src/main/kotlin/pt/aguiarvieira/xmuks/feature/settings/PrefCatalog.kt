@@ -11,8 +11,6 @@ internal enum class Section(
     Timeline(R.string.section_timeline),
     Media(R.string.section_media),
     RoomList(R.string.section_room_list),
-    Room(R.string.section_room),
-    Device(R.string.section_device),
 }
 
 /** A preference as the settings screen shows it. */
@@ -31,11 +29,6 @@ internal val CHOICE_LABELS: Map<String?, Int> =
         "default" to R.string.choice_default,
         "compact" to R.string.choice_compact,
         "spacious" to R.string.choice_spacious,
-        null to R.string.choice_room_type_none,
-        "" to R.string.choice_room_type_room,
-        "m.space" to R.string.choice_room_type_space,
-        "org.matrix.msc3417.call" to R.string.choice_room_type_call,
-        "fi.mau.msc2545.image_pack" to R.string.choice_room_type_pack,
     )
 
 /** Every preference xmuks lists, in order, grouped by [Section]. */
@@ -105,13 +98,6 @@ internal val ENTRIES: List<PrefEntry> =
             Section.Timeline
         ),
         PrefEntry(
-            Prefs.smallReplies,
-            R.string.pref_small_replies,
-            R.string.pref_small_replies_desc,
-            Section.Timeline,
-            inXmuks = false
-        ),
-        PrefEntry(
             Prefs.smallThreads,
             R.string.pref_small_threads,
             R.string.pref_small_threads_desc,
@@ -132,13 +118,6 @@ internal val ENTRIES: List<PrefEntry> =
             Section.Timeline
         ),
         PrefEntry(
-            Prefs.codeBlockTheme,
-            R.string.pref_code_block_theme,
-            R.string.pref_code_block_theme_desc,
-            Section.Timeline,
-            inXmuks = false
-        ),
-        PrefEntry(
             Prefs.showMediaPreviews,
             R.string.pref_show_media_previews,
             R.string.pref_show_media_previews_desc,
@@ -148,8 +127,7 @@ internal val ENTRIES: List<PrefEntry> =
             Prefs.autoplayGifs,
             R.string.pref_autoplay_gifs,
             R.string.pref_autoplay_gifs_desc,
-            Section.Media,
-            inXmuks = false
+            Section.Media
         ),
         PrefEntry(
             Prefs.showInlineImages,
@@ -168,13 +146,6 @@ internal val ENTRIES: List<PrefEntry> =
             R.string.pref_show_room_emoji_packs,
             R.string.pref_show_room_emoji_packs_desc,
             Section.Media
-        ),
-        PrefEntry(
-            Prefs.gifProvider,
-            R.string.pref_gif_provider,
-            R.string.pref_gif_provider_desc,
-            Section.Media,
-            inXmuks = false
         ),
         PrefEntry(
             Prefs.roomListPreview,
@@ -214,26 +185,5 @@ internal val ENTRIES: List<PrefEntry> =
             R.string.pref_alphabetical_order,
             R.string.pref_alphabetical_order_desc,
             Section.RoomList
-        ),
-        PrefEntry(
-            Prefs.showInviteAvatars,
-            R.string.pref_show_invite_avatars,
-            R.string.pref_show_invite_avatars_desc,
-            Section.RoomList,
-            inXmuks = false
-        ),
-        PrefEntry(
-            Prefs.roomViewType,
-            R.string.pref_room_view_type,
-            R.string.pref_room_view_type_desc,
-            Section.Room,
-            inXmuks = false
-        ),
-        PrefEntry(
-            Prefs.lowBandwidth,
-            R.string.pref_low_bandwidth,
-            R.string.pref_low_bandwidth_desc,
-            Section.Device,
-            inXmuks = false
         ),
     )

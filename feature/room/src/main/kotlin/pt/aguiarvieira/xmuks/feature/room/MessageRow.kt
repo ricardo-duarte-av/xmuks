@@ -385,10 +385,11 @@ private fun MediaImage(
     val ratio = media.aspectRatio() ?: DEFAULT_RATIO
     val placeholder = remember(media.blurhash) { media.blurhash?.let { Blurhash.decode(it)?.asImageBitmap() } }
     val display = LocalMediaDisplay.current
-    // Without previews, the blurhash waits for a tap (our own uploads always show).
-    var tapped by rememberSaveable(eventId) { mutableStateOf(false) }
-    val revealed = display.showPreviews || tapped || uploadProgress != null
-    val source = if (revealed) timelineSource(media, kind, resolver) else null
+    val reveal = rememberReveal(eventId, media, uploadProgress != null)
+    val revealed = reveal.revealed
+    val animate = reveal.animate
+    val source = if (revealed) timelineSource(media, kind, resolver, animate) else null
+    val click = reveal.onTap ?: onClick
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(
             modifier =
@@ -400,7 +401,7 @@ private fun MediaImage(
                     .clip(RoundedCornerShape(12.dp))
                     .clickable(
                         enabled = uploadProgress == null,
-                        onClick = if (revealed) onClick else ({ tapped = true })
+                        onClick = click,
                     ),
             contentAlignment = Alignment.Center,
         ) {
@@ -415,6 +416,7 @@ private fun MediaImage(
             }
             when {
                 !revealed -> TapToShow()
+                media.animated && !animate -> GifBadge()
                 uploadProgress != null -> UploadProgress(uploadProgress)
                 inline != null -> InlineVideoLayer(inline)
                 kind == ViewerMedia.Kind.Video -> PlayBadge()

@@ -333,4 +333,20 @@ class TimelineItemBuilderTest {
         assertTrue(first.firstInGroup && !first.lastInGroup)
         assertTrue(!second.firstInGroup && second.lastInGroup)
     }
+
+    @Test
+    fun `hidden events show as their type, unless that's turned off`() {
+        val msg = ev()
+        val events =
+            arrayOf(
+                msg,
+                ev(type = "m.reaction", content = """{"m.relates_to":{"rel_type":"m.annotation","event_id":"${msg.eventId}","key":"👍"}}"""),
+                ev(type = "com.beeper.message_send_status", content = "{}"),
+            )
+        val hidden = build(*events).filterIsInstance<TimelineItem.Hidden>()
+        assertEquals(listOf("m.reaction", "com.beeper.message_send_status"), hidden.map { it.type })
+        val quiet = TimelineItemBuilder(me = "@me:x", options = TimelineOptions(showHidden = false), zone = ZoneOffset.UTC)
+        val items = quiet.build(TimelineSnapshot("!r", events = events.toList(), eventsByRowId = events.associateBy { it.rowId }, loaded = true), emptyMap())
+        assertTrue(items.none { it is TimelineItem.Hidden })
+    }
 }

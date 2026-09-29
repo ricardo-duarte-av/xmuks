@@ -64,12 +64,29 @@ class TimelineItemBuilder(
         members: Map<String, MemberProfile>,
         myReactions: Map<String, Map<String, String>>,
         readers: Map<String, List<Receipt>>,
-    ): TimelineItem? =
-        when {
-            !event.isShown() -> null
-            event.stateKey != null -> stateChange(event, members, myReactions, readers)
-            else -> message(event, snapshot, byEventId, members, myReactions, readers)
-        }
+    ): TimelineItem? {
+        val shown =
+            when {
+                !event.isShown() -> null
+                event.stateKey != null -> stateChange(event, members, myReactions, readers)
+                else -> message(event, snapshot, byEventId, members, myReactions, readers)
+            }
+        // Whatever has nothing of its own to show (a reaction, an edit, a state change that changed
+        // nothing, a type we don't render) is a hidden event.
+        return shown ?: hidden(event, members)
+    }
+
+    private fun hidden(
+        event: Event,
+        members: Map<String, MemberProfile>,
+    ) = TimelineItem.Hidden(
+        key = "hidden:${event.eventId}",
+        eventId = event.eventId,
+        sender = event.sender,
+        senderName = members[event.sender]?.displayName ?: localpart(event.sender),
+        type = event.effectiveType,
+        timestamp = event.timestamp,
+    )
 
     // --- visibility ---------------------------------------------------------------------------
 

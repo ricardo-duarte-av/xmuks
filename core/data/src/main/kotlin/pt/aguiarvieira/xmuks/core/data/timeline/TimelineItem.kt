@@ -64,6 +64,19 @@ sealed interface TimelineItem {
         val readBy: List<Reader> = emptyList(),
     ) : TimelineItem
 
+    /**
+     * An event with nothing to show of its own — a reaction, an edit, a deletion, an unknown type:
+     * gomuks' "hidden events", shown (when asked for) as just their type.
+     */
+    data class Hidden(
+        override val key: String,
+        val eventId: String,
+        val sender: String,
+        val senderName: String,
+        val type: String,
+        val timestamp: Long,
+    ) : TimelineItem
+
     data class DaySeparator(
         override val key: String,
         val day: LocalDate,
@@ -190,7 +203,10 @@ data class Media(
     val blurhash: String?,
     val thumbnailMxc: String?,
     val thumbnailEncrypted: Boolean,
-)
+) {
+    /** An animated image (a GIF): its thumbnail is a still, the file itself can be large. */
+    val animated: Boolean get() = mimeType == "image/gif"
+}
 
 data class ReplyPreview(
     val eventId: String,

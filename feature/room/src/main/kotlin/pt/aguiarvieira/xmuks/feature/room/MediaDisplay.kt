@@ -13,6 +13,8 @@ data class MediaDisplay(
     /** Images and videos load at once; if not, their blurhash waits for a tap. */
     val showPreviews: Boolean = true,
     val maxWidth: Dp = DEFAULT_WIDTH,
+    /** GIFs play on their own; if not, a still (or blurhash) until tapped. */
+    val autoplayGifs: Boolean = false,
 ) {
     val maxHeight: Dp get() = maxWidth * HEIGHT_PER_WIDTH
 
@@ -26,6 +28,7 @@ data class MediaDisplay(
             MediaDisplay(
                 showPreviews = layers.get(Prefs.showMediaPreviews),
                 maxWidth = DEFAULT_WIDTH * (layers.get(Prefs.maxImageWidth) / GOMUKS_DEFAULT_PX),
+                autoplayGifs = layers.get(Prefs.autoplayGifs),
             )
     }
 }
