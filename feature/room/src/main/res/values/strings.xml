@@ -149,4 +149,7 @@
         <item quantity="one">%d vote</item>
         <item quantity="other">%d votes</item>
     </plurals>
+    <string name="link_preview_load">Preview %1$s</string>
+    <string name="link_preview_failed">No preview for %1$s · retry</string>
+    <string name="link_preview_remove">Leave the preview out</string>
 </resources>

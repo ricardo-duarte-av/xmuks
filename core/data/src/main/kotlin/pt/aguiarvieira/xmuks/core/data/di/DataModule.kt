@@ -33,6 +33,7 @@ import pt.aguiarvieira.xmuks.core.data.connection.LiveTasks
 import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
+import pt.aguiarvieira.xmuks.core.data.media.LinkPreviewFetcher
 import pt.aguiarvieira.xmuks.core.data.media.MediaCacheStrategy
 import pt.aguiarvieira.xmuks.core.data.media.MediaDownloads
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
@@ -236,6 +237,12 @@ object DataModule {
         @Named("media") http: OkHttpClient,
         store: CredentialStore,
     ) = MediaUploader(http, { store.credentials()?.serverUrl }, Dispatchers.IO)
+
+    @Provides @Singleton
+    fun linkPreviews(
+        @Named("media") http: OkHttpClient,
+        store: CredentialStore,
+    ) = LinkPreviewFetcher(http, { store.credentials()?.serverUrl }, Dispatchers.IO)
 
     @Provides @Singleton
     fun profileRepository(

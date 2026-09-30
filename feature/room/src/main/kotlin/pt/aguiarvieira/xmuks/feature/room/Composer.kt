@@ -58,6 +58,7 @@ internal fun ComposerCard(
     avatarUrl: (String?) -> String? = { null },
     onChoosePersona: (String?) -> Unit = {},
     onOpenPersonas: () -> Unit = {},
+    previews: LinkPreviewsUi = LinkPreviewsUi(),
 ) {
     val colors = MaterialTheme.colorScheme
     ScreenCard(
@@ -67,6 +68,7 @@ internal fun ComposerCard(
             ModeBanner(mode, onCancelMode)
             SendingAsBanner(personas, state, avatarUrl, onChoosePersona, onOpenPersonas)
             CommandHints(state, commands)
+            ComposerLinkPreviews(previews)
             Row(
                 modifier = Modifier.padding(start = 4.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.Bottom,

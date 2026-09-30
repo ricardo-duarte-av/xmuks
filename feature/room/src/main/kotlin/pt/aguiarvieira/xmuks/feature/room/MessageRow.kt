@@ -140,6 +140,7 @@ private fun BubbleContent(
         ContentWithFooter(lastLine, footer = { Footer(message, color.copy(alpha = FOOTER_ALPHA)) }) {
             Content(message, resolver, color, open, actions, lastLine)
         }
+        message.linkPreviews.forEach { LinkPreviewCard(it, resolver, color, message.eventId) }
     }
 }
 
@@ -453,7 +454,7 @@ private fun MediaImage(
     }
 }
 
-private fun Media.aspectRatio(): Float? {
+internal fun Media.aspectRatio(): Float? {
     val w = width?.takeIf { it > 0 } ?: return null
     val h = height?.takeIf { it > 0 } ?: return null
     return w.toFloat() / h

@@ -12,6 +12,8 @@ data class TimelineOptions(
     val showReadReceipts: Boolean = true,
     /** Events with nothing to render of their own, as their type (gomuks' `show_hidden_events`). */
     val showHidden: Boolean = true,
+    /** Link previews bundled in messages (MSC4095, gomuks' `render_url_previews`). */
+    val showUrlPreviews: Boolean = true,
 ) {
     /** Whether [item] is shown at all. */
     fun shows(item: TimelineItem): Boolean =
@@ -38,6 +40,7 @@ data class TimelineOptions(
                 showDateSeparators = layers.get(Prefs.showDateSeparators),
                 showReadReceipts = layers.get(Prefs.displayReadReceipts),
                 showHidden = layers.get(Prefs.showHiddenEvents),
+                showUrlPreviews = layers.get(Prefs.renderUrlPreviews),
             )
     }
 }

@@ -34,8 +34,17 @@ class RoomWriter(
         text: String,
         replyTo: ReplyTarget? = null,
         editing: String? = null,
+        /** Link previews to bundle (fetched in the composer). */
+        previews: List<BundledPreview> = emptyList(),
     ) {
-        outbox.sendMessage(roomId, messageParams(roomId, text, replyTo, editing))
+        val params = messageParams(roomId, text, replyTo, editing)
+        val bundled =
+            if (previews.isEmpty()) {
+                params
+            } else {
+                JsonObject(params + ("url_previews" to JsonArray(previews.map { it.json })))
+            }
+        outbox.sendMessage(roomId, bundled)
     }
 
     /**

@@ -14,6 +14,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.Preview
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.Unread
 import pt.aguiarvieira.xmuks.core.data.timeline.Change
+import pt.aguiarvieira.xmuks.core.data.timeline.LinkPreview
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.Poll
@@ -198,6 +199,18 @@ class RoomScreenshotTest {
                         MessageContent.Poll(Poll("Where?", answers.take(2), 1, true), PollTally(mapOf("a" to 2), voters = 2, ended = true)),
                         sender = "@bob:x",
                         name = "Bob",
+                    ),
+                ).asReversed(),
+            )
+        }
+
+    @Test
+    fun linkPreview() =
+        shoot("room_link_preview") {
+            Screen(
+                listOf(
+                    msg(text("see https://gomuks.app"), sender = "@bob:x", name = "Bob").copy(
+                        linkPreviews = listOf(LinkPreview("https://gomuks.app", "gomuks", "A Matrix client written in Go.", null)),
                     ),
                 ).asReversed(),
             )

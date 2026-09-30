@@ -52,7 +52,6 @@ internal val ENTRIES: List<PrefEntry> =
             R.string.pref_send_bundled_url_previews,
             R.string.pref_send_bundled_url_previews_desc,
             Section.Sending,
-            inXmuks = false
         ),
         PrefEntry(Prefs.uploadDialog, R.string.pref_upload_dialog, R.string.pref_upload_dialog_desc, Section.Sending),
         PrefEntry(
@@ -108,7 +107,6 @@ internal val ENTRIES: List<PrefEntry> =
             R.string.pref_render_url_previews,
             R.string.pref_render_url_previews_desc,
             Section.Timeline,
-            inXmuks = false
         ),
         PrefEntry(
             Prefs.codeBlockLineWrap,

@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.commands.CommandParser
+import pt.aguiarvieira.xmuks.core.data.media.LinkPreviewFetcher
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
@@ -64,6 +65,7 @@ class RoomViewModel
         @ApplicationContext context: Context,
         private val openRoom: OpenRoom,
         val media: MediaUrls,
+        linkPreviews: LinkPreviewFetcher,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -187,6 +189,19 @@ class RoomViewModel
         /** Whether the next send is a new message, a reply or an edit. */
         val modes = ComposeModes(draft)
 
+        /** Previews offered for the links being written, bundled when sent. */
+        internal val linkPreviews =
+            ComposerPreviews(
+                viewModelScope,
+                draft,
+                combine(prefs, modes.mode) { p, mode ->
+                    // gomuks web leaves them out with the fingerprint hidden; edits don't take them.
+                    p.get(Prefs.sendBundledUrlPreviews) && !p.get(Prefs.hideFingerprint) && mode !is ComposeMode.Edit
+                },
+                { room.value?.encrypted == true },
+                linkPreviews,
+            )
+
         /** Where what's sent goes: replies, and into the thread when that's what's shown. */
         private val target = SendTarget(modes, threadRoot) { items.value }
 
@@ -214,12 +229,13 @@ class RoomViewModel
             val outgoing = emoji.expandShortcodes(text)
             // Taken before the reply mode ends with the send.
             val replyTo = target.reply()
+            val previews = linkPreviews.take()
             modes.sent()
             stopTyping()
             viewModelScope.launch {
                 when (mode) {
                     ComposeMode.New, is ComposeMode.Reply -> {
-                        session.writer.send(outgoing, replyTo = replyTo)
+                        session.writer.send(outgoing, replyTo = replyTo, previews = previews)
                     }
 
                     is ComposeMode.Edit -> {

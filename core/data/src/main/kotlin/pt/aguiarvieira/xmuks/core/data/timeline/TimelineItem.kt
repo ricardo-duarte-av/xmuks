@@ -46,6 +46,8 @@ sealed interface TimelineItem {
         val thread: ReplyPreview? = null,
         /** A thread's root: how many messages the thread has. */
         val threadReplies: Int = 0,
+        /** Previews of the links in it, as its sender bundled them. */
+        val linkPreviews: List<LinkPreview> = emptyList(),
     ) : TimelineItem {
         /** The label as plain text ("profile via sender", or the sender's name). */
         val senderName: String get() = label.text
@@ -219,6 +221,14 @@ data class Media(
     /** An animated image (a GIF): its thumbnail is a still, the file itself can be large. */
     val animated: Boolean get() = mimeType == "image/gif"
 }
+
+/** A link's preview as the sender bundled it (MSC4095 / Beeper's): what it is, and a picture. */
+data class LinkPreview(
+    val url: String,
+    val title: String?,
+    val description: String?,
+    val image: Media?,
+)
 
 data class ReplyPreview(
     val eventId: String,
