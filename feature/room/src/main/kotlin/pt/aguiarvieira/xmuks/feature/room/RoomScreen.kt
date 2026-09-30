@@ -113,6 +113,7 @@ fun RoomRoute(
     val loadingOlder by viewModel.loadingOlder.collectAsStateWithLifecycle()
     val hasMoreBefore by viewModel.hasMoreBefore.collectAsStateWithLifecycle()
     val linkPreviews by viewModel.linkPreviews.previews.collectAsStateWithLifecycle()
+    val mentionHints by viewModel.mentions.suggestions.collectAsStateWithLifecycle()
     val loadedEvents by viewModel.loadedEvents.collectAsStateWithLifecycle()
     val unread by viewModel.unread.collectAsStateWithLifecycle()
     val context by viewModel.context.collectAsStateWithLifecycle()
@@ -219,6 +220,7 @@ fun RoomRoute(
                     onSendVoice = viewModel.attach::sendVoice,
                     onSendLocation = viewModel::sendLocation,
                     polls = viewModel.polls,
+                    mentions = MentionHintsUi(mentionHints, viewModel.media::avatar, viewModel.mentions::pick),
                     linkPreviews =
                         LinkPreviewsUi(
                             linkPreviews,
@@ -266,6 +268,7 @@ class ComposerActions(
     val onSendLocation: (PickedLocation) -> Unit = {},
     val polls: PollActions = PollActions(),
     val linkPreviews: LinkPreviewsUi = LinkPreviewsUi(),
+    val mentions: MentionHintsUi = MentionHintsUi(),
 )
 
 /** What the emoji/sticker pickers show, and what picking does. */
@@ -418,6 +421,7 @@ fun RoomScreen(
                     onChoosePersona = composer.onChoosePersona,
                     onOpenPersonas = { overlays.choosingPersona = true },
                     previews = composer.linkPreviews,
+                    mentions = composer.mentions,
                 )
             }
         },

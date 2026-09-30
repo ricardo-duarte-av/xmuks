@@ -37,6 +37,7 @@ import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
+import pt.aguiarvieira.xmuks.core.data.rooms.MentionTargets
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
@@ -66,6 +67,7 @@ class RoomViewModel
         private val openRoom: OpenRoom,
         val media: MediaUrls,
         linkPreviews: LinkPreviewFetcher,
+        mentionTargets: MentionTargets,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -188,6 +190,9 @@ class RoomViewModel
 
         /** Whether the next send is a new message, a reply or an edit. */
         val modes = ComposeModes(draft)
+
+        /** People and rooms offered as a mention is typed. */
+        internal val mentions = ComposerMentions(viewModelScope, draft, roomId, mentionTargets)
 
         /** Previews offered for the links being written, bundled when sent. */
         internal val linkPreviews =

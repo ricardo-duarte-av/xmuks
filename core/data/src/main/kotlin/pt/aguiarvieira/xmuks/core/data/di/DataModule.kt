@@ -51,6 +51,7 @@ import pt.aguiarvieira.xmuks.core.data.push.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvents
+import pt.aguiarvieira.xmuks.core.data.rooms.MentionTargets
 import pt.aguiarvieira.xmuks.core.data.rooms.Mentions
 import pt.aguiarvieira.xmuks.core.data.rooms.MessageSearch
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
@@ -261,6 +262,12 @@ object DataModule {
         database: XmuksDatabase,
         exec: ExecClient,
     ) = RoomPushRules(database, exec)
+
+    @Provides @Singleton
+    fun mentionTargets(
+        roomInfo: RoomInfoRepository,
+        database: XmuksDatabase,
+    ) = MentionTargets(roomInfo, database)
 
     @Provides @Singleton
     fun roomProfiles(
