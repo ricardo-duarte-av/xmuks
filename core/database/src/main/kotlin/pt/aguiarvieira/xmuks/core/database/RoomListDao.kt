@@ -31,6 +31,9 @@ data class RoomSummaryRow(
     /** The sender's current display name in this room, from member state (so renames apply at once). */
     val previewSenderName: String?,
     val previewTs: Long?,
+    /** The network the room is bridged to, and its logo (`mxc://`); null when not (or not known). */
+    val bridgeProtocol: String? = null,
+    val bridgeAvatar: String? = null,
 )
 
 /**
@@ -114,8 +117,10 @@ interface RoomListDao {
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
             e.previewText AS previewText, e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
-             WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName
+             WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
+            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
         FROM rooms r LEFT JOIN events e ON e.rowId = r.previewEventRowId
+            LEFT JOIN room_bridges b ON b.roomId = r.roomId
         WHERE r.isSpace = 0
         ORDER BY r.sortingTs DESC
         """
@@ -128,8 +133,10 @@ interface RoomListDao {
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
             e.previewText AS previewText, e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
-             WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName
+             WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
+            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
         FROM rooms r LEFT JOIN events e ON e.rowId = r.previewEventRowId
+            LEFT JOIN room_bridges b ON b.roomId = r.roomId
         WHERE r.dmUserId IS NOT NULL AND r.isSpace = 0
         ORDER BY r.sortingTs DESC
         """
@@ -151,8 +158,10 @@ interface RoomListDao {
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
             e.previewText AS previewText, e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
-             WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName
+             WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
+            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
         FROM rooms r LEFT JOIN events e ON e.rowId = r.previewEventRowId
+            LEFT JOIN room_bridges b ON b.roomId = r.roomId
         WHERE r.isSpace = 0 AND r.roomId IN (SELECT id FROM tree)
         ORDER BY r.sortingTs DESC
         """
@@ -202,8 +211,10 @@ interface RoomListDao {
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
             e.previewText AS previewText, e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
-             WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName
+             WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
+            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
         FROM rooms r LEFT JOIN events e ON e.rowId = r.previewEventRowId
+            LEFT JOIN room_bridges b ON b.roomId = r.roomId
         WHERE r.roomId = :roomId
         """
     )
@@ -216,8 +227,10 @@ interface RoomListDao {
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
             e.previewText AS previewText, e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
-             WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName
+             WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
+            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
         FROM rooms r LEFT JOIN events e ON e.rowId = r.previewEventRowId
+            LEFT JOIN room_bridges b ON b.roomId = r.roomId
         WHERE r.roomId IN (:roomIds)
         ORDER BY r.sortingTs DESC
         """

@@ -43,6 +43,7 @@ class RoomListScreenshotTest {
         minutesAgo: Long = 5,
         unread: Unread = Unread(),
         dm: Boolean = false,
+        bridge: String? = null,
     ) = RoomSummary(
         roomId = id,
         name = name,
@@ -54,6 +55,7 @@ class RoomListScreenshotTest {
         preview = Preview.Text(preview),
         timestamp = now - minutesAgo * 60_000,
         unread = unread,
+        bridgeProtocol = bridge,
     )
 
     private val chats =
@@ -167,7 +169,7 @@ class RoomListScreenshotTest {
             Column {
                 chats.forEach { RoomListItem(it, now, onClick = {}) }
                 RoomListItem(
-                    room("!dm", "Ana Ribeiro", "see you at 8", "Ana", dm = true, unread = Unread(2, 2)),
+                    room("!dm", "Ana Ribeiro", "see you at 8", "Ana", dm = true, unread = Unread(2, 2), bridge = "WhatsApp"),
                     now,
                     onClick = {}
                 )

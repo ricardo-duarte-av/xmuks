@@ -106,6 +106,20 @@ data class RoomStateEntity(
     val eventRowId: Long,
 )
 
+/**
+ * What a room is bridged to (its `m.bridge` state, which nothing else in sync carries): the
+ * network's name and logo, or both null for a room checked and found not bridged. Learnt once per
+ * room (a background scan, a room's state fetched when it's opened); a bridge state change in a
+ * sync drops the row, so the room is checked again.
+ */
+@Entity(tableName = "room_bridges")
+data class RoomBridgeEntity(
+    @PrimaryKey val roomId: String,
+    val protocol: String?,
+    /** `mxc://` URI of the network's logo. */
+    val avatar: String?,
+)
+
 /** Global (roomId = "") and per-room account data; content replaced wholesale. */
 @Entity(tableName = "account_data", primaryKeys = ["roomId", "type"], indices = [Index("generation")])
 data class AccountDataEntity(

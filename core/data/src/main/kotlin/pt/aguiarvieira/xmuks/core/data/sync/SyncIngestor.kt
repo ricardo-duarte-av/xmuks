@@ -125,6 +125,7 @@ class SyncIngestor(
         dao.wipeRoomState()
         dao.wipeAccountData()
         dao.wipeInvites()
+        dao.wipeBridges()
         dao.wipeMeta()
     }
 
@@ -213,6 +214,8 @@ class SyncIngestor(
         // events of senders (per-room names), and newer copies of events we already hold (e.g. an
         // edited or redacted preview). Timelines stay in memory (TimelineStore); receipts too.
         if (room.state.isNotEmpty()) _stateChanged.tryEmit(roomId)
+        // A bridge came, went or changed: the room is checked again (the scan picks it up).
+        if (room.state.keys.any { it in BRIDGE_TYPES }) dao.forgetBridge(roomId)
         val members = room.state[MEMBER].orEmpty()
         val wanted =
             buildSet {
@@ -354,3 +357,6 @@ private fun InvitedRoom.toEntity(generation: Long): InvitedRoomEntity {
 private fun JsonObject.content() = get("content") as? JsonObject
 
 private fun JsonObject.string(key: String) = (get(key) as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() }
+
+/** State event types a bridge describes itself with. */
+private val BRIDGE_TYPES = setOf("m.bridge", "uk.half-shot.bridge")

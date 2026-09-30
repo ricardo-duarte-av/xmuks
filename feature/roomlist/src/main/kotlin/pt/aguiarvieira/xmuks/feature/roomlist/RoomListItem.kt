@@ -2,9 +2,11 @@ package pt.aguiarvieira.xmuks.feature.roomlist
 
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.rooms.Preview
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.Unread
+import pt.aguiarvieira.xmuks.core.designsystem.component.NetworkBadge
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.SharedKeys
 import pt.aguiarvieira.xmuks.core.designsystem.component.UnreadBadge
@@ -48,13 +51,28 @@ fun RoomListItem(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RoomAvatar(
-            name = room.name,
-            id = room.roomId,
-            avatarUrl = room.avatarUrl,
-            size = display.avatar,
-            modifier = Modifier.sharedElement(SharedKeys.avatar(room.roomId, sharedScope)),
-        )
+        Box {
+            RoomAvatar(
+                name = room.name,
+                id = room.roomId,
+                avatarUrl = room.avatarUrl,
+                size = display.avatar,
+                modifier = Modifier.sharedElement(SharedKeys.avatar(room.roomId, sharedScope)),
+            )
+            // Bridged elsewhere: that network's logo, bottom right.
+            room.bridgeProtocol?.let { protocol ->
+                NetworkBadge(
+                    protocol,
+                    room.bridgeAvatarUrl,
+                    size = display.avatar * BADGE_FRACTION,
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(x = BADGE_OFFSET, y = BADGE_OFFSET)
+                            .sharedElement(SharedKeys.bridge(room.roomId, sharedScope)),
+                )
+            }
+        }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -131,3 +149,7 @@ object SharedScopes {
 
     fun space(spaceId: String) = "space:$spaceId"
 }
+
+/** The network badge: this share of the avatar, peeking out past its corner. */
+private const val BADGE_FRACTION = 0.42f
+private val BADGE_OFFSET = 3.dp

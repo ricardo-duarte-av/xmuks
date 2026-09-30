@@ -12,9 +12,9 @@ import kotlinx.coroutines.Dispatchers
     entities = [
         RoomEntity::class, SpaceEdgeEntity::class, TopLevelSpaceEntity::class, EventEntity::class,
         RoomStateEntity::class, AccountDataEntity::class,
-        InvitedRoomEntity::class, SyncMetaEntity::class,
+        InvitedRoomEntity::class, SyncMetaEntity::class, RoomBridgeEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class XmuksDatabase : RoomDatabase() {

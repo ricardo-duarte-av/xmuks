@@ -30,6 +30,12 @@ object SharedKeys {
         scope: String,
     ) = "title:$scope:$id"
 
+    /** A bridged room's network logo: the room list's badge, the room header's. */
+    fun bridge(
+        id: String,
+        scope: String,
+    ) = "bridge:$scope:$id"
+
     /** A piece of media (by event ID) growing into the viewer. */
     fun media(id: String) = "media:$id"
 }

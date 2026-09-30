@@ -493,7 +493,7 @@ private fun HeaderCard(
                 )
             },
             actions = {
-                bridge?.let { BridgeBadge(it, resolver) }
+                bridge?.let { BridgeBadge(it, resolver, roomId, sharedScope) }
                 IconButton(onClick = { menu = true }) {
                     Icon(painterResource(R.drawable.ic_more), contentDescription = stringResource(R.string.room_menu))
                 }

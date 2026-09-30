@@ -29,6 +29,10 @@ data class RoomSummary(
     val unread: Unread,
     /** The avatar itself (for the full-size viewer); [avatarUrl] is its thumbnail. */
     val avatarMxc: String? = null,
+    /** The network the room is bridged to (null if none, or not known yet)… */
+    val bridgeProtocol: String? = null,
+    /** …and its logo, ready to load as a thumbnail. */
+    val bridgeAvatarUrl: String? = null,
 )
 
 /** What the room list shows under the room name. */

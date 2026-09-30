@@ -54,6 +54,7 @@ import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
 import pt.aguiarvieira.xmuks.core.data.push.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
+import pt.aguiarvieira.xmuks.core.data.rooms.BridgeScanner
 import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvents
 import pt.aguiarvieira.xmuks.core.data.rooms.MentionTargets
 import pt.aguiarvieira.xmuks.core.data.rooms.Mentions
@@ -202,6 +203,7 @@ object DataModule {
         liveTasks: LiveTasks,
         timelines: TimelineStore,
         scope: CoroutineScope,
+        bridges: BridgeScanner,
     ): GomuksConnection {
         val server = { store.credentials()?.serverUrl }
         val connection =
@@ -222,7 +224,10 @@ object DataModule {
             connection.state
                 .map { it == ConnectionState.Live }
                 .distinctUntilChanged()
-                .collect { timelines.streamChanged(it) }
+                .collect {
+                    timelines.streamChanged(it)
+                    bridges.streamChanged(it)
+                }
         }
         return connection
     }
@@ -288,6 +293,13 @@ object DataModule {
         database: XmuksDatabase,
         exec: ExecClient,
     ) = RoomPushRules(database, exec)
+
+    @Provides @Singleton
+    fun bridgeScanner(
+        exec: ExecClient,
+        database: XmuksDatabase,
+        scope: CoroutineScope,
+    ) = BridgeScanner(exec, database, scope)
 
     @Provides @Singleton
     fun roomGallery(

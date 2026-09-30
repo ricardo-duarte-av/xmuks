@@ -19,6 +19,22 @@ interface SyncDao {
 
     @Upsert suspend fun upsertInvites(invites: List<InvitedRoomEntity>)
 
+    @Upsert suspend fun upsertBridges(bridges: List<RoomBridgeEntity>)
+
+    /** The room's bridge state changed: it's to be checked again. */
+    @Query("DELETE FROM room_bridges WHERE roomId = :roomId")
+    suspend fun forgetBridge(roomId: String)
+
+    /** Joined rooms whose bridges haven't been checked, most recently active first. */
+    @Query(
+        """
+        SELECT r.roomId FROM rooms r
+        WHERE r.isSpace = 0 AND NOT EXISTS (SELECT 1 FROM room_bridges b WHERE b.roomId = r.roomId)
+        ORDER BY r.sortingTs DESC LIMIT :limit
+        """
+    )
+    suspend fun uncheckedBridgeRooms(limit: Int): List<String>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSpaceEdges(edges: List<SpaceEdgeEntity>)
 
@@ -157,4 +173,7 @@ interface SyncDao {
 
     @Query("DELETE FROM sync_meta")
     suspend fun wipeMeta()
+
+    @Query("DELETE FROM room_bridges")
+    suspend fun wipeBridges()
 }

@@ -109,6 +109,8 @@ class RoomListRepository(
                 },
             timestamp = maxOf(sortingTs, previewTs ?: 0),
             unread = Unread(unreadMessages, unreadNotifications, unreadHighlights, markedUnread),
+            bridgeProtocol = bridgeProtocol,
+            bridgeAvatarUrl = media.avatar(bridgeAvatar),
         )
 
     private fun SpaceSummaryRow.toSummary() =

@@ -134,7 +134,13 @@ fun HomeScreen(
             ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
                 Column {
                     TopAppBar(
-                        title = { Text(stringResource(state.tab.title)) },
+                        title = {
+                            Text(
+                                stringResource(state.tab.title),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
                         actions = {
                             IconButton(onClick = onSearchMessages) {
                                 Icon(painterResource(R.drawable.ic_search), stringResource(R.string.search_messages))
