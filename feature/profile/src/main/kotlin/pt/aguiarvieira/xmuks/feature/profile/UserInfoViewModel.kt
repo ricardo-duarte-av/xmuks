@@ -32,6 +32,8 @@ import pt.aguiarvieira.xmuks.core.data.profile.Contacts
 import pt.aguiarvieira.xmuks.core.data.profile.PerMessageProfiles
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileFields
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
+import pt.aguiarvieira.xmuks.core.data.profile.RoomProfile
+import pt.aguiarvieira.xmuks.core.data.profile.RoomProfiles
 import pt.aguiarvieira.xmuks.core.data.profile.UserProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
@@ -53,8 +55,11 @@ sealed interface ProfileState {
 class UserInfoViewModel
     @AssistedInject
     constructor(
-        @Assisted val userId: String,
+        @Assisted("user") val userId: String,
+        /** The room it was opened from: their profile there shows too. */
+        @Assisted("room") roomId: String?,
         private val profiles: ProfileRepository,
+        roomProfiles: RoomProfiles,
         private val contacts: Contacts,
         val media: MediaUrls,
         private val session: SessionRepository,
@@ -64,7 +69,10 @@ class UserInfoViewModel
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
-            fun create(userId: String): UserInfoViewModel
+            fun create(
+                @Assisted("user") userId: String,
+                @Assisted("room") roomId: String?,
+            ): UserInfoViewModel
         }
 
         private val _state = MutableStateFlow<ProfileState>(ProfileState.Loading)
@@ -99,8 +107,13 @@ class UserInfoViewModel
         private val _openRoom = Channel<String>(Channel.BUFFERED)
         val openRoom: Flow<String> = _openRoom.receiveAsFlow()
 
+        /** Their profile in the room this was opened from, when it's not their global one. */
+        private val _roomProfile = MutableStateFlow<RoomProfile?>(null)
+        val roomProfile: StateFlow<RoomProfile?> = _roomProfile.asStateFlow()
+
         init {
             refresh()
+            if (roomId != null) viewModelScope.launch { _roomProfile.value = roomProfiles.of(roomId, userId) }
             viewModelScope.launch {
                 if (profiles.me.filterNotNull().first() == userId) return@launch
                 _directRoom.value = contacts.directRoom(userId)

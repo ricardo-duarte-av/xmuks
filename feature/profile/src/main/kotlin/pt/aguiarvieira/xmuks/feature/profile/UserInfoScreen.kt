@@ -58,6 +58,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import pt.aguiarvieira.xmuks.core.data.profile.PerMessageProfiles
+import pt.aguiarvieira.xmuks.core.data.profile.RoomProfile
 import pt.aguiarvieira.xmuks.core.data.profile.UserProfile
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
@@ -97,6 +98,7 @@ class ProfileMedia(
 @Composable
 fun UserInfoRoute(
     userId: String,
+    roomId: String?,
     onBack: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
     modifier: Modifier = Modifier,
@@ -105,7 +107,9 @@ fun UserInfoRoute(
     onOpenIgnoredUsers: () -> Unit = {},
     onOpenPreferences: () -> Unit = {},
     viewModel: UserInfoViewModel =
-        hiltViewModel<UserInfoViewModel, UserInfoViewModel.Factory>(key = userId) { it.create(userId) },
+        hiltViewModel<UserInfoViewModel, UserInfoViewModel.Factory>(
+            key = "$userId@$roomId"
+        ) { it.create(userId, roomId) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isMe by viewModel.isMe.collectAsStateWithLifecycle()
@@ -116,6 +120,7 @@ fun UserInfoRoute(
     val ignored by viewModel.ignored.collectAsStateWithLifecycle()
     val mutualRooms by viewModel.mutualRooms.collectAsStateWithLifecycle()
     val directRoom by viewModel.directRoom.collectAsStateWithLifecycle()
+    val roomProfile by viewModel.roomProfile.collectAsStateWithLifecycle()
     val openRoom by rememberUpdatedState(onOpenRoom)
     LaunchedEffect(viewModel) { viewModel.openRoom.collect { openRoom(it) } }
     val media = remember(viewModel) { ProfileMedia(viewModel.media::avatar, viewModel.media::full) }
@@ -147,6 +152,7 @@ fun UserInfoRoute(
             onBack = onBack,
             onOpenMedia = onOpenMedia,
             modifier = modifier,
+            roomProfile = roomProfile,
             own =
                 if (isMe) {
                     OwnProfile(
@@ -205,6 +211,8 @@ fun UserInfoScreen(
     onBack: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
     modifier: Modifier = Modifier,
+    /** Their profile in the room this was opened from, if any. */
+    roomProfile: RoomProfile? = null,
     own: OwnProfile? = null,
     other: OtherProfile? = null,
 ) {
@@ -233,7 +241,9 @@ fun UserInfoScreen(
                             }
                         },
                         title = {
-                            val name = (state as? ProfileState.Loaded)?.profile?.displayName ?: userId
+                            val name =
+                                roomProfile?.displayName ?: (state as? ProfileState.Loaded)?.profile?.displayName
+                                    ?: userId
                             Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         },
                     )
@@ -261,7 +271,7 @@ fun UserInfoScreen(
             }
 
             is ProfileState.Loaded -> {
-                ProfileCards(state.profile, media, own, other, onOpenMedia, padding)
+                ProfileCards(state.profile, roomProfile, media, own, other, onOpenMedia, padding)
             }
         }
     }
@@ -270,6 +280,7 @@ fun UserInfoScreen(
 @Composable
 private fun ProfileCards(
     profile: UserProfile,
+    roomProfile: RoomProfile?,
     media: ProfileMedia,
     own: OwnProfile?,
     other: OtherProfile?,
@@ -282,7 +293,9 @@ private fun ProfileCards(
         verticalArrangement = Arrangement.spacedBy(ScreenCards.Gap),
         contentPadding = PaddingValues(bottom = ScreenCards.Gap),
     ) {
-        item(key = "hero") { HeroCard(profile, media, own?.edits, onOpenMedia, cardModifier) }
+        item(key = "hero") {
+            HeroCard(profile, roomProfile.differingFrom(profile), media, own?.edits, onOpenMedia, cardModifier)
+        }
         if (other != null) item(key = "contact") { ContactCard(other, cardModifier) }
         item(key = "details") { DetailsCard(profile, own?.edits, cardModifier) }
         item(key = "about") { AboutCard(profile, media, own?.edits, onOpenMedia, cardModifier) }
@@ -301,12 +314,16 @@ private fun ProfileCards(
 @Composable
 private fun HeroCard(
     profile: UserProfile,
+    /** Their profile in the room this was opened from, when it differs: shown first, the global one under it. */
+    inRoom: RoomProfile?,
     media: ProfileMedia,
     edits: ProfileEdits?,
     onOpenMedia: (ViewerMedia) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val name = profile.displayName ?: profile.userId
+    val globalName = profile.displayName ?: profile.userId
+    val name = inRoom?.displayName ?: globalName
+    val avatarMxc = if (inRoom != null) inRoom.avatarMxc else profile.avatarMxc
     var editingName by rememberSaveable { mutableStateOf(false) }
     ScreenCard(modifier) {
         Column {
@@ -331,11 +348,12 @@ private fun HeroCard(
                     }
                 }
                 ImageSlot(
-                    mxc = profile.avatarMxc,
+                    mxc = avatarMxc,
                     title = stringResource(R.string.avatar),
-                    viewer = { media.viewer(profile.avatarMxc, name) },
+                    viewer = { media.viewer(avatarMxc, name) },
                     onOpenMedia = onOpenMedia,
-                    onChange = edits?.setAvatar,
+                    // The room's is changed in the room; here, the global one is.
+                    onChange = edits?.setAvatar?.takeIf { inRoom == null },
                     modifier =
                         Modifier
                             .align(Alignment.BottomStart)
@@ -344,10 +362,11 @@ private fun HeroCard(
                             .background(MaterialTheme.colorScheme.surface)
                             .padding(4.dp),
                 ) {
-                    RoomAvatar(name, profile.userId, media.thumbnail(profile.avatarMxc), size = AVATAR_SIZE)
+                    RoomAvatar(name, profile.userId, media.thumbnail(avatarMxc), size = AVATAR_SIZE)
                 }
             }
-            NameBlock(profile, name, onEditName = edits?.let { { editingName = true } })
+            NameBlock(profile, name, onEditName = edits?.takeIf { inRoom == null }?.let { { editingName = true } })
+            if (inRoom != null) GlobalProfileLine(inRoom.roomName, globalName, profile, media)
         }
     }
     if (editingName && edits != null) {

@@ -161,4 +161,6 @@
     <string name="room_preferences">Preferences for this room</string>
     <string name="room_state">Room state</string>
     <string name="room_state_empty_key">(no state key)</string>
+    <string name="profile_in_room">As shown in %1$s</string>
+    <string name="profile_elsewhere">Everywhere else</string>
 </resources>

@@ -76,6 +76,8 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
 /** Anyone's profile; our own is where it's edited, and where the account lives. */
 @Serializable data class UserKey(
     val userId: String,
+    /** The room it was opened from: their profile there shows first. */
+    val roomId: String? = null,
 ) : NavKey
 
 /** gomuks' preferences: the global ones ([roomId] null), or one room's. */
@@ -226,7 +228,7 @@ fun XmuksNavHost(
                                     onOpenLink = openLink,
                                     onBack = { backStack.removeLastOrNull() },
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
-                                    onOpenUser = { backStack.add(UserKey(it)) },
+                                    onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                     onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
                                     onSearch = { backStack.add(SearchKey(key.roomId)) },
                                     onSendFiles = { uris -> backStack.add(ShareKey(uris, null, key.roomId)) },
@@ -243,7 +245,7 @@ fun XmuksNavHost(
                                     onOpenLink = openLink,
                                     onBack = { backStack.removeLastOrNull() },
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
-                                    onOpenUser = { backStack.add(UserKey(it)) },
+                                    onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                     onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
                                     onSearch = { backStack.add(SearchKey(key.roomId)) },
                                 )
@@ -255,7 +257,7 @@ fun XmuksNavHost(
                                     roomId = key.roomId,
                                     onBack = { backStack.removeLastOrNull() },
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
-                                    onOpenUser = { backStack.add(UserKey(it)) },
+                                    onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                     onOpenMembers = { backStack.add(RoomMembersKey(key.roomId)) },
                                     onOpenState = { backStack.add(RoomStateKey(key.roomId)) },
                                     onOpenPreferences = { backStack.add(PreferencesKey(key.roomId)) },
@@ -339,7 +341,7 @@ fun XmuksNavHost(
                                 RoomMembersRoute(
                                     roomId = key.roomId,
                                     onBack = { backStack.removeLastOrNull() },
-                                    onOpenUser = { backStack.add(UserKey(it)) },
+                                    onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                 )
                             }
                         }
@@ -347,6 +349,7 @@ fun XmuksNavHost(
                             Destination {
                                 UserInfoRoute(
                                     userId = key.userId,
+                                    roomId = key.roomId,
                                     onOpenLink = openLink,
                                     onOpenRoom = { backStack.openRoom(it, LINK_SCOPE) },
                                     onOpenIgnoredUsers = { backStack.add(IgnoredUsersKey) },
