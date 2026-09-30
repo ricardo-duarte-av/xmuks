@@ -9,6 +9,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import pt.aguiarvieira.xmuks.core.data.rooms.Mention
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.Preview
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
@@ -175,5 +176,33 @@ class RoomListScreenshotTest {
                     onClick = {}
                 )
             }
+        }
+
+    @Test
+    fun notifications() =
+        capture("notifications") {
+            fun mention(
+                id: String,
+                room: RoomSummary,
+                sender: String,
+                name: String,
+                text: String,
+            ) = Mention(id, room, room.roomId, sender, name, null, text, now - 3_600_000)
+            NotificationsScreen(
+                NotificationsState(
+                    items =
+                        listOf(
+                            mention("$1", chats[0], "@tulir:maunium.net", "tulir", "@daedric: can you check this?"),
+                            mention("$2", chats[1], "@nex:nexy7574.co.uk", "nex", "daedric, the room list is up"),
+                        ),
+                    loading = false,
+                ),
+                { null },
+                {},
+                {},
+                { _, _ -> },
+                {},
+                now = now,
+            )
         }
 }

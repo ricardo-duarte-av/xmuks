@@ -43,6 +43,7 @@ import pt.aguiarvieira.xmuks.feature.profile.RoomPreviewRoute
 import pt.aguiarvieira.xmuks.feature.profile.UserInfoRoute
 import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
+import pt.aguiarvieira.xmuks.feature.roomlist.NotificationsRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
 import pt.aguiarvieira.xmuks.feature.settings.PreferencesRoute
 import pt.aguiarvieira.xmuks.feature.share.ShareRequest
@@ -86,6 +87,9 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
     val text: String?,
     val roomId: String?,
 ) : NavKey
+
+/** Past notifications across rooms. */
+@Serializable data object NotificationsKey : NavKey
 
 /** Everyone we ignore. */
 @Serializable data object IgnoredUsersKey : NavKey
@@ -187,6 +191,7 @@ fun XmuksNavHost(
                                     onOpenRoom = backStack::openRoom,
                                     onOpenSpace = { backStack.add(SpaceKey(it)) },
                                     onOpenProfile = { backStack.add(UserKey(it)) },
+                                    onOpenNotifications = { backStack.add(NotificationsKey) },
                                 )
                             }
                         }
@@ -271,6 +276,19 @@ fun XmuksNavHost(
                         entry<PreferencesKey> { key ->
                             Destination {
                                 PreferencesRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
+                            }
+                        }
+                        entry<NotificationsKey> {
+                            Destination {
+                                NotificationsRoute(
+                                    onBack = { backStack.removeLastOrNull() },
+                                    onOpenEvent = {
+                                        roomId,
+                                        eventId,
+                                        ->
+                                        backStack.openRoom(roomId, LINK_SCOPE, eventId)
+                                    },
+                                )
                             }
                         }
                         entry<IgnoredUsersKey> {

@@ -70,6 +70,7 @@ fun HomeRoute(
     onOpenSpace: (String) -> Unit,
     onOpenProfile: (userId: String) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenNotifications: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     var tab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
@@ -90,6 +91,7 @@ fun HomeRoute(
             onOpenSpace = onOpenSpace,
             onAccountClick = { profile?.userId?.let(onOpenProfile) },
             modifier = modifier,
+            onOpenNotifications = onOpenNotifications,
             search = viewModel.search,
         )
     }
@@ -119,6 +121,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     now: Long = rememberNow(),
     search: SearchQueries = remember { SearchQueries() },
+    onOpenNotifications: () -> Unit = {},
 ) {
     // Three cards on a tinted ground, like the room: header, the tab's content, the tab bar.
     Scaffold(
@@ -129,7 +132,15 @@ fun HomeScreen(
                 Column {
                     TopAppBar(
                         title = { Text(stringResource(state.tab.title)) },
-                        actions = { AccountButton(state, onAccountClick) },
+                        actions = {
+                            IconButton(onClick = onOpenNotifications) {
+                                Icon(
+                                    painterResource(R.drawable.ic_notifications),
+                                    stringResource(R.string.notifications)
+                                )
+                            }
+                            AccountButton(state, onAccountClick)
+                        },
                         windowInsets = WindowInsets(0),
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                     )

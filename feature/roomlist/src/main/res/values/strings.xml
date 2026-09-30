@@ -28,4 +28,8 @@
     <string name="search_spaces">Search spaces</string>
     <string name="search_clear">Clear search</string>
     <string name="search_no_match">No matches</string>
+    <string name="notifications">Notifications</string>
+    <string name="notifications_mentions">Mentions</string>
+    <string name="notifications_all">All</string>
+    <string name="notifications_none">Nothing here</string>
 </resources>
