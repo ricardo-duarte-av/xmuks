@@ -28,6 +28,9 @@ class TimelineItemBuilder(
      */
     private var threadSizes: Map<String?, Int> = emptyMap()
 
+    /** Our messages confirmed received, by a later delivery report or read receipt (see deliveredThrough). */
+    private var delivered: Set<String> = emptySet()
+
     /** What we hold that references each event (poll votes and ends among them), by that event. */
     private var references: Map<String?, List<Event>> = emptyMap()
 
@@ -48,6 +51,7 @@ class TimelineItemBuilder(
             snapshot.eventsByRowId.values
                 .filter { it.relationType == REFERENCE }
                 .groupBy { it.relatesTo }
+        delivered = deliveredThrough(snapshot.events, references, snapshot.receiptsByEventId, me)
 
         val out = ArrayList<TimelineItem>(snapshot.events.size + DAY_SEPARATOR_SLACK)
         var previous: Event? = null
@@ -159,7 +163,21 @@ class TimelineItemBuilder(
             thread = threadOf(event, byEventId, members),
             threadReplies = maxOf(threadSizes[event.eventId] ?: 0, event.threadCount()),
             linkPreviews = if (options.showUrlPreviews) linkPreviewsOf(content) else emptyList(),
-            bridgeDelivery = if (event.sender == me) bridgeDeliveryOf(references[event.eventId].orEmpty()) else null,
+            bridgeDelivery =
+                if (event.sender != me) {
+                    null
+                } else {
+                    // Its own reports, raised to delivered when a later message's report or a read receipt says so.
+                    bridgeDeliveryOf(references[event.eventId].orEmpty()).let { own ->
+                        if (event.eventId in delivered &&
+                            own != BridgeDelivery.Failed
+                        ) {
+                            BridgeDelivery.Delivered
+                        } else {
+                            own
+                        }
+                    }
+                },
         )
     }
 

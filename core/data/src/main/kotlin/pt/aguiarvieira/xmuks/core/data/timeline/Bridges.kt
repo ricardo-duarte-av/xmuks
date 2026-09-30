@@ -2,6 +2,7 @@ package pt.aguiarvieira.xmuks.core.data.timeline
 
 import kotlinx.serialization.json.JsonArray
 import pt.aguiarvieira.xmuks.core.protocol.Event
+import pt.aguiarvieira.xmuks.core.protocol.Receipt
 
 /** What a bridged room is bridged to (its `m.bridge` state): the network, and the room there. */
 data class BridgeInfo(
@@ -60,4 +61,32 @@ internal fun bridgeDeliveryOf(related: List<Event>): BridgeDelivery? {
         reports.any { it.effectiveContent.str("status") == "SUCCESS" } -> BridgeDelivery.Sent
         else -> null
     }
+}
+
+/**
+ * Our messages the other side is known to have received, beyond what each one's own reports say:
+ * a report naming who received one of our messages, or a read receipt from anyone else, confirms
+ * that message and every earlier one. Empty in rooms whose bridge sends no reports (nothing to
+ * tick there); the bridge's own receipts don't count.
+ */
+internal fun deliveredThrough(
+    events: List<Event>,
+    references: Map<String?, List<Event>>,
+    receipts: Map<String, List<Receipt>>,
+    me: String?,
+): Set<String> {
+    val reports = references.values.flatten().filter { it.effectiveType == SEND_STATUS }
+    if (me == null || reports.isEmpty()) return emptySet()
+    val bridges = reports.mapTo(HashSet()) { it.sender }
+    val confirmed =
+        events.indexOfLast { event ->
+            val delivered =
+                event.sender == me && bridgeDeliveryOf(references[event.eventId].orEmpty()) == BridgeDelivery.Delivered
+            delivered || receipts[event.eventId].orEmpty().any { it.userId != me && it.userId !in bridges }
+        }
+    if (confirmed < 0) return emptySet()
+    return events
+        .subList(0, confirmed + 1)
+        .filter { it.sender == me }
+        .mapTo(HashSet()) { it.eventId }
 }
