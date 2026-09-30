@@ -46,7 +46,10 @@ fun interface Paginator {
  * - a catch-up or full sync means events may have been missed → every timeline is dropped (the
  *   open room is reloaded at once, others on their next open);
  * - `reset` for one room drops that room the same way;
- * - resumes (gomuks replays its buffer) keep everything.
+ * - resumes (gomuks replays its buffer) keep everything;
+ * - while the stream is down (the app in the background, a reconnect under way) nothing reaches
+ *   them: each is unconfirmed until opened again, which fetches its newest page from gomuks at
+ *   once (gomuks itself is always current) instead of showing what was held.
  * At most [maxRooms] rooms are kept (least recently opened go first); rooms nobody is watching are
  * trimmed to their newest [keepWhenClosed] events.
  */
@@ -79,6 +82,37 @@ class TimelineStore(
         var loaded = false
         var loadingOlder = false
 
+        /** Kept current by the stream since it was loaded; false once the stream has dropped. */
+        var confirmed = false
+
+        fun canLoadOlder() = loaded && !loadingOlder && hasMoreBefore && rows.isNotEmpty()
+
+        /** Drops the room's contents; returns its ID if someone is looking at it (so it reloads now). */
+        fun invalidate(): String? {
+            rows.clear()
+            events.clear()
+            receipts.clear()
+            loaded = false
+            hasMoreBefore = true
+            publish()
+            return state.value.roomId.takeIf { state.subscriptionCount.value > 0 }
+        }
+
+        fun addPage(page: PaginationResponse) {
+            (page.events + page.relatedEvents).forEach { events[it.rowId] = it }
+            page.events.forEach { if (it.timelineRowId != 0L) rows[it.timelineRowId] = it.rowId }
+            echoes.keys.removeAll(rows.values.toSet())
+            addReceipts(page.receipts.values.flatten())
+        }
+
+        fun addReceipts(list: List<Receipt>) {
+            list.forEach { r ->
+                val key = Triple(r.userId, r.receiptType, r.threadId.orEmpty())
+                val current = receipts[key]
+                if (current == null || r.timestamp >= current.timestamp) receipts[key] = r
+            }
+        }
+
         fun publish() {
             val timeline = rows.values.mapNotNull(events::get)
             val inTimeline = rows.values.toHashSet()
@@ -102,6 +136,9 @@ class TimelineStore(
     /** Room → users typing now (ephemeral; replaced wholesale by each typing notification). */
     val typing: StateFlow<Map<String, List<String>>> = _typing.asStateFlow()
 
+    /** The stream is up and continuous: what it delivers keeps the loaded timelines current. */
+    private var live = false
+
     /** Insertion order = recency (accessOrder), for least-recently-opened eviction. */
     private val rooms = LinkedHashMap<String, RoomTimeline>(16, 0.75f, true)
 
@@ -111,9 +148,38 @@ class TimelineStore(
 
     /** Makes [roomId] current: served from memory if still valid, otherwise its newest page is fetched. */
     suspend fun open(roomId: String) {
-        val needsLoad = mutex.withLock { !room(roomId).loaded.also { evict(keep = roomId) } }
+        val needsLoad =
+            mutex.withLock {
+                val room = room(roomId)
+                evict(keep = roomId)
+                !room.loaded || !room.confirmed
+            }
         if (needsLoad) loadNewest(roomId)
     }
+
+    /**
+     * Rooms on screen that the stream stopped keeping current (the app was away long enough for it
+     * to close): their newest page now, rather than when the stream is back and has replayed.
+     */
+    suspend fun refreshWatched() {
+        val stale =
+            mutex.withLock {
+                rooms.values
+                    .filter { it.loaded && !it.confirmed && it.state.subscriptionCount.value > 0 }
+                    .map { it.state.value.roomId }
+            }
+        stale.forEach { loadNewest(it) }
+    }
+
+    /**
+     * The stream came up ([up]) or went down. Down, every timeline held stops being current: each is
+     * fetched afresh when next opened.
+     */
+    suspend fun streamChanged(up: Boolean) =
+        mutex.withLock {
+            live = up
+            if (!up) rooms.values.forEach { it.confirmed = false }
+        }
 
     suspend fun loadOlder(roomId: String) {
         val oldest =
@@ -194,13 +260,19 @@ class TimelineStore(
         val page = paginator.paginate(roomId, 0, pageSize) ?: return
         mutex.withLock {
             val room = rooms[roomId] ?: return
-            // A fresh newest page replaces whatever was there: never merged into something stale.
-            room.rows.clear()
-            room.events.clear()
-            room.receipts.clear()
+            // Onto what's held only if it reaches back into it (no gap between them); otherwise
+            // the newest page replaces it, never leaving a hole in the middle.
+            val oldest = page.events.mapNotNull { it.timelineRowId.takeIf { id -> id != 0L } }.minOrNull()
+            val joins = room.loaded && oldest != null && room.rows.isNotEmpty() && oldest <= room.rows.lastKey()
+            if (!joins) {
+                room.rows.clear()
+                room.events.clear()
+                room.receipts.clear()
+                room.hasMoreBefore = page.hasMore
+            }
             room.addPage(page)
-            room.hasMoreBefore = page.hasMore
             room.loaded = true
+            room.confirmed = live
             room.publish()
         }
     }
@@ -229,34 +301,6 @@ class TimelineStore(
             sync.leftRooms.forEach { rooms.remove(it) }
         }
         reload.forEach { scope.launch { loadNewest(it) } }
-    }
-
-    private fun RoomTimeline.canLoadOlder() = loaded && !loadingOlder && hasMoreBefore && rows.isNotEmpty()
-
-    /** Drops the room's contents; returns its ID if someone is looking at it (so it reloads now). */
-    private fun RoomTimeline.invalidate(): String? {
-        rows.clear()
-        events.clear()
-        receipts.clear()
-        loaded = false
-        hasMoreBefore = true
-        publish()
-        return state.value.roomId.takeIf { state.subscriptionCount.value > 0 }
-    }
-
-    private fun RoomTimeline.addPage(page: PaginationResponse) {
-        (page.events + page.relatedEvents).forEach { events[it.rowId] = it }
-        page.events.forEach { if (it.timelineRowId != 0L) rows[it.timelineRowId] = it.rowId }
-        echoes.keys.removeAll(rows.values.toSet())
-        addReceipts(page.receipts.values.flatten())
-    }
-
-    private fun RoomTimeline.addReceipts(list: List<Receipt>) {
-        list.forEach { r ->
-            val key = Triple(r.userId, r.receiptType, r.threadId.orEmpty())
-            val current = receipts[key]
-            if (current == null || r.timestamp >= current.timestamp) receipts[key] = r
-        }
     }
 
     /** Keeps at most [maxRooms]; trims rooms nobody watches. [keep] is never evicted. */

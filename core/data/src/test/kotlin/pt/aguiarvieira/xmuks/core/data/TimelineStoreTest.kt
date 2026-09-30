@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -65,8 +66,9 @@ class TimelineStoreTest {
         }
 
     @Test
-    fun `opened once, then served from memory`() =
+    fun `opened once, then served from memory while the stream is up`() =
         runBlocking {
+            store.streamChanged(true)
             store.open("!a")
             store.open("!a")
             assertEquals(1, gomuks.calls.size)
@@ -173,4 +175,51 @@ class TimelineStoreTest {
             timelineRowId: Int,
         ) = event(roomId, timelineRowId.toLong())
     }
+
+    @Test
+    fun `after the stream dropped, opening fetches what was missed and joins it on`() =
+        runBlocking {
+            store.streamChanged(true)
+            store.open("!a")
+            store.streamChanged(false)
+            gomuks.newest = 130
+            store.open("!a")
+            assertEquals(2, gomuks.calls.size)
+            assertEquals((71L..130L).toList(), ids("!a"))
+        }
+
+    @Test
+    fun `after the stream dropped, a page that doesn't reach back replaces what was held`() =
+        runBlocking {
+            store.streamChanged(true)
+            store.open("!a")
+            store.streamChanged(false)
+            gomuks.newest = 300
+            store.open("!a")
+            assertEquals((251L..300L).toList(), ids("!a"))
+        }
+
+    @Test
+    fun `while the stream is down, every open asks gomuks`() =
+        runBlocking {
+            store.open("!a")
+            store.open("!a")
+            assertEquals(2, gomuks.calls.size)
+        }
+
+    @Test
+    fun `a room still on screen is refreshed on return, others wait to be opened`() =
+        runBlocking {
+            store.streamChanged(true)
+            store.open("!a")
+            val watching = scope.launch { store.observe("!a").collect {} }
+            delay(50)
+            store.open("!b")
+            store.streamChanged(false)
+            gomuks.newest = 125
+            store.refreshWatched()
+            assertEquals((71L..125L).toList(), ids("!a"))
+            assertEquals((71L..120L).toList(), ids("!b"))
+            watching.cancel()
+        }
 }

@@ -22,6 +22,7 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
 import coil3.toBitmap
+import kotlinx.coroutines.delay
 import okhttp3.HttpUrl
 import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
 import java.util.concurrent.ConcurrentHashMap
@@ -208,26 +209,38 @@ class RoomNotifier(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-    /** A gomuks media path (relative to the server), with the push's token so it loads without our session. */
+    /**
+     * A gomuks media path (relative to the server), with the push's token so it loads without our
+     * session. The image loader caches by mxc:// (MxcCacheKeys), so an avatar the app has shown
+     * loads from disk, and one fetched here is there for the app. A failed fetch is tried once more.
+     */
     private suspend fun loadBitmap(
         path: String?,
         imageAuth: String?,
         sizePx: Int = AVATAR_PX,
     ): Bitmap? {
         val base = server() ?: return null
+        val resolved = path?.let(base::resolve) ?: return null
         val url =
-            path?.let(base::resolve)?.newBuilder()?.apply {
-                if (sizePx == AVATAR_PX) addQueryParameter("thumbnail", "avatar")
-                imageAuth?.let { addQueryParameter("image_auth", it) }
-            } ?: return null
+            resolved
+                .newBuilder()
+                .apply {
+                    if (sizePx == AVATAR_PX) addQueryParameter("thumbnail", "avatar")
+                    imageAuth?.let { addQueryParameter("image_auth", it) }
+                }.build()
+                .toString()
         val request =
             ImageRequest
                 .Builder(context)
-                .data(url.build().toString())
+                .data(url)
                 .size(sizePx)
                 .allowHardware(false)
                 .build()
-        return (images.execute(request) as? SuccessResult)?.image?.toBitmap()
+        repeat(ATTEMPTS) { attempt ->
+            (images.execute(request) as? SuccessResult)?.image?.toBitmap()?.let { return it }
+            if (attempt < ATTEMPTS - 1) delay(RETRY_MS)
+        }
+        return null
     }
 
     /**
@@ -284,6 +297,9 @@ class RoomNotifier(
         /** gomuks marks a room read when we reply: its dismissal is ignored for this long after. */
         const val REPLY_GUARD_MS = 10_000L
         private const val AVATAR_PX = 192
+        private const val ATTEMPTS = 2
+        private const val RETRY_MS = 1_500L
+
         private const val PICTURE_PX = 1024
         private const val JPEG = "image/jpeg"
         private val FILE_NAME = Regex("""[^\s/]+\.[A-Za-z0-9]{2,5}""")

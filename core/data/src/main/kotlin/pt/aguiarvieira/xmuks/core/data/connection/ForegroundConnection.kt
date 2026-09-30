@@ -28,6 +28,8 @@ class ForegroundConnection(
     private val loggedIn: StateFlow<Boolean>,
     private val scope: CoroutineScope,
     private val lingerMs: Long = 30_000,
+    /** The app came to the foreground. */
+    private val onForeground: () -> Unit = {},
 ) : DefaultLifecycleObserver {
     val state: StateFlow<ConnectionState> = connection.state
 
@@ -57,6 +59,7 @@ class ForegroundConnection(
         inForeground = true
         update()
         wakeUp()
+        onForeground()
     }
 
     /** A stream kept through a short background spell may have died silently: start over now if so. */

@@ -19,6 +19,9 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -40,6 +43,7 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.media.MxcCacheKeys
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.profile.Contacts
@@ -64,6 +68,7 @@ import pt.aguiarvieira.xmuks.core.database.outbox.OutboxDatabase
 import pt.aguiarvieira.xmuks.core.network.AuthApi
 import pt.aguiarvieira.xmuks.core.network.AuthInterceptor
 import pt.aguiarvieira.xmuks.core.network.CompressionInterceptor
+import pt.aguiarvieira.xmuks.core.network.ConnectionState
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
 import pt.aguiarvieira.xmuks.core.network.ExecResult
@@ -193,20 +198,30 @@ object DataModule {
         stats: StreamStatsTracker,
         liveTasks: LiveTasks,
         timelines: TimelineStore,
+        scope: CoroutineScope,
     ): GomuksConnection {
         val server = { store.credentials()?.serverUrl }
-        return GomuksConnection(
-            SseClient(sse, server, Dispatchers.IO),
-            api,
-            server,
-            ingestor,
-            Dispatchers.IO,
-        ) { frame ->
-            ingestor.apply(frame)
-            timelines.onFrame(frame)
-            stats.accept(frame)
-            liveTasks.onFrame(frame)
+        val connection =
+            GomuksConnection(
+                SseClient(sse, server, Dispatchers.IO),
+                api,
+                server,
+                ingestor,
+                Dispatchers.IO,
+            ) { frame ->
+                ingestor.apply(frame)
+                timelines.onFrame(frame)
+                stats.accept(frame)
+                liveTasks.onFrame(frame)
+            }
+        // Timelines are only as current as the stream: they learn when it drops (see TimelineStore).
+        scope.launch {
+            connection.state
+                .map { it == ConnectionState.Live }
+                .distinctUntilChanged()
+                .collect { timelines.streamChanged(it) }
         }
+        return connection
     }
 
     @Provides @Singleton
@@ -215,7 +230,15 @@ object DataModule {
         connection: GomuksConnection,
         store: CredentialStore,
         scope: CoroutineScope,
-    ) = ForegroundConnection(context, connection, store.loggedIn, scope)
+        timelines: TimelineStore,
+    ) = ForegroundConnection(
+        context,
+        connection,
+        store.loggedIn,
+        scope,
+        // Back in the foreground: a room still on screen from before may have missed things.
+        onForeground = { scope.launch { timelines.refreshWatched() } },
+    )
 
     @Provides @Singleton
     fun mediaUrls(store: CredentialStore) = MediaUrls { store.credentials()?.serverUrl }
@@ -351,6 +374,8 @@ object DataModule {
         ImageLoader
             .Builder(context)
             .components {
+                // Cached by mxc:// (and thumbnail size), whatever URL fetched it.
+                add(MxcCacheKeys())
                 // Animated GIF / WebP / HEIF (custom emoji, stickers, images) play, not just their
                 // first frame. The platform decoder: our minSdk (31) always has it.
                 add(AnimatedImageDecoder.Factory())
