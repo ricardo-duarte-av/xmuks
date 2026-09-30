@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -66,6 +67,16 @@ class RoomInfoRepository(
         return exec.exec("get_room_state", params, ExecMode.Read).toResult().mapCatching { data ->
             val events = GomuksJson.decodeFromJsonElement(ListSerializer(Event.serializer()), data)
             RoomInfo.parse(roomId, events)
+        }
+    }
+
+    /** Every state event of the room but its members, as gomuks holds them: for looking at, raw. */
+    suspend fun stateEvents(roomId: String): Result<List<JsonObject>> {
+        val params = buildJsonObject { put("room_id", JsonPrimitive(roomId)) }
+        return exec.exec("get_room_state", params, ExecMode.Read).toResult().mapCatching { data ->
+            (data as JsonArray)
+                .mapNotNull { it as? JsonObject }
+                .filter { (it["type"] as? JsonPrimitive)?.content != "m.room.member" }
         }
     }
 

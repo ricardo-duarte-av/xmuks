@@ -40,6 +40,7 @@ import pt.aguiarvieira.xmuks.feature.profile.IgnoredUsersRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomInfoRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomMembersRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomPreviewRoute
+import pt.aguiarvieira.xmuks.feature.profile.RoomStateRoute
 import pt.aguiarvieira.xmuks.feature.profile.UserInfoRoute
 import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
@@ -102,6 +103,11 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
 
 /** A room's details, members and settings. */
 @Serializable data class RoomInfoKey(
+    val roomId: String,
+) : NavKey
+
+/** A room's state events, raw. */
+@Serializable data class RoomStateKey(
     val roomId: String,
 ) : NavKey
 
@@ -251,6 +257,7 @@ fun XmuksNavHost(
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
                                     onOpenUser = { backStack.add(UserKey(it)) },
                                     onOpenMembers = { backStack.add(RoomMembersKey(key.roomId)) },
+                                    onOpenState = { backStack.add(RoomStateKey(key.roomId)) },
                                     onOpenPreferences = { backStack.add(PreferencesKey(key.roomId)) },
                                     onLeft = { backStack.leftRoom(key.roomId) },
                                 )
@@ -322,6 +329,11 @@ fun XmuksNavHost(
                                 )
                             }
                         }
+                        entry<RoomStateKey> { key ->
+                            Destination {
+                                RoomStateRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
+                            }
+                        }
                         entry<RoomMembersKey> { key ->
                             Destination {
                                 RoomMembersRoute(
@@ -379,7 +391,8 @@ private fun NavBackStack<NavKey>.leftRoom(roomId: String) {
     removeAll {
         (it is RoomKey && it.roomId == roomId) ||
             (it is RoomInfoKey && it.roomId == roomId) ||
-            (it is RoomMembersKey && it.roomId == roomId)
+            (it is RoomMembersKey && it.roomId == roomId) ||
+            (it is RoomStateKey && it.roomId == roomId)
     }
     if (isEmpty()) add(HomeKey)
 }

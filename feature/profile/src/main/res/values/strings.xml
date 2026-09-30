@@ -159,4 +159,6 @@
     <string name="ignored_none">You\'re not ignoring anyone</string>
     <string name="preferences">Preferences</string>
     <string name="room_preferences">Preferences for this room</string>
+    <string name="room_state">Room state</string>
+    <string name="room_state_empty_key">(no state key)</string>
 </resources>

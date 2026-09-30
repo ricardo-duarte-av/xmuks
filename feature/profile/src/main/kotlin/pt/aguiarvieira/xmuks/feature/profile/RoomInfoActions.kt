@@ -23,5 +23,6 @@ class RoomInfoActions(
     val openUser: (String) -> Unit = {},
     val openMembers: () -> Unit = {},
     val openPreferences: () -> Unit = {},
+    val openState: () -> Unit = {},
     val openMedia: (ViewerMedia) -> Unit = {},
 )
