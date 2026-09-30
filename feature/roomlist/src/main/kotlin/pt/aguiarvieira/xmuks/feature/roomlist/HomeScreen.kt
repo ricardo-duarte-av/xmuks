@@ -348,7 +348,12 @@ internal fun RoomList(
 
         else -> {
             val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
-            LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 4.dp)) {
+            val list = rememberTopAnchoredState(rooms)
+            LazyColumn(
+                modifier = modifier.fillMaxSize(),
+                state = list,
+                contentPadding = PaddingValues(vertical = 4.dp),
+            ) {
                 items(rooms, key = { it.roomId }, contentType = { "room" }) { room ->
                     RoomListItem(
                         room = room,
