@@ -91,7 +91,8 @@ class RoomNotifier(
         imageAuth: String?,
     ) {
         val latest = messages.last()
-        val direct = isDirect(roomId) ?: (latest.roomName == latest.sender.name)
+        // gomuks' own word when it gives it (is_dm, only ever true); otherwise our cache, then a guess.
+        val direct = latest.isDm || (isDirect(roomId) ?: (latest.roomName == latest.sender.name))
         val existing = active(roomId)?.let(MessagingStyle::extractMessagingStyleFromNotification)
         val seen =
             existing

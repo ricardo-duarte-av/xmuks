@@ -43,6 +43,13 @@ class PushCodecTest {
         assertTrue(message.sound)
         assertEquals("!old:s", payload.dismiss.single().roomId)
         assertEquals("tok", payload.imageAuth)
+        assertEquals(false, message.isDm) // older gomuks: no is_dm at all
+    }
+
+    @Test
+    fun `newer gomuks marks DMs`() {
+        val payload = PushCodec.open(seal(sample.replace("\"room_name\": \"Alice\",", "\"room_name\": \"Alice\", \"is_dm\": true,")), key)!!
+        assertTrue(payload.messages.single().isDm)
     }
 
     @Test

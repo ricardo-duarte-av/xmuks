@@ -25,6 +25,8 @@ data class PushMessage(
     /** gomuks' name for the room: for a room without one, built from its members (bots left out). */
     @SerialName("room_name") val roomName: String,
     @SerialName("room_avatar") val roomAvatar: String? = null,
+    /** gomuks says it's a DM (sent only when true, and only by gomuks from 2026-09-29 on). */
+    @SerialName("is_dm") val isDm: Boolean = false,
     val sender: PushUser,
     val self: PushUser,
     val text: String,
