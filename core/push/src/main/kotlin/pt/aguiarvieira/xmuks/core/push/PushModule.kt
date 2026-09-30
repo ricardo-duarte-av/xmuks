@@ -16,6 +16,8 @@ import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
 import pt.aguiarvieira.xmuks.core.data.push.PushTokenSource
+import pt.aguiarvieira.xmuks.core.data.push.RoomNotifications
+import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import pt.aguiarvieira.xmuks.core.network.ExecClient
@@ -49,11 +51,13 @@ object PushModule {
         store: CredentialStore,
         rooms: RoomListRepository,
         exec: ExecClient,
+        pushRules: RoomPushRules,
     ) = RoomNotifier(
         context,
         images,
         server = { store.credentials()?.serverUrl },
         isDirect = { roomId -> rooms.room(roomId).first()?.isDirect },
+        isMuted = { roomId -> pushRules.setting(roomId).first() in MUTED },
         eventOf = { roomId, eventId ->
             val params =
                 buildJsonObject {
@@ -66,3 +70,6 @@ object PushModule {
         },
     )
 }
+
+/** Room settings under which mentions, @room and keywords stay silent. */
+private val MUTED = setOf(RoomNotifications.MentionsAndKeywords, RoomNotifications.Off)

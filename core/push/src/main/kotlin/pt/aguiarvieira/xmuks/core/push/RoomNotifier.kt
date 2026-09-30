@@ -24,6 +24,9 @@ import coil3.request.allowHardware
 import coil3.toBitmap
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import okhttp3.HttpUrl
 import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
 import pt.aguiarvieira.xmuks.core.protocol.Event
@@ -41,6 +44,8 @@ class RoomNotifier(
     private val server: () -> HttpUrl?,
     /** Whether a room is a DM, from our cache; null when we don't know the room yet. */
     private val isDirect: suspend (roomId: String) -> Boolean?,
+    /** Whether the room is muted by its push rules (mentions, `@room` and keywords make no sound then). */
+    private val isMuted: suspend (roomId: String) -> Boolean = { false },
     /** The whole event (gomuks' `get_event`), for its formatting and media; null when it can't be had. */
     private val eventOf: suspend (roomId: String, eventId: String) -> Event? = { _, _ -> null },
     private val clock: () -> Long = System::currentTimeMillis,
@@ -110,7 +115,7 @@ class RoomNotifier(
             (existing ?: MessagingStyle(person(latest.self, imageAuth)))
                 .setGroupConversation(!direct)
                 .setConversationTitle(if (direct) null else latest.roomName)
-        val people = addMessages(style, fresh, imageAuth)
+        val (people, highlighted) = addMessages(style, fresh, imageAuth)
         val avatar = loadBitmap(latest.roomAvatar, imageAuth)
         // The conversation's face (Android Auto shows it, the shade too): a group's own avatar; in a
         // DM, the other person's (usually the room's too, which stands in when theirs won't load).
@@ -130,12 +135,10 @@ class RoomNotifier(
             Avatars.adaptive(avatar, latest.roomName, roomId),
             if (direct) people.values else emptyList()
         )
-        val channel =
-            when {
-                fresh.none { it.sound } -> Channels.SILENT
-                direct -> Channels.DM
-                else -> Channels.GROUP
-            }
+        // Loud when the push rules asked for a sound, or when it's for us (a mention, @room, a
+        // keyword: highlighted, which the default rules leave silent) in a room we haven't muted.
+        val loud = fresh.any { it.sound } || (highlighted && !isMuted(roomId))
+        val channel = Channels.conversation(context, roomId, latest.roomName, direct)
         val notification =
             NotificationCompat
                 .Builder(context, channel)
@@ -150,24 +153,32 @@ class RoomNotifier(
                 .setShowWhen(true)
                 .setContentIntent(openRoom(roomId))
                 .setAutoCancel(true)
-                .setSilent(channel == Channels.SILENT)
+                .setSilent(!loud)
                 .apply { Actions.add(this, context, roomId, latest.eventId) }
                 .build()
         post(roomId, notification)
     }
 
-    /** Adds [fresh] to [style] (a picture as itself, then its caption); the senders met, by ID. */
+    /**
+     * Adds [fresh] to [style] (a picture as itself, then its caption); the senders met, by ID, and
+     * whether any of them highlighted us (a mention, @room, a keyword).
+     */
     private suspend fun addMessages(
         style: MessagingStyle,
         fresh: List<PushMessage>,
         imageAuth: String?,
-    ): Map<String, Person> {
+    ): Pair<Map<String, Person>, Boolean> {
         val people = HashMap<String, Person>()
+        var highlighted = false
         fresh.forEach { m ->
             val sender = people.getOrPut(m.sender.id) { person(m.sender, imageAuth) }
-            val shown =
-                withTimeoutOrNull(EVENT_MS) { eventOf(m.roomId, m.eventId) }?.let { shownOf(it, m) }
-                    ?: shownOf(m)
+            val event = withTimeoutOrNull(EVENT_MS) { eventOf(m.roomId, m.eventId) }
+            if (m.mention || (event?.unreadType ?: 0) and HIGHLIGHT != 0 ||
+                event?.mentionsRoom() == true
+            ) {
+                highlighted = true
+            }
+            val shown = event?.let { shownOf(it, m) } ?: shownOf(m)
             val message =
                 MessagingStyle
                     .Message(
@@ -183,7 +194,7 @@ class RoomNotifier(
                 ?.takeUnless { it.toString().looksLikeFileName() }
                 ?.let { style.addMessage(MessagingStyle.Message(it, m.timestamp, sender)) }
         }
-        return people
+        return people to highlighted
     }
 
     private suspend fun person(
@@ -318,6 +329,9 @@ class RoomNotifier(
         const val REPLY_GUARD_MS = 10_000L
         private const val AVATAR_PX = 192
 
+        /** gomuks' unread type bit for a highlighting push rule (mentions, @room, keywords). */
+        private const val HIGHLIGHT = 0b0100
+
         /** How long a message waits for its full event before showing what the push said. */
         private const val EVENT_MS = 3_000L
         private const val ATTEMPTS = 2
@@ -331,3 +345,10 @@ class RoomNotifier(
         private const val PICTURE_TTL_MS = 24L * 60 * 60 * 1000
     }
 }
+
+/**
+ * An @room (MSC3952's `m.mentions.room`). Its push rule notifies but, by default, neither
+ * highlights nor sounds; it only matched if the sender may ping the room.
+ */
+private fun Event.mentionsRoom(): Boolean =
+    ((effectiveContent["m.mentions"] as? JsonObject)?.get("room") as? JsonPrimitive)?.booleanOrNull == true
