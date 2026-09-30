@@ -235,6 +235,8 @@ data class ReplyPreview(
     /** Null when the replied-to event isn't loaded (yet). */
     val sender: SenderLabel?,
     val text: String?,
+    /** Its formatted body, when it has one: shown as formatted, not as the markdown behind it. */
+    val html: String? = null,
 ) {
     val senderName: String? get() = sender?.text
 }

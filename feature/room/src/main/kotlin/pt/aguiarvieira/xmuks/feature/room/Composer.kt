@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.AlertDialog
@@ -29,6 +30,8 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
@@ -37,6 +40,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.richtext.HtmlSnippet
 
 /**
  * The room's third card: where messages are written. Grows to a few lines, then scrolls; rides
@@ -91,6 +95,13 @@ internal fun ComposerCard(
                     textStyle = style,
                     cursorBrush = SolidColor(colors.primary),
                     lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = MAX_LINES),
+                    // A message, not a code field: capitals after full stops, the keyboard's corrections.
+                    keyboardOptions =
+                        KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Sentences,
+                            autoCorrectEnabled = true,
+                            keyboardType = KeyboardType.Text,
+                        ),
                     modifier =
                         Modifier
                             .weight(
@@ -169,14 +180,19 @@ private fun ModeBanner(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            (message.content as? MessageContent.Text)?.body?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            (message.content as? MessageContent.Text)?.let { text ->
+                val html = text.html
+                if (html != null && !text.plainText) {
+                    HtmlSnippet(html, colors.onSurfaceVariant, MaterialTheme.typography.bodySmall, maxLines = 1)
+                } else {
+                    Text(
+                        text.body,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
         IconButton(onClick = onCancel) {

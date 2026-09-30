@@ -146,7 +146,8 @@ class TimelineItemBuilder(
             fromMe = event.sender == me,
             timestamp = event.timestamp,
             content = contentOf(event, content, html, local?.bigEmoji == true).withPlainText(local),
-            reply = replyOf(content, event, byEventId, members),
+            // A deletion takes the message with it, what it answered included.
+            reply = if (event.redactedBy == null) replyOf(content, event, byEventId, members) else null,
             reactions = reactionsOf(event, myReactions),
             edited = edit != null,
             firstInGroup = true,
@@ -185,6 +186,7 @@ class TimelineItemBuilder(
             eventId = eventId,
             sender = senderLabel(originalProfile, original.sender, members),
             text = original.localContent?.previewText ?: original.effectiveContent.str("body"),
+            html = htmlOf(original.localContent?.sanitizedHtml, original.effectiveContent),
         )
     }
 

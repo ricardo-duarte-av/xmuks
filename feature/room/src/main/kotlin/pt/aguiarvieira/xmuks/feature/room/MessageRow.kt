@@ -71,6 +71,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.sharedElement
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
 import pt.aguiarvieira.xmuks.core.designsystem.util.Blurhash
 import pt.aguiarvieira.xmuks.core.richtext.HtmlContent
+import pt.aguiarvieira.xmuks.core.richtext.HtmlSnippet
 import pt.aguiarvieira.xmuks.core.richtext.LastLine
 import pt.aguiarvieira.xmuks.core.richtext.PlainContent
 import java.text.DateFormat
@@ -528,17 +529,24 @@ internal fun Reply(
                 Quiet(stringResource(R.string.reply_unavailable), color)
             } else {
                 SenderName(sender, MaterialTheme.typography.labelMedium)
-                Text(
-                    reply.text.orEmpty(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = color,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                val html = reply.html
+                if (html != null) {
+                    HtmlSnippet(html, color, MaterialTheme.typography.bodyMedium, maxLines = REPLY_LINES)
+                } else {
+                    Text(
+                        reply.text.orEmpty(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = color,
+                        maxLines = REPLY_LINES,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
 }
+
+private const val REPLY_LINES = 2
 
 /** Screen edge to bubble, both sides. */
 private val EDGE = 12.dp

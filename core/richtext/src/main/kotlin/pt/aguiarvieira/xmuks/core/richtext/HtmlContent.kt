@@ -274,7 +274,7 @@ private fun RichText(
 }
 
 @Composable
-private fun htmlColors(): HtmlColors {
+internal fun htmlColors(): HtmlColors {
     val c = MaterialTheme.colorScheme
     return remember(c) {
         HtmlColors(
