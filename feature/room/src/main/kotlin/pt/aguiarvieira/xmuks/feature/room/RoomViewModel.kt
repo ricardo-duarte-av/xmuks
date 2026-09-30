@@ -176,6 +176,9 @@ class RoomViewModel
                 showDialog = { prefs.value.get(Prefs.uploadDialog) },
             )
 
+        /** Pinned messages: which, the list, pinning and unpinning. */
+        val pins = PinActions(viewModelScope, session, WHILE_VISIBLE)
+
         /** Reacting, stickers, recent emoji and pack subscriptions. */
         val emoji = EmojiActions(viewModelScope, session, WHILE_VISIBLE) { target.reply() }
 

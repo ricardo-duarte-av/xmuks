@@ -122,6 +122,8 @@ fun RoomRoute(
     val personas by viewModel.personas.personas.collectAsStateWithLifecycle()
     val mediaDraft by viewModel.attach.draft.collectAsStateWithLifecycle()
     val prefs by viewModel.prefs.collectAsStateWithLifecycle()
+    val pins by viewModel.pins.pins.collectAsStateWithLifecycle()
+    val pinnedItems by viewModel.pins.items.collectAsStateWithLifecycle()
     val refusal by viewModel.refusal.value.collectAsStateWithLifecycle()
     val resolver =
         remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media, viewModel.mediaImages) }
@@ -165,6 +167,7 @@ fun RoomRoute(
             onOpenThread = if (threadRoot == null) onOpenThread else null,
             compactThreads = prefs.get(Prefs.smallThreads),
             inThread = threadRoot != null,
+            pins = PinsUi(pins, pinnedItems, viewModel.pins::toggle, viewModel.pins::load),
             onShowContext = viewModel::showContext,
             onLeaveContext = viewModel::leaveContext,
             composer =
@@ -297,6 +300,7 @@ fun RoomScreen(
     compactThreads: Boolean = true,
     /** Shown in a thread: the header says so. */
     inThread: Boolean = false,
+    pins: PinsUi = PinsUi(),
 ) {
     val scope = rememberCoroutineScope()
     val overlays = remember { OverlayState() }
@@ -341,7 +345,13 @@ fun RoomScreen(
         }
     }
     BackHandler(enabled = context != null, onBack = onLeaveContext)
-    RoomOverlays(overlays, composer, resolver, onSaveMedia, onOpenThread)
+    RoomOverlays(overlays, composer, resolver, onSaveMedia, onOpenThread, pins)
+    if (overlays.pinsShown) {
+        PinnedSheet(pins, resolver, onShow = { eventId ->
+            overlays.pinsShown = false
+            actions.jumpTo(eventId)
+        }) { overlays.pinsShown = false }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -350,7 +360,11 @@ fun RoomScreen(
         // navigation bar and the keyboard.
         contentWindowInsets = WindowInsets(0),
         topBar = {
-            HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia, onOpenRoomInfo, inThread)
+            Column {
+                HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia, onOpenRoomInfo, inThread)
+                val pinned = pins.pins.eventIds.size
+                if (pinned > 0 && !inThread) PinnedBar(pinned, { overlays.pinsShown = true })
+            }
         },
         bottomBar = {
             ComposerArea(overlays, composer, resolver) {

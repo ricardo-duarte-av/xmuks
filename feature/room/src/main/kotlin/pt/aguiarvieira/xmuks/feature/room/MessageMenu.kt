@@ -50,6 +50,9 @@ internal fun MessageMenu(
     quickReactions: List<String> = emptyList(),
     onReact: (String) -> Unit = {},
     onMoreReactions: () -> Unit = {},
+    /** Whether it's pinned; null when we may not pin or unpin. */
+    pinned: Boolean? = null,
+    onPin: () -> Unit = {},
 ) {
     @Suppress("DEPRECATION") // The suspend Clipboard API needs ClipEntry plumbing for plain text.
     val clipboard = LocalClipboardManager.current
@@ -59,7 +62,7 @@ internal fun MessageMenu(
         Column(Modifier.padding(bottom = 24.dp)) {
             if (sent) QuickReactions(quickReactions, onReact, onMoreReactions)
             if (sent) SentItems(message, onReply, onEdit, onHistory)
-            if (sent && onThread != null) Item(R.drawable.ic_thread, R.string.reply_in_thread, onThread)
+            if (sent) ThreadAndPin(onThread, pinned, onPin)
             if (onSave != null && message.uploadProgress == null) Item(R.drawable.ic_download, R.string.save, onSave)
             if (text != null) {
                 Item(R.drawable.ic_copy, R.string.copy_text) {
@@ -71,6 +74,23 @@ internal fun MessageMenu(
                 Item(R.drawable.ic_delete, R.string.delete) { onDelete() }
             }
         }
+    }
+}
+
+/** Answering in its thread, and pinning or unpinning it, as each is possible. */
+@Composable
+private fun ThreadAndPin(
+    onThread: (() -> Unit)?,
+    pinned: Boolean?,
+    onPin: () -> Unit,
+) {
+    if (onThread != null) Item(R.drawable.ic_thread, R.string.reply_in_thread, onThread)
+    if (pinned != null) {
+        Item(
+            if (pinned) R.drawable.ic_pin_off else R.drawable.ic_pin,
+            if (pinned) R.string.unpin else R.string.pin,
+            onPin
+        )
     }
 }
 

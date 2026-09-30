@@ -46,6 +46,9 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 internal class OverlayState {
     var unsent by mutableStateOf<TimelineItem.Message?>(null)
     var menuFor by mutableStateOf<TimelineItem.Message?>(null)
+
+    /** The pinned messages' list. */
+    var pinsShown by mutableStateOf(false)
     var deleting by mutableStateOf<TimelineItem.Message?>(null)
     var picker by mutableStateOf<PickerRequest?>(null)
 
@@ -76,8 +79,9 @@ internal fun RoomOverlays(
     resolver: MediaResolver,
     onSaveMedia: (Media) -> Unit = {},
     onOpenThread: ((String) -> Unit)? = null,
+    pins: PinsUi = PinsUi(),
 ) {
-    state.menuFor?.let { message -> MessageMenuFor(message, state, composer, onSaveMedia, onOpenThread) }
+    state.menuFor?.let { message -> MessageMenuFor(message, state, composer, onSaveMedia, onOpenThread, pins) }
     // The composer's pickers live in place of the keyboard (ComposerPanel); reactions get a sheet.
     state.picker?.takeIf { it.reactTo != null }?.let { request ->
         EmojiPickerSheet(
@@ -346,9 +350,15 @@ private fun MessageMenuFor(
     composer: ComposerActions,
     onSaveMedia: (Media) -> Unit,
     onOpenThread: ((String) -> Unit)?,
+    pins: PinsUi,
 ) {
     MessageMenu(
         message,
+        pinned = if (pins.pins.canPin) message.eventId in pins.pins.eventIds else null,
+        onPin = {
+            pins.onToggle(message.eventId)
+            state.menuFor = null
+        },
         onThread =
             onOpenThread?.let { open ->
                 {

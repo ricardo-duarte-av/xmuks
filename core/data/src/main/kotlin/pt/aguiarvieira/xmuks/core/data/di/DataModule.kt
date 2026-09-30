@@ -352,7 +352,8 @@ object DataModule {
         uploads: MediaSender,
         scope: CoroutineScope,
         prefs: PreferenceStore,
-    ) = RoomSessions(timelines, exec, database, outbox, uploads, scope, prefs)
+        ingestor: SyncIngestor,
+    ) = RoomSessions(timelines, exec, database, outbox, uploads, scope, prefs, ingestor.stateChanged)
 
     /** Unsent messages: their own database, which (unlike the cache) survives schema changes. */
     @Provides @Singleton

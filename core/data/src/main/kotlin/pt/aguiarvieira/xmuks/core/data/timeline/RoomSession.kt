@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -33,6 +35,7 @@ import pt.aguiarvieira.xmuks.core.data.outbox.toTimelineItems
 import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
+import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
@@ -55,6 +58,8 @@ class RoomSession(
     private val uploads: MediaSender,
     private val scope: CoroutineScope,
     prefs: PreferenceStore? = null,
+    /** Rooms whose state a sync changed: this room's is fetched again when it's among them. */
+    private val stateChanges: Flow<String> = emptyFlow(),
 ) {
     private val dao = database.roomListDao()
 
@@ -209,6 +214,19 @@ class RoomSession(
         )
     }
 
+    /** What's pinned here (`m.room.pinned_events`), and whether we may change it. */
+    val pins: Flow<Pins> =
+        combine(state, dao.meta().map { it?.userId }.distinctUntilChanged()) { events, me ->
+            val pinned =
+                events.firstOrNull { it.type == Pins.TYPE && it.stateKey == "" }?.content?.get("pinned") as? JsonArray
+            val ids = pinned.orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+            val levels = RoomInfo.parse(roomId, events).powerLevels
+            Pins(ids, me != null && levels.canSetState(me, Pins.TYPE))
+        }.distinctUntilChanged()
+
+    /** Pinning and unpinning, and the pinned messages themselves. */
+    val pinning = RoomPinning(roomId, exec, pins, { getEvent(it, unredact = false) }, { itemsOf(flowOf(it)).first() })
+
     /** One of this room's threads, from its root. */
     fun thread(rootId: String) = ThreadTimeline(roomId, rootId, exec, snapshot)
 
@@ -226,6 +244,7 @@ class RoomSession(
         seedProfiles()
         scope.launch { store.open(roomId) }
         scope.launch { fetchState() }
+        scope.launch { stateChanges.filter { it == roomId }.collect { fetchState() } }
     }
 
     suspend fun loadOlder() = store.loadOlder(roomId)
@@ -357,8 +376,9 @@ class RoomSessions(
     private val uploads: MediaSender,
     private val scope: CoroutineScope,
     private val prefs: PreferenceStore? = null,
+    private val stateChanges: Flow<String> = emptyFlow(),
 ) {
-    fun open(roomId: String) = RoomSession(roomId, store, exec, database, outbox, uploads, scope, prefs)
+    fun open(roomId: String) = RoomSession(roomId, store, exec, database, outbox, uploads, scope, prefs, stateChanges)
 
     /** Stops our typing notification in [roomId], outliving whoever asked. */
     fun stopTyping(roomId: String) {
