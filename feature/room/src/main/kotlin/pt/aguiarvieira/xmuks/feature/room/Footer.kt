@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import pt.aguiarvieira.xmuks.core.data.timeline.BridgeDelivery
 import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import java.text.DateFormat
@@ -52,7 +53,29 @@ internal fun Footer(
             )
         }
         Text(time, color = color, style = MaterialTheme.typography.labelSmall)
+        message.bridgeDelivery?.let { BridgeTicks(it, color) }
     }
+}
+
+/** Ours in a bridged room: ✓ the network has it, ✓✓ it reached them, or the bridge failed it. */
+@Composable
+private fun BridgeTicks(
+    delivery: BridgeDelivery,
+    color: Color,
+) {
+    val (icon, label) =
+        when (delivery) {
+            BridgeDelivery.Sent -> R.drawable.ic_check to R.string.bridge_sent
+            BridgeDelivery.Delivered -> R.drawable.ic_done_all to R.string.bridge_delivered
+            BridgeDelivery.Failed -> R.drawable.ic_error to R.string.bridge_failed
+        }
+    val tint = if (delivery == BridgeDelivery.Failed) MaterialTheme.colorScheme.error else color
+    Icon(
+        painterResource(icon),
+        contentDescription = stringResource(label),
+        tint = tint,
+        modifier = Modifier.size(14.dp)
+    )
 }
 
 /** Our messages that aren't out yet: a clock while sending, a warning when it needs a decision. */

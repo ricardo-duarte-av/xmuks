@@ -74,6 +74,9 @@ class RoomSession(
     /** Current room state events (no members), as of this open. */
     val state: StateFlow<List<Event>> = _state.asStateFlow()
 
+    /** What this room is bridged to, if it is. */
+    val bridge: Flow<BridgeInfo?> = state.map(::bridgeOf).distinctUntilChanged()
+
     /** Polls here: their votes, and starting, answering and ending them. */
     val polls = RoomPolls(roomId, exec, outbox, scope)
 

@@ -70,6 +70,7 @@ import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
+import pt.aguiarvieira.xmuks.core.data.timeline.BridgeInfo
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
@@ -113,6 +114,8 @@ fun RoomRoute(
     val loadingOlder by viewModel.loadingOlder.collectAsStateWithLifecycle()
     val hasMoreBefore by viewModel.hasMoreBefore.collectAsStateWithLifecycle()
     val linkPreviews by viewModel.linkPreviews.previews.collectAsStateWithLifecycle()
+    val bridge by viewModel.bridge.collectAsStateWithLifecycle()
+    val newestEvent by viewModel.newestEvent.collectAsStateWithLifecycle()
     val mentionHints by viewModel.mentions.suggestions.collectAsStateWithLifecycle()
     val loadedEvents by viewModel.loadedEvents.collectAsStateWithLifecycle()
     val unread by viewModel.unread.collectAsStateWithLifecycle()
@@ -156,7 +159,8 @@ fun RoomRoute(
             roomId = roomId,
             sharedScope = sharedScope,
             room = room,
-            timeline = TimelineState(items, loadingOlder, hasMoreBefore, loadedEvents, unread),
+            timeline = TimelineState(items, loadingOlder, hasMoreBefore, loadedEvents, unread, newestEvent),
+            bridge = bridge,
             context = context,
             typing = typing,
             resolver = resolver,
@@ -291,6 +295,8 @@ data class TimelineState(
     val loadedEvents: Int = 0,
     /** Where reading stopped when the room opened, for "New messages" and the jump to it. */
     val unread: UnreadMarker? = null,
+    /** The newest event from someone else, shown or not: what reading to the bottom marks read. */
+    val newestEvent: String? = null,
 )
 
 /**
@@ -325,6 +331,8 @@ fun RoomScreen(
     /** Shown in a thread: the header says so. */
     inThread: Boolean = false,
     pins: PinsUi = PinsUi(),
+    /** What the room is bridged to: the composer and header say so. */
+    bridge: BridgeInfo? = null,
 ) {
     val scope = rememberCoroutineScope()
     val overlays = remember { OverlayState() }
@@ -396,7 +404,8 @@ fun RoomScreen(
                     onOpenMedia,
                     onOpenRoomInfo,
                     onSearch,
-                    inThread
+                    inThread,
+                    bridge,
                 )
                 val pinned = pins.pins.eventIds.size
                 if (pinned > 0 && !inThread) PinnedBar(pinned, { overlays.pinsShown = true })
@@ -421,6 +430,7 @@ fun RoomScreen(
                     onChoosePersona = composer.onChoosePersona,
                     onOpenPersonas = { overlays.choosingPersona = true },
                     previews = composer.linkPreviews,
+                    network = bridge?.protocol,
                     mentions = composer.mentions,
                 )
             }
@@ -437,7 +447,7 @@ fun RoomScreen(
                 ContextTimeline(context, contextList, resolver, actions, highlighted, onLeaveContext)
             } else {
                 LiveTimeline(timeline, liveList, followNext, resolver, actions, highlighted, onLoadOlder)
-                MarkReadAtBottom(timeline.items, liveList, composer.onMarkRead)
+                MarkReadAtBottom(timeline, liveList, composer.onMarkRead)
             }
         }
     }
@@ -456,6 +466,7 @@ private fun HeaderCard(
     onRoomInfo: () -> Unit,
     onSearch: () -> Unit,
     inThread: Boolean = false,
+    bridge: BridgeInfo? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
@@ -478,6 +489,7 @@ private fun HeaderCard(
                 )
             },
             actions = {
+                bridge?.let { BridgeBadge(it, resolver) }
                 IconButton(onClick = { menu = true }) {
                     Icon(painterResource(R.drawable.ic_more), contentDescription = stringResource(R.string.room_menu))
                 }
@@ -609,12 +621,12 @@ private fun Timeline(
  */
 @Composable
 private fun MarkReadAtBottom(
-    items: List<TimelineItem>?,
+    timeline: TimelineState,
     list: LazyListState,
     onMarkRead: (String) -> Unit,
 ) {
     val newest =
-        items
+        timeline.newestEvent ?: timeline.items
             ?.asSequence()
             ?.filterIsInstance<TimelineItem.Message>()
             ?.firstOrNull { !it.fromMe && it.eventId.startsWith("$") }

@@ -64,6 +64,8 @@ internal fun ComposerCard(
     onOpenPersonas: () -> Unit = {},
     previews: LinkPreviewsUi = LinkPreviewsUi(),
     mentions: MentionHintsUi = MentionHintsUi(),
+    /** The network a bridged room is on: the hint says the message goes there. */
+    network: String? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     ScreenCard(
@@ -114,7 +116,8 @@ internal fun ComposerCard(
                         Box {
                             if (state.text.isEmpty()) {
                                 Text(
-                                    stringResource(R.string.composer_hint),
+                                    network?.let { stringResource(R.string.composer_hint_network, it) }
+                                        ?: stringResource(R.string.composer_hint),
                                     style = style,
                                     color = colors.onSurfaceVariant,
                                 )

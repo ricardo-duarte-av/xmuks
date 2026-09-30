@@ -159,6 +159,7 @@ class TimelineItemBuilder(
             thread = threadOf(event, byEventId, members),
             threadReplies = maxOf(threadSizes[event.eventId] ?: 0, event.threadCount()),
             linkPreviews = if (options.showUrlPreviews) linkPreviewsOf(content) else emptyList(),
+            bridgeDelivery = if (event.sender == me) bridgeDeliveryOf(references[event.eventId].orEmpty()) else null,
         )
     }
 

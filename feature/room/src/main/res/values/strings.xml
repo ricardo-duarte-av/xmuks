@@ -152,4 +152,9 @@
     <string name="link_preview_load">Preview %1$s</string>
     <string name="link_preview_failed">No preview for %1$s · retry</string>
     <string name="link_preview_remove">Leave the preview out</string>
+    <string name="bridge_sent">Delivered to the network</string>
+    <string name="bridge_delivered">Delivered</string>
+    <string name="bridge_failed">The bridge couldn’t deliver it</string>
+    <string name="composer_hint_network">%1$s message</string>
+    <string name="bridged_to">Bridged to %1$s</string>
 </resources>

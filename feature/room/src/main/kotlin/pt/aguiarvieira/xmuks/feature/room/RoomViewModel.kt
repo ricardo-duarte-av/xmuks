@@ -40,6 +40,7 @@ import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
 import pt.aguiarvieira.xmuks.core.data.rooms.MentionTargets
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
+import pt.aguiarvieira.xmuks.core.data.timeline.BridgeInfo
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
@@ -99,6 +100,18 @@ class RoomViewModel
         val items: StateFlow<List<TimelineItem>?> =
             combine(thread?.let { session.itemsOf(it.snapshot) } ?: session.items, unread) { items, u ->
                 items.asReversed().withUnreadSeparator(u?.timestamp)
+            }.stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        /** What this room is bridged to, if it is. */
+        val bridge: StateFlow<BridgeInfo?> = session.bridge.stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        /**
+         * The newest event someone else sent, shown or not (a bridge's delivery report is hidden, but
+         * reading up to it is still reading everything): where the read marker goes.
+         */
+        val newestEvent: StateFlow<String?> =
+            combine(timeline, rooms.ownProfile()) { snapshot, me ->
+                snapshot.events.lastOrNull { it.eventId.startsWith("$") && it.sender != me?.userId }?.eventId
             }.stateIn(viewModelScope, WHILE_VISIBLE, null)
 
         val loadingOlder: StateFlow<Boolean> =
