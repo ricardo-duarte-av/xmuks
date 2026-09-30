@@ -74,7 +74,10 @@ class RoomSession(
     /** Current room state events (no members), as of this open. */
     val state: StateFlow<List<Event>> = _state.asStateFlow()
 
-    val snapshot: Flow<TimelineSnapshot> = flow { emitAll(store.observe(roomId)) }
+    /** Polls here: their votes, and starting, answering and ending them. */
+    val polls = RoomPolls(roomId, exec, outbox, scope)
+
+    val snapshot: Flow<TimelineSnapshot> = polls.withVotes(flow { emitAll(store.observe(roomId)) })
 
     /**
      * What the timeline shows; rebuilt off the main thread whenever the timeline or a profile

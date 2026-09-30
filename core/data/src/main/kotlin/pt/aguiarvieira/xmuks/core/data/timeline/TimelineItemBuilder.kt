@@ -28,6 +28,9 @@ class TimelineItemBuilder(
      */
     private var threadSizes: Map<String?, Int> = emptyMap()
 
+    /** What we hold that references each event (poll votes and ends among them), by that event. */
+    private var references: Map<String?, List<Event>> = emptyMap()
+
     fun build(
         snapshot: TimelineSnapshot,
         profiles: Map<String, MemberProfile>,
@@ -41,6 +44,10 @@ class TimelineItemBuilder(
                 .filter { it.relationType == THREAD }
                 .groupingBy { it.relatesTo }
                 .eachCount()
+        references =
+            snapshot.eventsByRowId.values
+                .filter { it.relationType == REFERENCE }
+                .groupBy { it.relatesTo }
 
         val out = ArrayList<TimelineItem>(snapshot.events.size + DAY_SEPARATOR_SLACK)
         var previous: Event? = null
@@ -191,6 +198,12 @@ class TimelineItemBuilder(
             event.decrypted == null
         ) {
             return MessageContent.Undecryptable(event.decryptionError)
+        }
+        if (event.effectiveType in PollTypes.starts) {
+            pollOf(content)?.let { poll ->
+                val related = references[event.eventId].orEmpty()
+                return MessageContent.Poll(poll, tally(event.eventId, event.sender, poll, related, me))
+            }
         }
         val body = content.str("body").orEmpty()
         if (event.effectiveType == "m.sticker") {
@@ -366,7 +379,7 @@ class TimelineItemBuilder(
         /** gomuks' placeholder while it has no send result: not an error. */
         const val NOT_SENT = "not sent"
         const val PER_MESSAGE_PROFILE_STABLE = "m.per_message_profile"
-        val MESSAGE_TYPES = setOf("m.room.message", "m.sticker", "m.room.encrypted")
+        val MESSAGE_TYPES = setOf("m.room.message", "m.sticker", "m.room.encrypted") + PollTypes.starts
         val STATE_TYPES =
             setOf("m.room.member", "m.room.name", "m.room.topic", "m.room.avatar", "m.room.create", "m.room.encryption")
         val HIDDEN_TYPES = setOf("m.reaction", "m.room.redaction")

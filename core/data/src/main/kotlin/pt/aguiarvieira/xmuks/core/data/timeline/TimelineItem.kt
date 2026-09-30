@@ -182,6 +182,12 @@ sealed interface MessageContent {
         val geoUri: String?,
     ) : MessageContent
 
+    /** A poll (MSC3381) and where its voting stands. */
+    data class Poll(
+        val poll: pt.aguiarvieira.xmuks.core.data.timeline.Poll,
+        val tally: PollTally,
+    ) : MessageContent
+
     data object Redacted : MessageContent
 
     data class Undecryptable(

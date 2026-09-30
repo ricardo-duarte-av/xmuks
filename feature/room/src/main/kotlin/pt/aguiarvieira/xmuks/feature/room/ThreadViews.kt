@@ -171,6 +171,7 @@ internal fun summaryOf(content: MessageContent): String =
         is MessageContent.File -> content.name
         is MessageContent.Sticker -> content.body
         is MessageContent.Location -> content.body
+        is MessageContent.Poll -> stringResource(R.string.summary_poll, content.poll.question)
         MessageContent.Redacted -> stringResource(R.string.redacted)
         else -> ""
     }

@@ -130,4 +130,23 @@
         <item quantity="other">%1$d pinned messages</item>
     </plurals>
     <string name="search_room">Search</string>
+    <string name="poll">Poll</string>
+    <string name="attach_poll">Poll</string>
+    <string name="poll_new">New poll</string>
+    <string name="poll_question">Question</string>
+    <string name="poll_answer">Answer %1$d</string>
+    <string name="poll_add_answer">Add an answer</string>
+    <string name="poll_remove_answer">Remove this answer</string>
+    <string name="poll_multiple">Allow several answers</string>
+    <string name="poll_hide_results">Hide results until it ends</string>
+    <string name="poll_start">Start poll</string>
+    <string name="poll_end">End poll</string>
+    <string name="poll_ended">Ended · %1$s</string>
+    <string name="poll_results_at_end">Results show when the poll ends</string>
+    <string name="poll_pick_up_to">Up to %1$d answers · %2$s</string>
+    <string name="summary_poll">Poll: %1$s</string>
+    <plurals name="poll_votes">
+        <item quantity="one">%d vote</item>
+        <item quantity="other">%d votes</item>
+    </plurals>
 </resources>

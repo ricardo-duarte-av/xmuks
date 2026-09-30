@@ -70,6 +70,8 @@ class TimelineActions(
     val openThread: ((rootId: String) -> Unit)? = null,
     /** Threads' messages in the main timeline as one line each (gomuks' `small_threads`). */
     val compactThreads: Boolean = true,
+    /** Answering a poll: our picks become these. */
+    val onVote: (TimelineItem.Message, List<String>) -> Unit = { _, _ -> },
 )
 
 /** Briefly tints the row a jump landed on, so the eye finds it. */

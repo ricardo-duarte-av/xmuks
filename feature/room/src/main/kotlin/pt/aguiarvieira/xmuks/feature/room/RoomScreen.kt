@@ -200,7 +200,15 @@ fun RoomRoute(
                         ),
                     personas = personas,
                     onChoosePersona = viewModel.personas::choose,
-                    attachments = SUPPORTED_ATTACHMENTS,
+                    // A poll starts in the room, never in a thread.
+                    attachments =
+                        if (threadRoot ==
+                            null
+                        ) {
+                            SUPPORTED_ATTACHMENTS
+                        } else {
+                            SUPPORTED_ATTACHMENTS - Attachment.Poll
+                        },
                     mediaDraft = mediaDraft,
                     onPickMedia = viewModel.attach::pick,
                     onPickMany = { uris -> onSendFiles(uris.map { it.toString() }) },
@@ -209,6 +217,7 @@ fun RoomRoute(
                     onCancelMedia = viewModel.attach::cancel,
                     onSendVoice = viewModel.attach::sendVoice,
                     onSendLocation = viewModel::sendLocation,
+                    polls = viewModel.polls,
                 ),
             modifier = modifier,
         )
@@ -248,6 +257,7 @@ class ComposerActions(
     val onCancelMedia: () -> Unit = {},
     val onSendVoice: (java.io.File) -> Unit = {},
     val onSendLocation: (PickedLocation) -> Unit = {},
+    val polls: PollActions = PollActions(),
 )
 
 /** What the emoji/sticker pickers show, and what picking does. */
@@ -329,6 +339,7 @@ fun RoomScreen(
                 onUnsent = { overlays.unsent = it },
                 onMessageMenu = { overlays.menuFor = it },
                 onReaction = composer.emoji.onToggle,
+                onVote = composer.polls.onVote,
                 jumpTo = { eventId ->
                     val index = shown?.indexOfEvent(eventId) ?: -1
                     if (index >= 0) {

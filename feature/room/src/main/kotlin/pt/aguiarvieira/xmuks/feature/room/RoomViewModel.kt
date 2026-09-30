@@ -179,6 +179,8 @@ class RoomViewModel
         /** Pinned messages: which, the list, pinning and unpinning. */
         val pins = PinActions(viewModelScope, session, WHILE_VISIBLE)
 
+        val polls = pollActions(viewModelScope, session.polls)
+
         /** Reacting, stickers, recent emoji and pack subscriptions. */
         val emoji = EmojiActions(viewModelScope, session, WHILE_VISIBLE) { target.reply() }
 

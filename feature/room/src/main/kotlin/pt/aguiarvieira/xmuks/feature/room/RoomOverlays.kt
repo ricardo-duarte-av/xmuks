@@ -37,6 +37,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
+import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.media
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
@@ -63,6 +64,9 @@ internal class OverlayState {
 
     /** Picking a place on the map. */
     var pickingLocation by mutableStateOf(false)
+
+    /** Writing a poll. */
+    var writingPoll by mutableStateOf(false)
 }
 
 /** An open picker: for a reaction to [reactTo], or for the composer. */
@@ -325,6 +329,7 @@ private fun ComposerOverlays(
                 when (it) {
                     Attachment.Voice -> state.recordingVoice = true
                     Attachment.Location -> state.pickingLocation = true
+                    Attachment.Poll -> state.writingPoll = true
                     else -> launch(it)
                 }
             },
@@ -337,6 +342,7 @@ private fun ComposerOverlays(
     }
     if (state.recordingVoice) VoiceSheet(composer.onSendVoice) { state.recordingVoice = false }
     if (state.pickingLocation) LocationPicker(composer.onSendLocation) { state.pickingLocation = false }
+    if (state.writingPoll) PollComposer(composer.polls.onStart) { state.writingPoll = false }
     if (state.choosingPersona) {
         PersonaChooser(composer.personas, resolver.avatar, composer.onChoosePersona) { state.choosingPersona = false }
     }
@@ -370,6 +376,13 @@ private fun MessageMenuFor(
             message.content.media?.let { media ->
                 {
                     onSaveMedia(media)
+                    state.menuFor = null
+                }
+            },
+        onEndPoll =
+            (message.content as? MessageContent.Poll)?.takeIf { message.fromMe && !it.tally.ended }?.let {
+                {
+                    composer.polls.onEnd(message)
                     state.menuFor = null
                 }
             },

@@ -77,7 +77,7 @@ internal fun rememberAttachLauncher(
             }
 
             // These open their own sheets (a recorder, a map) rather than another app.
-            Attachment.Voice, Attachment.Location -> {}
+            Attachment.Voice, Attachment.Location, Attachment.Poll -> {}
         }
     }
 }

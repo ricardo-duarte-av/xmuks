@@ -16,6 +16,9 @@ import pt.aguiarvieira.xmuks.core.data.rooms.Unread
 import pt.aguiarvieira.xmuks.core.data.timeline.Change
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
+import pt.aguiarvieira.xmuks.core.data.timeline.Poll
+import pt.aguiarvieira.xmuks.core.data.timeline.PollAnswer
+import pt.aguiarvieira.xmuks.core.data.timeline.PollTally
 import pt.aguiarvieira.xmuks.core.data.timeline.Reaction
 import pt.aguiarvieira.xmuks.core.data.timeline.Reader
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyPreview
@@ -175,4 +178,28 @@ class RoomScreenshotTest {
 
     @Test
     fun loading() = shoot("room_loading") { Screen(null) }
+
+    @Test
+    fun polls() =
+        shoot("room_polls") {
+            val answers = listOf(PollAnswer("a", "Pizza"), PollAnswer("b", "Sushi"), PollAnswer("c", "Soup"))
+            Screen(
+                listOf(
+                    msg(
+                        MessageContent.Poll(Poll("Lunch?", answers, 1, true), PollTally(mapOf("a" to 1, "b" to 3), setOf("b"), 4)),
+                        sender = "@bob:x",
+                        name = "Bob",
+                    ),
+                    msg(
+                        MessageContent.Poll(Poll("Toppings?", answers, 3, false), PollTally(mine = setOf("a", "c"), voters = 2)),
+                        me = true,
+                    ),
+                    msg(
+                        MessageContent.Poll(Poll("Where?", answers.take(2), 1, true), PollTally(mapOf("a" to 2), voters = 2, ended = true)),
+                        sender = "@bob:x",
+                        name = "Bob",
+                    ),
+                ).asReversed(),
+            )
+        }
 }

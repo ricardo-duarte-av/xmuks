@@ -277,6 +277,35 @@ private fun Content(
             PlayableAudio(message, c, color, resolver, actions)
         }
 
+        is MessageContent.File, is MessageContent.Location, is MessageContent.Poll -> {
+            CardContent(message, c, color, actions)
+        }
+
+        MessageContent.Redacted -> {
+            Quiet(stringResource(R.string.redacted), color, lastLine)
+        }
+
+        is MessageContent.Undecryptable -> {
+            Quiet(stringResource(R.string.undecryptable), color, lastLine)
+        }
+
+        is MessageContent.Unsupported -> {
+            c.body?.takeIf { it.isNotBlank() }?.let {
+                Text(it, color = color, style = style, onTextLayout = { layout -> lastLine?.update(layout) })
+            } ?: Quiet(stringResource(R.string.unsupported, c.type), color, lastLine)
+        }
+    }
+}
+
+/** Content drawn as a card in the bubble: a file, a place, a poll. */
+@Composable
+private fun CardContent(
+    message: TimelineItem.Message,
+    c: MessageContent,
+    color: Color,
+    actions: TimelineActions,
+) {
+    when (c) {
         is MessageContent.File -> {
             Box(contentAlignment = Alignment.Center) {
                 FileCard(
@@ -294,19 +323,11 @@ private fun Content(
             LocationCard(c, color)
         }
 
-        MessageContent.Redacted -> {
-            Quiet(stringResource(R.string.redacted), color, lastLine)
+        is MessageContent.Poll -> {
+            PollCard(c, color, { picks -> actions.onVote(message, picks) })
         }
 
-        is MessageContent.Undecryptable -> {
-            Quiet(stringResource(R.string.undecryptable), color, lastLine)
-        }
-
-        is MessageContent.Unsupported -> {
-            c.body?.takeIf { it.isNotBlank() }?.let {
-                Text(it, color = color, style = style, onTextLayout = { layout -> lastLine?.update(layout) })
-            } ?: Quiet(stringResource(R.string.unsupported, c.type), color, lastLine)
-        }
+        else -> {}
     }
 }
 

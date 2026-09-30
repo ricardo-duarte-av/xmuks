@@ -53,6 +53,8 @@ internal fun MessageMenu(
     /** Whether it's pinned; null when we may not pin or unpin. */
     pinned: Boolean? = null,
     onPin: () -> Unit = {},
+    /** Ending our poll; null when it isn't one we can end. */
+    onEndPoll: (() -> Unit)? = null,
 ) {
     @Suppress("DEPRECATION") // The suspend Clipboard API needs ClipEntry plumbing for plain text.
     val clipboard = LocalClipboardManager.current
@@ -63,6 +65,7 @@ internal fun MessageMenu(
             if (sent) QuickReactions(quickReactions, onReact, onMoreReactions)
             if (sent) SentItems(message, onReply, onEdit, onHistory)
             if (sent) ThreadAndPin(onThread, pinned, onPin)
+            if (sent && onEndPoll != null) Item(R.drawable.ic_poll, R.string.poll_end, onEndPoll)
             if (onSave != null && message.uploadProgress == null) Item(R.drawable.ic_download, R.string.save, onSave)
             if (text != null) {
                 Item(R.drawable.ic_copy, R.string.copy_text) {
