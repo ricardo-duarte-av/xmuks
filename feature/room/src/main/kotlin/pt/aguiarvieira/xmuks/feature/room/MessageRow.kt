@@ -161,7 +161,9 @@ private fun BubbleRow(
     // Ours that didn't go out: tap to resend or discard.
     val stuck =
         message.localId != null && (message.sendState == SendState.Failed || message.sendState == SendState.Unknown)
-    Row(
+    BubbleWithReceipts(
+        mine = mine,
+        fraction = BUBBLE_FRACTION,
         modifier =
             Modifier.fillMaxWidth().combinedClickable(
                 interactionSource = null,
@@ -169,31 +171,23 @@ private fun BubbleRow(
                 onClick = { if (stuck) actions.onUnsent(message) },
                 onLongClick = { actions.onMessageMenu(message) },
             ),
-        horizontalArrangement = if (mine) Arrangement.End else Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom,
+        receipts =
+            if (receipts.isEmpty()) {
+                null
+            } else {
+                {
+                    val gap = if (mine) Modifier.padding(end = RECEIPT_GAP) else Modifier.padding(start = RECEIPT_GAP)
+                    ReadReceipts(receipts, resolver, actions.openUser, gap)
+                }
+            },
     ) {
-        if (mine &&
-            receipts.isNotEmpty()
-        ) {
-            ReadReceipts(receipts, resolver, actions.openUser, Modifier.padding(end = RECEIPT_GAP))
-        }
-        // Without receipts beside it a bubble still leaves the far side free.
-        val cap = if (receipts.isEmpty()) Modifier.maxWidthFraction(BUBBLE_FRACTION) else Modifier
-        Column(
-            horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
-            modifier = Modifier.weight(1f, fill = false).then(cap),
-        ) {
+        Column(horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
             if (message.content.isBare()) {
                 Content(message, resolver, MaterialTheme.colorScheme.onSurface, open, actions)
                 Footer(message, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(horizontal = 4.dp))
             } else {
                 Bubble(message) { color -> BubbleContent(message, resolver, color, open, actions) }
             }
-        }
-        if (!mine &&
-            receipts.isNotEmpty()
-        ) {
-            ReadReceipts(receipts, resolver, actions.openUser, Modifier.padding(start = RECEIPT_GAP))
         }
     }
 }
