@@ -16,8 +16,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -26,9 +29,15 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 
 /** A reader's avatar on a message, and whether it's coming, staying, or going. */
 internal class ShownReader(
-    var reader: Reader,
+    reader: Reader,
     val visible: MutableTransitionState<Boolean>,
-)
+) {
+    /**
+     * Observed: a reader's name and avatar often arrive after their receipt (profiles resolve
+     * later), and the avatar must redraw when they do.
+     */
+    var reader by mutableStateOf(reader)
+}
 
 /**
  * The readers shown on one message, animated: those arriving grow and fade in, those leaving
