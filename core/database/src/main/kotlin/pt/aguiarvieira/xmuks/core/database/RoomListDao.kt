@@ -272,6 +272,10 @@ interface RoomListDao {
     @Query("SELECT content FROM account_data WHERE roomId = :roomId AND type = 'm.fully_read'")
     fun fullyRead(roomId: String): Flow<String?>
 
+    /** The event the room list previews (its newest shown one): what "mark read" marks read up to. */
+    @Query("SELECT e.eventId FROM rooms r JOIN events e ON e.rowId = r.previewEventRowId WHERE r.roomId = :roomId")
+    suspend fun previewEventId(roomId: String): String?
+
     /** One account data event's content ([roomId] "" = global), live. */
     @Query("SELECT content FROM account_data WHERE roomId = :roomId AND type = :type")
     fun accountData(

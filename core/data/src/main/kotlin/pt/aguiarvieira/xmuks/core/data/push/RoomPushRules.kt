@@ -1,8 +1,11 @@
 package pt.aguiarvieira.xmuks.core.data.push
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -41,11 +44,24 @@ class RoomPushRules(
 ) {
     private val dao = database.roomListDao()
 
+    /**
+     * What we set, by room, until gomuks' synced rules say the same: its copy of `m.push_rules` can
+     * lag far behind the server's (it may not update at all until gomuks reloads them).
+     */
+    private val chosen = MutableStateFlow<Map<String, RoomNotifications>>(emptyMap())
+
     fun setting(roomId: String): Flow<RoomNotifications> =
-        dao
-            .accountData("", PUSH_RULES)
-            .map { json -> json?.let { settingOf(parse(it), roomId) } ?: RoomNotifications.Default }
-            .distinctUntilChanged()
+        combine(
+            dao
+                .accountData("", PUSH_RULES)
+                .map { json -> json?.let { settingOf(parse(it), roomId) } ?: RoomNotifications.Default },
+            chosen,
+        ) { synced, mine ->
+            val ours = mine[roomId]
+            // Synced caught up: it's the truth again (and a change made elsewhere later shows).
+            if (ours == synced) chosen.update { it - roomId }
+            ours ?: synced
+        }.distinctUntilChanged()
 
     /**
      * Replaces whatever rule the room had with [setting]'s; null when done, else why not. Both
@@ -59,7 +75,14 @@ class RoomPushRules(
         listOf(OVERRIDE, ROOM).forEach { kind ->
             update(kind, roomId, "delete")?.takeUnless { NOT_FOUND in it }?.let { return it }
         }
-        return when (setting) {
+        return put(roomId, setting).also { error -> if (error == null) chosen.update { it + (roomId to setting) } }
+    }
+
+    private suspend fun put(
+        roomId: String,
+        setting: RoomNotifications,
+    ): String? =
+        when (setting) {
             RoomNotifications.Default -> {
                 null
             }
@@ -81,7 +104,6 @@ class RoomPushRules(
                 )
             }
         }
-    }
 
     private suspend fun update(
         kind: String,

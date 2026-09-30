@@ -58,7 +58,9 @@ import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvents
 import pt.aguiarvieira.xmuks.core.data.rooms.MentionTargets
 import pt.aguiarvieira.xmuks.core.data.rooms.Mentions
 import pt.aguiarvieira.xmuks.core.data.rooms.MessageSearch
+import pt.aguiarvieira.xmuks.core.data.rooms.RoomListActions
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
+import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
@@ -285,6 +287,15 @@ object DataModule {
         database: XmuksDatabase,
         exec: ExecClient,
     ) = RoomPushRules(database, exec)
+
+    @Provides @Singleton
+    fun roomListActions(
+        exec: ExecClient,
+        database: XmuksDatabase,
+        pushRules: RoomPushRules,
+        preferences: PreferenceStore,
+        shortcuts: RoomShortcuts,
+    ) = RoomListActions(exec, database, pushRules, preferences, shortcuts)
 
     @Provides @Singleton
     fun mentionTargets(

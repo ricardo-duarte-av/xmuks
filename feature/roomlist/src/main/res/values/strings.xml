@@ -38,4 +38,10 @@
     <string name="search_this_room">This room</string>
     <string name="search_on_server">On server</string>
     <string name="search_newest_first">Newest first</string>
+    <string name="room_menu_favourite">Favourite</string>
+    <string name="room_menu_low_priority">Low priority</string>
+    <string name="room_menu_mute">Mute</string>
+    <string name="room_menu_mark_read">Mark read</string>
+    <string name="room_menu_add_shortcut">Add shortcut to home screen</string>
+    <string name="room_menu_shortcut_unsupported">Your launcher doesn’t take shortcuts</string>
 </resources>

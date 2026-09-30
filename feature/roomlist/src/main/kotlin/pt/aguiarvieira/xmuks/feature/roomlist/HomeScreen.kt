@@ -349,6 +349,7 @@ internal fun RoomList(
         else -> {
             val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
             val list = rememberTopAnchoredState(rooms)
+            var menuFor by remember { mutableStateOf<RoomSummary?>(null) }
             LazyColumn(
                 modifier = modifier.fillMaxSize(),
                 state = list,
@@ -362,9 +363,11 @@ internal fun RoomList(
                         is24Hour = is24Hour,
                         sharedScope = sharedScope,
                         modifier = Modifier.animateItem(),
+                        onLongClick = { menuFor = room },
                     )
                 }
             }
+            menuFor?.let { RoomMenuSheet(it) { menuFor = null } }
         }
     }
 }

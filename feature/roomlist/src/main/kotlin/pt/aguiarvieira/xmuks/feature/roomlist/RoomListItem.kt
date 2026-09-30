@@ -1,6 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.roomlist
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +33,8 @@ fun RoomListItem(
     modifier: Modifier = Modifier,
     is24Hour: Boolean = true,
     sharedScope: String = SharedScopes.CHATS,
+    /** A long press: the room's menu. */
+    onLongClick: (() -> Unit)? = null,
 ) {
     val unread = room.unread.any
     val colors = MaterialTheme.colorScheme
@@ -41,7 +43,7 @@ fun RoomListItem(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
                 .padding(horizontal = 16.dp, vertical = display.verticalPadding),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,

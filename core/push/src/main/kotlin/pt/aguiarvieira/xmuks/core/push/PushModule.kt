@@ -11,9 +11,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
+import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
 import pt.aguiarvieira.xmuks.core.data.push.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
+import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import javax.inject.Provider
 import javax.inject.Singleton
 
@@ -25,6 +27,13 @@ object PushModule {
         registrar: Provider<PushRegistrar>,
         scope: CoroutineScope,
     ): PushTokenSource = FirebaseTokens(registrar) { work -> scope.launch { runCatching { work() } } }
+
+    @Provides @Singleton
+    fun roomShortcuts(
+        @ApplicationContext context: Context,
+        images: ImageLoader,
+        media: MediaUrls,
+    ): RoomShortcuts = PinnedShortcuts(context, images, media)
 
     @Provides @Singleton
     fun roomNotifier(
