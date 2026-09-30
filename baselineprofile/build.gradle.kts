@@ -1,4 +1,5 @@
-// Generates the app's baseline profile on a connected device (logged in, with a TEST7 room):
+// Generates the app's baseline profile on a connected device (logged in, with a TEST7 room;
+// gradle.properties keeps the app installed afterwards, so its data and login survive):
 //   ./gradlew :app:generateReleaseBaselineProfile
 plugins {
     alias(libs.plugins.android.test)
