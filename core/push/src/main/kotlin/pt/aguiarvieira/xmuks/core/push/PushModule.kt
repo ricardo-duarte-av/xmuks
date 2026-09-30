@@ -10,12 +10,19 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
 import pt.aguiarvieira.xmuks.core.data.push.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
+import pt.aguiarvieira.xmuks.core.network.ExecClient
+import pt.aguiarvieira.xmuks.core.network.ExecMode
+import pt.aguiarvieira.xmuks.core.network.ExecResult
+import pt.aguiarvieira.xmuks.core.protocol.Event
+import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 import javax.inject.Provider
 import javax.inject.Singleton
 
@@ -41,10 +48,21 @@ object PushModule {
         images: ImageLoader,
         store: CredentialStore,
         rooms: RoomListRepository,
+        exec: ExecClient,
     ) = RoomNotifier(
         context,
         images,
         server = { store.credentials()?.serverUrl },
         isDirect = { roomId -> rooms.room(roomId).first()?.isDirect },
+        eventOf = { roomId, eventId ->
+            val params =
+                buildJsonObject {
+                    put("room_id", JsonPrimitive(roomId))
+                    put("event_id", JsonPrimitive(eventId))
+                }
+            (exec.exec("get_event", params, ExecMode.Read) as? ExecResult.Ok)?.let {
+                runCatching { GomuksJson.decodeFromJsonElement(Event.serializer(), it.data) }.getOrNull()
+            }
+        },
     )
 }

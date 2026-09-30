@@ -16,4 +16,5 @@ dependencies {
     implementation(libs.firebase.messaging)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.core.ktx)
+    testImplementation(libs.robolectric)
 }

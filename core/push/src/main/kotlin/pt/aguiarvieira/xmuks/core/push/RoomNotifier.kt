@@ -23,8 +23,10 @@ import coil3.request.SuccessResult
 import coil3.request.allowHardware
 import coil3.toBitmap
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.HttpUrl
 import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
+import pt.aguiarvieira.xmuks.core.protocol.Event
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -39,6 +41,8 @@ class RoomNotifier(
     private val server: () -> HttpUrl?,
     /** Whether a room is a DM, from our cache; null when we don't know the room yet. */
     private val isDirect: suspend (roomId: String) -> Boolean?,
+    /** The whole event (gomuks' `get_event`), for its formatting and media; null when it can't be had. */
+    private val eventOf: suspend (roomId: String, eventId: String) -> Event? = { _, _ -> null },
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private val manager = NotificationManagerCompat.from(context)
@@ -108,6 +112,18 @@ class RoomNotifier(
                 .setConversationTitle(if (direct) null else latest.roomName)
         val people = addMessages(style, fresh, imageAuth)
         val avatar = loadBitmap(latest.roomAvatar, imageAuth)
+        // The conversation's face (Android Auto shows it, the shade too): a group's own avatar; in a
+        // DM, the other person's (usually the room's too, which stands in when theirs won't load).
+        val face =
+            if (direct) {
+                Avatars.roundBitmap(
+                    loadBitmap(latest.sender.avatar, imageAuth) ?: avatar,
+                    latest.sender.name,
+                    latest.sender.id
+                )
+            } else {
+                Avatars.roundBitmap(avatar, latest.roomName, roomId)
+            }
         publishShortcut(
             roomId,
             latest.roomName,
@@ -126,6 +142,7 @@ class RoomNotifier(
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(ContextCompat.getColor(context, R.color.notification_accent))
                 .setStyle(style)
+                .setLargeIcon(face)
                 .setShortcutId(roomId)
                 .setLocusId(LocusIdCompat(roomId))
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
@@ -148,22 +165,23 @@ class RoomNotifier(
         val people = HashMap<String, Person>()
         fresh.forEach { m ->
             val sender = people.getOrPut(m.sender.id) { person(m.sender, imageAuth) }
+            val shown =
+                withTimeoutOrNull(EVENT_MS) { eventOf(m.roomId, m.eventId) }?.let { shownOf(it, m) }
+                    ?: shownOf(m)
             val message =
                 MessagingStyle
                     .Message(
-                        m.text,
+                        shown.text,
                         m.timestamp,
                         sender
                     ).apply { extras.putString(EVENT_ID, m.eventId) }
-            val picture = m.image?.let { pictureUri(it, m.eventId, imageAuth) }
+            val picture = shown.picture?.let { pictureUri(it, m.eventId, imageAuth) }
             if (picture != null) message.setData(JPEG, picture)
             style.addMessage(message)
             // A message with a picture shows only the picture: its caption follows as a line of its own.
-            if (picture != null &&
-                !m.text.looksLikeFileName()
-            ) {
-                style.addMessage(MessagingStyle.Message(m.text, m.timestamp, sender))
-            }
+            shown.caption
+                ?.takeUnless { it.toString().looksLikeFileName() }
+                ?.let { style.addMessage(MessagingStyle.Message(it, m.timestamp, sender)) }
         }
         return people
     }
@@ -299,6 +317,9 @@ class RoomNotifier(
         /** gomuks marks a room read when we reply: its dismissal is ignored for this long after. */
         const val REPLY_GUARD_MS = 10_000L
         private const val AVATAR_PX = 192
+
+        /** How long a message waits for its full event before showing what the push said. */
+        private const val EVENT_MS = 3_000L
         private const val ATTEMPTS = 2
         private const val RETRY_MS = 1_500L
 

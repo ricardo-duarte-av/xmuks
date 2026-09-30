@@ -22,6 +22,13 @@ internal object Avatars {
         id: String,
     ): IconCompat = IconCompat.createWithBitmap(circle(bitmap ?: initials(name, id, SIZE)))
 
+    /** The same round picture as a bitmap: a notification's large icon (the conversation's face). */
+    fun roundBitmap(
+        bitmap: Bitmap?,
+        name: String,
+        id: String,
+    ): Bitmap = circle(bitmap ?: initials(name, id, SIZE))
+
     /**
      * An adaptive icon (conversation shortcuts): the picture fills the part the launcher's mask
      * shows (the inner two thirds), so it's cropped round, not zoomed in.
