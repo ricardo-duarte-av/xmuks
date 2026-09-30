@@ -28,11 +28,17 @@ internal fun rememberTopAnchoredState(items: Any?): LazyListState {
         }
     }
     // During composition, so the list is measured at its top in the same frame the new order lands.
-    remember(items) { if (anchor.following) state.requestScrollToItem(0) }
+    if (anchor.seen !== items) {
+        anchor.seen = items
+        if (anchor.following) state.requestScrollToItem(0)
+    }
     return state
 }
 
 /** Not state: reading it must not recompose, only the list's changes decide. */
 private class TopAnchor {
     var following = true
+
+    /** The items last composed: a new list is what may need the scroll. */
+    var seen: Any? = null
 }
