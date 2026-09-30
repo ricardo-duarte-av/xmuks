@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application>
+        <!-- Without this, Android Auto ignores the app's notifications entirely. -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
         <!-- Should FCM ever show a notification itself, it uses our mark and colour too. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
