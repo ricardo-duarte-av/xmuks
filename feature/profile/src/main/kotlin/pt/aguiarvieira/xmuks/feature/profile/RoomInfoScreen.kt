@@ -52,6 +52,7 @@ fun RoomInfoRoute(
     onOpenUser: (userId: String) -> Unit,
     onOpenMembers: () -> Unit,
     onOpenState: () -> Unit,
+    onOpenGallery: () -> Unit,
     /** We left the room: nothing of it to go back to. */
     onLeft: () -> Unit,
     modifier: Modifier = Modifier,
@@ -71,7 +72,7 @@ fun RoomInfoRoute(
     LaunchedEffect(left) { if (left) leave() }
     val media = remember(viewModel) { ProfileMedia(viewModel.media::avatar, viewModel.media::full) }
     val actions =
-        remember(viewModel, onOpenUser, onOpenMedia, onOpenMembers, onOpenPreferences, onOpenState) {
+        remember(viewModel, onOpenUser, onOpenMedia, onOpenMembers, onOpenPreferences, onOpenState, onOpenGallery) {
             RoomInfoActions(
                 setName = viewModel::setName,
                 setTopic = viewModel::setTopic,
@@ -89,6 +90,7 @@ fun RoomInfoRoute(
                 openMembers = onOpenMembers,
                 openPreferences = onOpenPreferences,
                 openState = onOpenState,
+                openGallery = onOpenGallery,
             )
         }
     RoomInfoScreen(
@@ -213,6 +215,7 @@ private fun RoomInfoCards(
         item(key = "preferences") {
             ScreenCard(card) {
                 Column {
+                    LinkRow(R.drawable.ic_image, R.string.room_gallery, actions.openGallery)
                     LinkRow(R.drawable.ic_tune, R.string.room_preferences, actions.openPreferences)
                     LinkRow(R.drawable.ic_code, R.string.room_state, actions.openState)
                 }

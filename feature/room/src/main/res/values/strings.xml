@@ -157,4 +157,10 @@
     <string name="bridge_failed">The bridge couldn’t deliver it</string>
     <string name="composer_hint_network">%1$s message</string>
     <string name="bridged_to">Bridged to %1$s</string>
+    <string name="gallery">Media</string>
+    <string name="gallery_all">All</string>
+    <string name="gallery_visual">Photos and videos</string>
+    <string name="gallery_audio">Audio</string>
+    <string name="gallery_files">Files</string>
+    <string name="gallery_empty">No media in this room</string>
 </resources>

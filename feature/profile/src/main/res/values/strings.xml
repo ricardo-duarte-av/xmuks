@@ -163,4 +163,5 @@
     <string name="room_state_empty_key">(no state key)</string>
     <string name="profile_in_room">As shown in %1$s</string>
     <string name="profile_elsewhere">Everywhere else</string>
+    <string name="room_gallery">Media</string>
 </resources>

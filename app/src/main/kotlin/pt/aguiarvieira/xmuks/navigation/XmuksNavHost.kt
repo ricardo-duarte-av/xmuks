@@ -42,6 +42,7 @@ import pt.aguiarvieira.xmuks.feature.profile.RoomMembersRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomPreviewRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomStateRoute
 import pt.aguiarvieira.xmuks.feature.profile.UserInfoRoute
+import pt.aguiarvieira.xmuks.feature.room.GalleryRoute
 import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.NotificationsRoute
@@ -105,6 +106,11 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
 
 /** A room's details, members and settings. */
 @Serializable data class RoomInfoKey(
+    val roomId: String,
+) : NavKey
+
+/** A room's media, as a grid. */
+@Serializable data class GalleryKey(
     val roomId: String,
 ) : NavKey
 
@@ -260,6 +266,7 @@ fun XmuksNavHost(
                                     onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                     onOpenMembers = { backStack.add(RoomMembersKey(key.roomId)) },
                                     onOpenState = { backStack.add(RoomStateKey(key.roomId)) },
+                                    onOpenGallery = { backStack.add(GalleryKey(key.roomId)) },
                                     onOpenPreferences = { backStack.add(PreferencesKey(key.roomId)) },
                                     onLeft = { backStack.leftRoom(key.roomId) },
                                 )
@@ -331,6 +338,15 @@ fun XmuksNavHost(
                                 )
                             }
                         }
+                        entry<GalleryKey> { key ->
+                            Destination {
+                                GalleryRoute(
+                                    roomId = key.roomId,
+                                    onBack = { backStack.removeLastOrNull() },
+                                    onOpenMedia = { backStack.add(MediaKey(it)) },
+                                )
+                            }
+                        }
                         entry<RoomStateKey> { key ->
                             Destination {
                                 RoomStateRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
@@ -395,7 +411,8 @@ private fun NavBackStack<NavKey>.leftRoom(roomId: String) {
         (it is RoomKey && it.roomId == roomId) ||
             (it is RoomInfoKey && it.roomId == roomId) ||
             (it is RoomMembersKey && it.roomId == roomId) ||
-            (it is RoomStateKey && it.roomId == roomId)
+            (it is RoomStateKey && it.roomId == roomId) ||
+            (it is GalleryKey && it.roomId == roomId)
     }
     if (isEmpty()) add(HomeKey)
 }

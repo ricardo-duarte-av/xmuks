@@ -63,6 +63,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
+import pt.aguiarvieira.xmuks.core.data.timeline.RoomGallery
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineStore
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
@@ -287,6 +288,12 @@ object DataModule {
         database: XmuksDatabase,
         exec: ExecClient,
     ) = RoomPushRules(database, exec)
+
+    @Provides @Singleton
+    fun roomGallery(
+        exec: ExecClient,
+        database: XmuksDatabase,
+    ) = RoomGallery(exec, database)
 
     @Provides @Singleton
     fun roomListActions(
