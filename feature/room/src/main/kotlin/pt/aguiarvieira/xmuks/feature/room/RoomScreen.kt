@@ -95,6 +95,7 @@ fun RoomRoute(
     jumpTo: String? = null,
     onOpenLink: (uri: String) -> Unit = {},
     onOpenRoomInfo: () -> Unit = {},
+    onSearch: () -> Unit = {},
     /** Files to send with a caption each (the share screen, for this room). */
     onSendFiles: (List<String>) -> Unit = {},
     /** One of the room's threads, shown in place of its main timeline. */
@@ -162,6 +163,7 @@ fun RoomRoute(
             onOpenMedia = onOpenMedia,
             onOpenUser = onOpenUser,
             onOpenRoomInfo = onOpenRoomInfo,
+            onSearch = onSearch,
             player = viewModel.player,
             onSaveMedia = rememberMediaSaver(),
             onOpenThread = if (threadRoot == null) onOpenThread else null,
@@ -293,6 +295,7 @@ fun RoomScreen(
     composer: ComposerActions,
     modifier: Modifier = Modifier,
     onOpenRoomInfo: () -> Unit = {},
+    onSearch: () -> Unit = {},
     player: InlinePlayer? = null,
     onSaveMedia: (Media) -> Unit = {},
     /** Opening threads; null when this is one. */
@@ -361,7 +364,18 @@ fun RoomScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             Column {
-                HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia, onOpenRoomInfo, inThread)
+                HeaderCard(
+                    roomId,
+                    sharedScope,
+                    room,
+                    typing,
+                    resolver,
+                    onBack,
+                    onOpenMedia,
+                    onOpenRoomInfo,
+                    onSearch,
+                    inThread
+                )
                 val pinned = pins.pins.eventIds.size
                 if (pinned > 0 && !inThread) PinnedBar(pinned, { overlays.pinsShown = true })
             }
@@ -416,6 +430,7 @@ private fun HeaderCard(
     onBack: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
     onRoomInfo: () -> Unit,
+    onSearch: () -> Unit,
     inThread: Boolean = false,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -448,6 +463,13 @@ private fun HeaderCard(
                         onClick = {
                             menu = false
                             onRoomInfo()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.search_room)) },
+                        onClick = {
+                            menu = false
+                            onSearch()
                         },
                     )
                 }

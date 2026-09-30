@@ -129,4 +129,5 @@
         <item quantity="one">%1$d pinned message</item>
         <item quantity="other">%1$d pinned messages</item>
     </plurals>
+    <string name="search_room">Search</string>
 </resources>

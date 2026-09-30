@@ -9,10 +9,11 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
-import pt.aguiarvieira.xmuks.core.data.rooms.Mention
+import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvent
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.Preview
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
+import pt.aguiarvieira.xmuks.core.data.rooms.SearchQuery
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.TabBadges
 import pt.aguiarvieira.xmuks.core.data.rooms.Unread
@@ -187,7 +188,7 @@ class RoomListScreenshotTest {
                 sender: String,
                 name: String,
                 text: String,
-            ) = Mention(id, room, room.roomId, sender, name, null, text, now - 3_600_000)
+            ) = FoundEvent(id, room, room.roomId, sender, name, null, text, now - 3_600_000)
             NotificationsScreen(
                 NotificationsState(
                     items =
@@ -203,6 +204,30 @@ class RoomListScreenshotTest {
                 { _, _ -> },
                 {},
                 now = now,
+            )
+        }
+
+    @Test
+    fun search() =
+        capture("search") {
+            SearchScreen(
+                SearchState(
+                    openedIn = "!gomuks",
+                    query = SearchQuery("keepalive", "!gomuks"),
+                    hits =
+                        listOf(
+                            FoundEvent("\$1", chats[0], "!gomuks", "@tulir:maunium.net", "tulir", null, "pushed a fix for the SSE keepalive", now - 300_000),
+                        ),
+                ),
+                androidx.compose.foundation.text.input
+                    .TextFieldState("keepalive"),
+                { null },
+                SearchOptions(),
+                {},
+                { _, _ -> },
+                {},
+                now = now,
+                autoFocus = false,
             )
         }
 }

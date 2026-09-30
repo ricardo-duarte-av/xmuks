@@ -32,4 +32,10 @@
     <string name="notifications_mentions">Mentions</string>
     <string name="notifications_all">All</string>
     <string name="notifications_none">Nothing here</string>
+    <string name="search_messages">Search messages</string>
+    <string name="search_messages_hint">Search every room gomuks holds, encrypted ones too. \"On server\" asks the homeserver instead: all history, but no encrypted rooms.</string>
+    <string name="search_no_results">No messages found</string>
+    <string name="search_this_room">This room</string>
+    <string name="search_on_server">On server</string>
+    <string name="search_newest_first">Newest first</string>
 </resources>

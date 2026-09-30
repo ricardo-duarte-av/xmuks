@@ -48,7 +48,9 @@ import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
 import pt.aguiarvieira.xmuks.core.data.push.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
+import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvents
 import pt.aguiarvieira.xmuks.core.data.rooms.Mentions
+import pt.aguiarvieira.xmuks.core.data.rooms.MessageSearch
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
@@ -253,11 +255,22 @@ object DataModule {
     ) = RoomPushRules(database, exec)
 
     @Provides @Singleton
-    fun mentions(
-        exec: ExecClient,
+    fun foundEvents(
         database: XmuksDatabase,
         rooms: RoomListRepository,
-    ) = Mentions(exec, database, rooms)
+    ) = FoundEvents(database, rooms)
+
+    @Provides @Singleton
+    fun mentions(
+        exec: ExecClient,
+        found: FoundEvents,
+    ) = Mentions(exec, found)
+
+    @Provides @Singleton
+    fun messageSearch(
+        exec: ExecClient,
+        found: FoundEvents,
+    ) = MessageSearch(exec, found)
 
     @Provides @Singleton
     fun contacts(

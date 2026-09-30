@@ -44,6 +44,7 @@ import pt.aguiarvieira.xmuks.feature.profile.UserInfoRoute
 import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.NotificationsRoute
+import pt.aguiarvieira.xmuks.feature.roomlist.SearchRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
 import pt.aguiarvieira.xmuks.feature.settings.PreferencesRoute
 import pt.aguiarvieira.xmuks.feature.share.ShareRequest
@@ -86,6 +87,11 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
     val uris: List<String>,
     val text: String?,
     val roomId: String?,
+) : NavKey
+
+/** Message search, in one room or all of them. */
+@Serializable data class SearchKey(
+    val roomId: String? = null,
 ) : NavKey
 
 /** Past notifications across rooms. */
@@ -192,6 +198,7 @@ fun XmuksNavHost(
                                     onOpenSpace = { backStack.add(SpaceKey(it)) },
                                     onOpenProfile = { backStack.add(UserKey(it)) },
                                     onOpenNotifications = { backStack.add(NotificationsKey) },
+                                    onSearchMessages = { backStack.add(SearchKey()) },
                                 )
                             }
                         }
@@ -215,6 +222,7 @@ fun XmuksNavHost(
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
                                     onOpenUser = { backStack.add(UserKey(it)) },
                                     onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
+                                    onSearch = { backStack.add(SearchKey(key.roomId)) },
                                     onSendFiles = { uris -> backStack.add(ShareKey(uris, null, key.roomId)) },
                                     onOpenThread = { root -> backStack.add(ThreadKey(key.roomId, root)) },
                                 )
@@ -231,6 +239,7 @@ fun XmuksNavHost(
                                     onOpenMedia = { backStack.add(MediaKey(it)) },
                                     onOpenUser = { backStack.add(UserKey(it)) },
                                     onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
+                                    onSearch = { backStack.add(SearchKey(key.roomId)) },
                                 )
                             }
                         }
@@ -276,6 +285,20 @@ fun XmuksNavHost(
                         entry<PreferencesKey> { key ->
                             Destination {
                                 PreferencesRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
+                            }
+                        }
+                        entry<SearchKey> { key ->
+                            Destination {
+                                SearchRoute(
+                                    roomId = key.roomId,
+                                    onBack = { backStack.removeLastOrNull() },
+                                    onOpenEvent = {
+                                        roomId,
+                                        eventId,
+                                        ->
+                                        backStack.openRoom(roomId, LINK_SCOPE, eventId)
+                                    },
+                                )
                             }
                         }
                         entry<NotificationsKey> {

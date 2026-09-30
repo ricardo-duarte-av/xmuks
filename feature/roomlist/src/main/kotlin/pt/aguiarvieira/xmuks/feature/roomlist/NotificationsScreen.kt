@@ -51,7 +51,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
-import pt.aguiarvieira.xmuks.core.data.rooms.Mention
+import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvent
 import pt.aguiarvieira.xmuks.core.data.rooms.MentionKind
 import pt.aguiarvieira.xmuks.core.data.rooms.Mentions
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
@@ -64,7 +64,7 @@ import javax.inject.Inject
 /** What's shown: the notifications so far, whether more are coming, and why not if it failed. */
 data class NotificationsState(
     val kind: MentionKind = MentionKind.Mentions,
-    val items: List<Mention> = emptyList(),
+    val items: List<FoundEvent> = emptyList(),
     val loading: Boolean = true,
     val hasMore: Boolean = true,
     val error: String? = null,
@@ -185,119 +185,17 @@ fun NotificationsScreen(
                 .navigationBarsPadding()
                 .fillMaxSize(),
         ) {
-            NotificationList(state, now, avatar, onLoadMore, onOpen)
-        }
-    }
-}
-
-@Composable
-private fun NotificationList(
-    state: NotificationsState,
-    now: Long,
-    avatar: (String?) -> String?,
-    onLoadMore: () -> Unit,
-    onOpen: (roomId: String, eventId: String) -> Unit,
-) {
-    val list = rememberLazyListState()
-    val loadMore by rememberUpdatedState(onLoadMore)
-    val nearEnd by remember {
-        derivedStateOf {
-            list.layoutInfo.visibleItemsInfo
-                .lastOrNull()
-                ?.index == list.layoutInfo.totalItemsCount - 1
-        }
-    }
-    LaunchedEffect(nearEnd, state.hasMore) { if (nearEnd && state.hasMore && !state.loading) loadMore() }
-    val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
-    when {
-        state.items.isEmpty() && state.loading -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        }
-
-        state.items.isEmpty() -> {
-            Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-                Text(
-                    state.error ?: stringResource(R.string.notifications_none),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        else -> {
-            LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(vertical = 8.dp)) {
-                items(state.items, key = { it.eventId }) { mention ->
-                    MentionRow(mention, avatar, ListTimestamps.format(mention.timestamp, now, is24Hour = is24Hour)) {
-                        onOpen(mention.roomId, mention.eventId)
-                    }
-                }
-                if (state.loading) {
-                    item(key = "loading") {
-                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** A notification: the room, who said what, and when; opening the room at it. */
-@Composable
-private fun MentionRow(
-    mention: Mention,
-    avatar: (String?) -> String?,
-    time: String,
-    onClick: () -> Unit,
-) {
-    val roomName = mention.room?.name ?: mention.roomId
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        RoomAvatar(roomName, mention.roomId, mention.room?.avatarUrl, size = 40.dp)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    roomName,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    time,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            // In a DM the room is the sender already.
-            if (mention.room?.isDirect != true) {
-                SenderLine(mention, avatar)
-            }
-            Text(
-                mention.text,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
+            FoundEventList(
+                state.items,
+                state.loading,
+                state.hasMore,
+                state.error ?: stringResource(R.string.notifications_none),
+                now,
+                avatar,
+                onLoadMore,
+                onOpen,
             )
         }
-    }
-}
-
-@Composable
-private fun SenderLine(
-    mention: Mention,
-    avatar: (String?) -> String?,
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        RoomAvatar(mention.senderName, mention.sender, avatar(mention.senderAvatarMxc), size = 18.dp)
-        Text(
-            mention.senderName,
-            style = MaterialTheme.typography.labelLarge,
-            color = senderColor(mention.sender),
-            maxLines = 1,
-        )
     }
 }
 
