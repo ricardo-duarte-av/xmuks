@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.emoji.ImagePack
 import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
+import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSession
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 
@@ -38,6 +39,8 @@ class EmojiActions(
     private val scope: CoroutineScope,
     private val session: RoomSession,
     started: SharingStarted,
+    /** Where a sticker goes: a reply, or into the thread shown. */
+    private val replyTo: () -> ReplyTarget? = { null },
 ) {
     val packs: StateFlow<List<ImagePack>> = session.emoji.packs.stateIn(scope, started, emptyList())
     val recent: StateFlow<List<String>> = session.emoji.recent.stateIn(scope, started, emptyList())
@@ -82,7 +85,8 @@ class EmojiActions(
     }
 
     fun sendSticker(image: PackImage) {
-        scope.launch { session.writer.sendSticker(image) }
+        val replyTo = replyTo()
+        scope.launch { session.writer.sendSticker(image, replyTo) }
     }
 
     /** An emoji inserted into the composer counts as used, like a reaction. */

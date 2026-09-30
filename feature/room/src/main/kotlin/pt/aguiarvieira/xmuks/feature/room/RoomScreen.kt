@@ -97,7 +97,14 @@ fun RoomRoute(
     onOpenRoomInfo: () -> Unit = {},
     /** Files to send with a caption each (the share screen, for this room). */
     onSendFiles: (List<String>) -> Unit = {},
-    viewModel: RoomViewModel = hiltViewModel<RoomViewModel, RoomViewModel.Factory>(key = roomId) { it.create(roomId) },
+    /** One of the room's threads, shown in place of its main timeline. */
+    threadRoot: String? = null,
+    /** Opens a thread, from its root. */
+    onOpenThread: (rootId: String) -> Unit = {},
+    viewModel: RoomViewModel =
+        hiltViewModel<RoomViewModel, RoomViewModel.Factory>(key = roomId + threadRoot.orEmpty()) {
+            it.create(roomId, threadRoot)
+        },
 ) {
     val room by viewModel.room.collectAsStateWithLifecycle()
     val items by viewModel.items.collectAsStateWithLifecycle()
@@ -155,6 +162,9 @@ fun RoomRoute(
             onOpenRoomInfo = onOpenRoomInfo,
             player = viewModel.player,
             onSaveMedia = rememberMediaSaver(),
+            onOpenThread = if (threadRoot == null) onOpenThread else null,
+            compactThreads = prefs.get(Prefs.smallThreads),
+            inThread = threadRoot != null,
             onShowContext = viewModel::showContext,
             onLeaveContext = viewModel::leaveContext,
             composer =
@@ -282,6 +292,11 @@ fun RoomScreen(
     onOpenRoomInfo: () -> Unit = {},
     player: InlinePlayer? = null,
     onSaveMedia: (Media) -> Unit = {},
+    /** Opening threads; null when this is one. */
+    onOpenThread: ((String) -> Unit)? = null,
+    compactThreads: Boolean = true,
+    /** Shown in a thread: the header says so. */
+    inThread: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
     val overlays = remember { OverlayState() }
@@ -296,9 +311,11 @@ fun RoomScreen(
     val list by rememberUpdatedState(if (context != null) contextList else liveList)
     val showContext by rememberUpdatedState(onShowContext)
     val actions =
-        remember(onOpenMedia, onOpenUser, player, onSaveMedia) {
+        remember(onOpenMedia, onOpenUser, player, onSaveMedia, onOpenThread, compactThreads) {
             TimelineActions(
                 saveMedia = onSaveMedia,
+                openThread = onOpenThread,
+                compactThreads = compactThreads,
                 openMedia = onOpenMedia,
                 openUser = onOpenUser,
                 player = player,
@@ -324,7 +341,7 @@ fun RoomScreen(
         }
     }
     BackHandler(enabled = context != null, onBack = onLeaveContext)
-    RoomOverlays(overlays, composer, resolver, onSaveMedia)
+    RoomOverlays(overlays, composer, resolver, onSaveMedia, onOpenThread)
 
     Scaffold(
         modifier = modifier,
@@ -333,7 +350,7 @@ fun RoomScreen(
         // navigation bar and the keyboard.
         contentWindowInsets = WindowInsets(0),
         topBar = {
-            HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia, onOpenRoomInfo)
+            HeaderCard(roomId, sharedScope, room, typing, resolver, onBack, onOpenMedia, onOpenRoomInfo, inThread)
         },
         bottomBar = {
             ComposerArea(overlays, composer, resolver) {
@@ -385,6 +402,7 @@ private fun HeaderCard(
     onBack: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
     onRoomInfo: () -> Unit,
+    inThread: Boolean = false,
 ) {
     var menu by remember { mutableStateOf(false) }
     ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
@@ -402,7 +420,7 @@ private fun HeaderCard(
                     name = room?.name.orEmpty(),
                     avatarUrl = room?.avatarUrl,
                     sharedScope = sharedScope,
-                    subtitle = typingText(typing),
+                    subtitle = if (inThread) stringResource(R.string.thread) else typingText(typing),
                     onAvatarClick = { resolver.image(room?.avatarMxc, room?.name)?.let(onOpenMedia) },
                 )
             },

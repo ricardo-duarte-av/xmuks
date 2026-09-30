@@ -88,6 +88,7 @@ fun MessageRow(
         EmoteRow(message, resolver, actions, modifier, highlighted)
         return
     }
+    if (compactInThread(message, actions, modifier.highlight(highlighted))) return
     val mine = message.fromMe
     // Others' groups open with a header (avatar + name); their bubbles then start at the left
     // margin, using the width an avatar gutter would waste on every message.
@@ -110,7 +111,7 @@ fun MessageRow(
             actions.openMedia(viewerMedia(message, media, kind, resolver))
         }
         CompositionLocalProvider(LocalMessageHold provides { actions.onMessageMenu(message) }) {
-            BubbleRow(message, resolver, actions, open)
+            ThreadDecorations(message, actions) { BubbleRow(message, resolver, actions, open) }
         }
         if (message.reactions.isNotEmpty()) {
             Reactions(message.reactions, resolver, Modifier.maxWidthFraction(BUBBLE_FRACTION).padding(top = 4.dp)) {

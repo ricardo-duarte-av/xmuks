@@ -49,7 +49,9 @@ import javax.inject.Named
 class RoomViewModel
     @AssistedInject
     constructor(
-        @Assisted val roomId: String,
+        @Assisted("room") val roomId: String,
+        /** One of the room's threads, shown instead of its main timeline. */
+        @Assisted("thread") val threadRoot: String?,
         rooms: RoomListRepository,
         private val sessions: RoomSessions,
         drafts: DraftStore,
@@ -65,10 +67,19 @@ class RoomViewModel
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
-            fun create(roomId: String): RoomViewModel
+            fun create(
+                @Assisted("room") roomId: String,
+                @Assisted("thread") threadRoot: String?,
+            ): RoomViewModel
         }
 
         private val session = sessions.open(roomId)
+
+        /** The thread, when that's what's shown. */
+        private val thread = threadRoot?.let(session::thread)
+
+        /** Where what's shown comes from: the room's timeline, or the thread's. */
+        private val timeline = thread?.snapshot ?: session.snapshot
 
         val room: StateFlow<RoomSummary?> = rooms.room(roomId).stateIn(viewModelScope, WHILE_VISIBLE, null)
 
@@ -76,22 +87,23 @@ class RoomViewModel
 
         /** Where reading stopped when the room was opened (null when nothing was unread). */
         val unread: StateFlow<UnreadMarker?> =
-            combine(marker, session.snapshot) { m, snapshot ->
+            combine(marker, timeline) { m, snapshot ->
                 m?.copy(timestamp = snapshot.events.firstOrNull { it.eventId == m.eventId }?.timestamp)
             }.stateIn(viewModelScope, WHILE_VISIBLE, null)
 
         /** Newest first, for a bottom-anchored (reversed) list. Null until the first page is in. */
         val items: StateFlow<List<TimelineItem>?> =
-            combine(session.items, unread) { items, u -> items.asReversed().withUnreadSeparator(u?.timestamp) }
-                .stateIn(viewModelScope, WHILE_VISIBLE, null)
+            combine(thread?.let { session.itemsOf(it.snapshot) } ?: session.items, unread) { items, u ->
+                items.asReversed().withUnreadSeparator(u?.timestamp)
+            }.stateIn(viewModelScope, WHILE_VISIBLE, null)
 
         val loadingOlder: StateFlow<Boolean> =
-            session.snapshot
+            timeline
                 .map {
                     it.loadingOlder
                 }.stateIn(viewModelScope, WHILE_VISIBLE, false)
         val hasMoreBefore: StateFlow<Boolean> =
-            session.snapshot
+            timeline
                 .map {
                     it.hasMoreBefore
                 }.stateIn(viewModelScope, WHILE_VISIBLE, true)
@@ -99,7 +111,7 @@ class RoomViewModel
 
         /** Raw events loaded (shown or not): changes with every page, even one of only hidden events. */
         val loadedEvents: StateFlow<Int> =
-            session.snapshot.map { it.events.size }.stateIn(viewModelScope, WHILE_VISIBLE, 0)
+            timeline.map { it.events.size }.stateIn(viewModelScope, WHILE_VISIBLE, 0)
 
         private val contextTarget = MutableStateFlow<String?>(null)
 
@@ -159,25 +171,31 @@ class RoomViewModel
                 preparer,
                 uploads,
                 encrypted = { room.value?.encrypted == true },
-                replyTo = {
-                    (modes.mode.value as? ComposeMode.Reply)?.message?.let {
-                        ReplyTarget(
-                            it.eventId,
-                            it.sender
-                        )
-                    }
-                },
+                replyTo = { target.reply() },
                 onSent = { if (modes.mode.value is ComposeMode.Reply) modes.cancel() },
                 showDialog = { prefs.value.get(Prefs.uploadDialog) },
             )
 
         /** Reacting, stickers, recent emoji and pack subscriptions. */
-        val emoji = EmojiActions(viewModelScope, session, WHILE_VISIBLE)
+        val emoji = EmojiActions(viewModelScope, session, WHILE_VISIBLE) { target.reply() }
 
         /** Whether the next send is a new message, a reply or an edit. */
         val modes = ComposeModes(draft)
 
-        private val draftKeeper = DraftKeeper(viewModelScope, roomId, draft, { modes.draftText }, drafts, modes, items)
+        /** Where what's sent goes: replies, and into the thread when that's what's shown. */
+        private val target = SendTarget(modes, threadRoot) { items.value }
+
+        /** A thread keeps its own draft, apart from the room's. */
+        private val draftKeeper =
+            DraftKeeper(
+                viewModelScope,
+                threadRoot?.let { "$roomId#$it" } ?: roomId,
+                draft,
+                { modes.draftText },
+                drafts,
+                modes,
+                items,
+            )
 
         /** Slash commands usable in this room (gomuks' built-ins, text prefixes, the room's bots). */
         val commands: StateFlow<List<BotCommand>> = session.commands.stateIn(viewModelScope, WHILE_VISIBLE, emptyList())
@@ -189,19 +207,14 @@ class RoomViewModel
             if (sendCommand(text)) return
             val mode = modes.mode.value
             val outgoing = emoji.expandShortcodes(text)
+            // Taken before the reply mode ends with the send.
+            val replyTo = target.reply()
             modes.sent()
             stopTyping()
             viewModelScope.launch {
                 when (mode) {
-                    ComposeMode.New -> {
-                        session.writer.send(outgoing)
-                    }
-
-                    is ComposeMode.Reply -> {
-                        session.writer.send(
-                            outgoing,
-                            replyTo = ReplyTarget(mode.message.eventId, mode.message.sender)
-                        )
+                    ComposeMode.New, is ComposeMode.Reply -> {
+                        session.writer.send(outgoing, replyTo = replyTo)
                     }
 
                     is ComposeMode.Edit -> {
@@ -248,7 +261,7 @@ class RoomViewModel
 
         /** The newest message was on screen: mark the room read up to it (once per event). */
         fun markRead(eventId: String) {
-            if (eventId == lastMarked) return
+            if (thread != null || eventId == lastMarked) return
             lastMarked = eventId
             viewModelScope.launch { session.writer.markRead(eventId) }
         }
@@ -258,8 +271,8 @@ class RoomViewModel
         private fun stopTyping() = typingNotifier.stop()
 
         fun sendLocation(location: PickedLocation) {
-            val reply = (modes.mode.value as? ComposeMode.Reply)?.message?.let { ReplyTarget(it.eventId, it.sender) }
-            if (reply != null) modes.cancel()
+            val reply = target.reply()
+            if (modes.mode.value is ComposeMode.Reply) modes.cancel()
             viewModelScope.launch {
                 session.writer.sendLocation(
                     location.latitude,
@@ -291,6 +304,7 @@ class RoomViewModel
 
         init {
             viewModelScope.launch { session.open() }
+            thread?.let { viewModelScope.launch { it.open() } }
             // Taken once, before reading at the bottom moves the marker on.
             viewModelScope.launch {
                 val count =
@@ -299,7 +313,7 @@ class RoomViewModel
                         .first()
                         ?.unread
                         ?.messages ?: 0
-                if (count > 0) session.readMarker()?.let { marker.value = UnreadMarker(it, count) }
+                if (count > 0 && thread == null) session.readMarker()?.let { marker.value = UnreadMarker(it, count) }
             }
         }
 
@@ -315,7 +329,7 @@ class RoomViewModel
         }
 
         fun loadOlder() {
-            viewModelScope.launch { session.loadOlder() }
+            viewModelScope.launch { thread?.loadOlder() ?: session.loadOlder() }
         }
 
         override fun onCleared() {

@@ -101,8 +101,7 @@ internal val ENTRIES: List<PrefEntry> =
             Prefs.smallThreads,
             R.string.pref_small_threads,
             R.string.pref_small_threads_desc,
-            Section.Timeline,
-            inXmuks = false
+            Section.Timeline
         ),
         PrefEntry(
             Prefs.renderUrlPreviews,

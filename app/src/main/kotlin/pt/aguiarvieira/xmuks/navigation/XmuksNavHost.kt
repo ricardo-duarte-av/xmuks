@@ -64,6 +64,12 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
     val eventId: String? = null,
 ) : NavKey
 
+/** One of a room's threads, from its root. */
+@Serializable data class ThreadKey(
+    val roomId: String,
+    val rootId: String,
+) : NavKey
+
 /** Anyone's profile; our own is where it's edited, and where the account lives. */
 @Serializable data class UserKey(
     val userId: String,
@@ -205,6 +211,21 @@ fun XmuksNavHost(
                                     onOpenUser = { backStack.add(UserKey(it)) },
                                     onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
                                     onSendFiles = { uris -> backStack.add(ShareKey(uris, null, key.roomId)) },
+                                    onOpenThread = { root -> backStack.add(ThreadKey(key.roomId, root)) },
+                                )
+                            }
+                        }
+                        entry<ThreadKey> { key ->
+                            Destination {
+                                RoomRoute(
+                                    roomId = key.roomId,
+                                    sharedScope = THREAD_SCOPE,
+                                    threadRoot = key.rootId,
+                                    onOpenLink = openLink,
+                                    onBack = { backStack.removeLastOrNull() },
+                                    onOpenMedia = { backStack.add(MediaKey(it)) },
+                                    onOpenUser = { backStack.add(UserKey(it)) },
+                                    onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
                                 )
                             }
                         }
@@ -321,6 +342,9 @@ private fun NavBackStack<NavKey>.leftRoom(roomId: String) {
     }
     if (isEmpty()) add(HomeKey)
 }
+
+/** A thread's header has no list row to fly from either. */
+private const val THREAD_SCOPE = "thread"
 
 /** Rooms opened from a link have no list row to fly from. */
 private const val LINK_SCOPE = "link"

@@ -209,6 +209,9 @@ class RoomSession(
         )
     }
 
+    /** One of this room's threads, from its root. */
+    fun thread(rootId: String) = ThreadTimeline(roomId, rootId, exec, snapshot)
+
     /** Display names of whoever is typing (not us). */
     val typing: Flow<List<String>> =
         combine(
@@ -336,6 +339,13 @@ private fun Event.toVersion(edit: Boolean): MessageVersion {
 data class ReplyTarget(
     val eventId: String,
     val sender: String,
+    /** Sent into this thread (MSC3440): [eventId] is then the message answered in it. */
+    val threadRoot: String? = null,
+    /**
+     * In a thread without answering anything in particular: [eventId] is its latest message, a
+     * reply only for clients without threads (and nobody is pinged).
+     */
+    val fallback: Boolean = false,
 )
 
 /** Creates sessions for rooms being opened. */

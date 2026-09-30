@@ -75,45 +75,9 @@ internal fun RoomOverlays(
     composer: ComposerActions,
     resolver: MediaResolver,
     onSaveMedia: (Media) -> Unit = {},
+    onOpenThread: ((String) -> Unit)? = null,
 ) {
-    state.menuFor?.let { message ->
-        MessageMenu(
-            message,
-            onSave =
-                message.content.media?.let { media ->
-                    {
-                        onSaveMedia(media)
-                        state.menuFor = null
-                    }
-                },
-            onReply = {
-                composer.onReply(message)
-                state.menuFor = null
-            },
-            onEdit = {
-                composer.onEdit(message)
-                state.menuFor = null
-            },
-            onHistory = {
-                composer.onShowHistory(message)
-                state.menuFor = null
-            },
-            onDelete = {
-                state.deleting = message
-                state.menuFor = null
-            },
-            quickReactions = quickReactions(composer.emoji.recent),
-            onReact = { key ->
-                composer.emoji.onReact(message, Picked.Unicode(key))
-                state.menuFor = null
-            },
-            onMoreReactions = {
-                state.picker = PickerRequest(PickerMode.Emoji, reactTo = message)
-                state.menuFor = null
-            },
-            onDismiss = { state.menuFor = null },
-        )
-    }
+    state.menuFor?.let { message -> MessageMenuFor(message, state, composer, onSaveMedia, onOpenThread) }
     // The composer's pickers live in place of the keyboard (ComposerPanel); reactions get a sheet.
     state.picker?.takeIf { it.reactTo != null }?.let { request ->
         EmojiPickerSheet(
@@ -372,4 +336,58 @@ private fun ComposerOverlays(
     if (state.choosingPersona) {
         PersonaChooser(composer.personas, resolver.avatar, composer.onChoosePersona) { state.choosingPersona = false }
     }
+}
+
+/** The long-press menu for [message], and what each of its items does. */
+@Composable
+private fun MessageMenuFor(
+    message: TimelineItem.Message,
+    state: OverlayState,
+    composer: ComposerActions,
+    onSaveMedia: (Media) -> Unit,
+    onOpenThread: ((String) -> Unit)?,
+) {
+    MessageMenu(
+        message,
+        onThread =
+            onOpenThread?.let { open ->
+                {
+                    state.menuFor = null
+                    open(message.thread?.eventId ?: message.eventId)
+                }
+            },
+        onSave =
+            message.content.media?.let { media ->
+                {
+                    onSaveMedia(media)
+                    state.menuFor = null
+                }
+            },
+        onReply = {
+            composer.onReply(message)
+            state.menuFor = null
+        },
+        onEdit = {
+            composer.onEdit(message)
+            state.menuFor = null
+        },
+        onHistory = {
+            composer.onShowHistory(message)
+            state.menuFor = null
+        },
+        onDelete = {
+            state.deleting = message
+            state.menuFor = null
+        },
+        quickReactions = quickReactions(composer.emoji.recent),
+        onReact = { key ->
+            composer.emoji.onReact(message, Picked.Unicode(key))
+            state.menuFor = null
+        },
+        onMoreReactions = {
+            state.picker = PickerRequest(PickerMode.Emoji, reactTo = message)
+            state.menuFor = null
+        },
+        onDismiss = { state.menuFor = null },
+    )
 }

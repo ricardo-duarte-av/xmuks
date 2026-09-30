@@ -151,23 +151,19 @@ class RoomWriter(
     }
 
     /** Sends a sticker from a pack (gomuks turns an m.sticker msgtype into an m.sticker event). */
-    suspend fun sendSticker(image: PackImage) {
-        outbox.sendMessage(
-            roomId,
+    suspend fun sendSticker(
+        image: PackImage,
+        /** Where it goes: a reply, or into a thread. */
+        replyTo: ReplyTarget? = null,
+    ) {
+        val content =
             buildJsonObject {
-                put("room_id", JsonPrimitive(roomId))
-                put("text", JsonPrimitive(""))
-                put(
-                    "base_content",
-                    buildJsonObject {
-                        put("msgtype", JsonPrimitive("m.sticker"))
-                        put("body", JsonPrimitive(image.body))
-                        put("url", JsonPrimitive(image.mxc))
-                        put("info", image.info ?: JsonObject(emptyMap()))
-                    },
-                )
-            },
-        )
+                put("msgtype", JsonPrimitive("m.sticker"))
+                put("body", JsonPrimitive(image.body))
+                put("url", JsonPrimitive(image.mxc))
+                put("info", image.info ?: JsonObject(emptyMap()))
+            }
+        outbox.sendMessage(roomId, messageParams(roomId, "", replyTo, baseContent = content))
     }
 
     /** Sets account data ([room] null = global); last write wins, so no outbox needed. */
@@ -251,8 +247,23 @@ internal fun messageParams(
 
             replyTo != null -> {
                 val inReplyTo = buildJsonObject { put("event_id", JsonPrimitive(replyTo.eventId)) }
-                put("relates_to", buildJsonObject { put("m.in_reply_to", inReplyTo) })
-                put("mentions", buildJsonObject { put("user_ids", JsonArray(listOf(JsonPrimitive(replyTo.sender)))) })
+                put(
+                    "relates_to",
+                    buildJsonObject {
+                        replyTo.threadRoot?.let { root ->
+                            put("rel_type", JsonPrimitive("m.thread"))
+                            put("event_id", JsonPrimitive(root))
+                            put("is_falling_back", JsonPrimitive(replyTo.fallback))
+                        }
+                        put("m.in_reply_to", inReplyTo)
+                    },
+                )
+                if (!replyTo.fallback) {
+                    put(
+                        "mentions",
+                        buildJsonObject { put("user_ids", JsonArray(listOf(JsonPrimitive(replyTo.sender)))) }
+                    )
+                }
             }
         }
     }

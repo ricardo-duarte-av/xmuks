@@ -66,6 +66,10 @@ class TimelineActions(
     val onReaction: (TimelineItem.Message, String) -> Unit = { _, _ -> },
     /** Saving a message's file where the user picks. */
     val saveMedia: (Media) -> Unit = {},
+    /** Opens a thread from its root; null inside a thread (nothing to open from there). */
+    val openThread: ((rootId: String) -> Unit)? = null,
+    /** Threads' messages in the main timeline as one line each (gomuks' `small_threads`). */
+    val compactThreads: Boolean = true,
 )
 
 /** Briefly tints the row a jump landed on, so the eye finds it. */

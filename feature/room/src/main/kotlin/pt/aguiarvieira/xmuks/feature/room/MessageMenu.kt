@@ -40,6 +40,8 @@ internal fun MessageMenu(
     message: TimelineItem.Message,
     /** Its file saved where the user picks; null when it has none. */
     onSave: (() -> Unit)?,
+    /** Answering in its thread (its own, or the one it's in); null inside a thread. */
+    onThread: (() -> Unit)?,
     onReply: () -> Unit,
     onEdit: () -> Unit,
     onHistory: () -> Unit,
@@ -57,6 +59,7 @@ internal fun MessageMenu(
         Column(Modifier.padding(bottom = 24.dp)) {
             if (sent) QuickReactions(quickReactions, onReact, onMoreReactions)
             if (sent) SentItems(message, onReply, onEdit, onHistory)
+            if (sent && onThread != null) Item(R.drawable.ic_thread, R.string.reply_in_thread, onThread)
             if (onSave != null && message.uploadProgress == null) Item(R.drawable.ic_download, R.string.save, onSave)
             if (text != null) {
                 Item(R.drawable.ic_copy, R.string.copy_text) {

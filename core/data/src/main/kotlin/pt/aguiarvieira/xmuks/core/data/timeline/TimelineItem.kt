@@ -42,6 +42,10 @@ sealed interface TimelineItem {
         val editSource: String? = null,
         /** Media still uploading: how far along (0..1). */
         val uploadProgress: Float? = null,
+        /** A message in a thread: its root (what it's shown under in the main timeline). */
+        val thread: ReplyPreview? = null,
+        /** A thread's root: how many messages the thread has. */
+        val threadReplies: Int = 0,
     ) : TimelineItem {
         /** The label as plain text ("profile via sender", or the sender's name). */
         val senderName: String get() = label.text

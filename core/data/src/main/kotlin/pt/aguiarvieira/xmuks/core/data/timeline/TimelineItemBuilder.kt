@@ -2,6 +2,7 @@ package pt.aguiarvieira.xmuks.core.data.timeline
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 import pt.aguiarvieira.xmuks.core.protocol.Event
@@ -21,6 +22,12 @@ class TimelineItemBuilder(
     private val options: TimelineOptions = TimelineOptions(),
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) {
+    /**
+     * Thread sizes seen in the snapshot being built, by root. Roots show the larger of this and
+     * what the server said (unsigned m.relations): neither alone is always complete.
+     */
+    private var threadSizes: Map<String?, Int> = emptyMap()
+
     fun build(
         snapshot: TimelineSnapshot,
         profiles: Map<String, MemberProfile>,
@@ -29,6 +36,11 @@ class TimelineItemBuilder(
         val members = profiles + membersFromTimeline(snapshot.events)
         val myReactions = myReactions(snapshot.eventsByRowId.values)
         val readers = if (options.showReadReceipts) readersByEvent(snapshot) { it.isShown() } else emptyMap()
+        threadSizes =
+            snapshot.events
+                .filter { it.relationType == THREAD }
+                .groupingBy { it.relatesTo }
+                .eachCount()
 
         val out = ArrayList<TimelineItem>(snapshot.events.size + DAY_SEPARATOR_SLACK)
         var previous: Event? = null
@@ -136,6 +148,35 @@ class TimelineItemBuilder(
             sendError = event.sendError?.takeIf { it.isNotBlank() && it != NOT_SENT },
             sendState = event.sendState(),
             editSource = editSourceOf(event, local, content),
+            thread = threadOf(event, byEventId, members),
+            threadReplies = maxOf(threadSizes[event.eventId] ?: 0, event.threadCount()),
+        )
+    }
+
+    /** For a message in a thread: its root, as a reply preview is. */
+    private fun threadOf(
+        event: Event,
+        byEventId: Map<String, Event>,
+        members: Map<String, MemberProfile>,
+    ): ReplyPreview? {
+        if (event.relationType != THREAD) return null
+        val rootId = event.relatesTo ?: return null
+        return previewOf(rootId, byEventId, members)
+    }
+
+    private fun previewOf(
+        eventId: String,
+        byEventId: Map<String, Event>,
+        members: Map<String, MemberProfile>,
+    ): ReplyPreview {
+        val original = byEventId[eventId] ?: return ReplyPreview(eventId, sender = null, text = null)
+        val originalProfile =
+            original.effectiveContent.obj(PER_MESSAGE_PROFILE)
+                ?: original.effectiveContent.obj(PER_MESSAGE_PROFILE_STABLE)
+        return ReplyPreview(
+            eventId = eventId,
+            sender = senderLabel(originalProfile, original.sender, members),
+            text = original.localContent?.previewText ?: original.effectiveContent.str("body"),
         )
     }
 
@@ -209,16 +250,14 @@ class TimelineItemBuilder(
         members: Map<String, MemberProfile>,
     ): ReplyPreview? {
         val relatesTo = content.obj("m.relates_to") ?: event.content.obj("m.relates_to") ?: return null
+        // In a thread, a reply to its latest message is only a fallback for clients without threads.
+        if (relatesTo.str("rel_type") == THREAD &&
+            (relatesTo["is_falling_back"] as? JsonPrimitive)?.booleanOrNull == true
+        ) {
+            return null
+        }
         val target = relatesTo.obj("m.in_reply_to")?.str("event_id") ?: return null
-        val original = byEventId[target] ?: return ReplyPreview(target, sender = null, text = null)
-        val originalProfile =
-            original.effectiveContent.obj(PER_MESSAGE_PROFILE)
-                ?: original.effectiveContent.obj(PER_MESSAGE_PROFILE_STABLE)
-        return ReplyPreview(
-            eventId = target,
-            sender = senderLabel(originalProfile, original.sender, members),
-            text = original.localContent?.previewText ?: original.effectiveContent.str("body"),
-        )
+        return previewOf(target, byEventId, members)
     }
 
     private fun groupKey(

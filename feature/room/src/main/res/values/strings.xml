@@ -112,4 +112,14 @@
     <string name="saving">Saving %1$s…</string>
     <string name="saved">Saved %1$s</string>
     <string name="save_failed">Couldn\'t save %1$s: %2$s</string>
+    <string name="thread">Thread</string>
+    <string name="in_thread">In thread: %1$s</string>
+    <string name="reply_in_thread">Reply in thread</string>
+    <plurals name="thread_replies">
+        <item quantity="one">%1$d reply</item>
+        <item quantity="other">%1$d replies</item>
+    </plurals>
+    <string name="summary_image">Image</string>
+    <string name="summary_video">Video</string>
+    <string name="summary_audio">Audio</string>
 </resources>
