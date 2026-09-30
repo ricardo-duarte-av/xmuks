@@ -98,7 +98,8 @@ internal fun ReadReceipts(
     modifier: Modifier = Modifier,
 ) {
     var open by remember { mutableStateOf(false) }
-    val shown = readers.take(MAX_SHOWN)
+    val stack = rememberReceiptStack(readers)
+    if (stack.shown.isEmpty()) return
     val names = readers.joinToString { it.name }
     val description = pluralStringResource(R.plurals.read_by, readers.size, readers.size, names)
     Row(
@@ -110,20 +111,7 @@ internal fun ReadReceipts(
                 .semantics { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.width(RING + STEP * (shown.size - 1))) {
-            // Drawn back to front, so the newest reader sits on top at the right.
-            shown.asReversed().forEachIndexed { index, reader ->
-                Box(
-                    Modifier
-                        .offset(x = STEP * index)
-                        .size(RING)
-                        .background(MaterialTheme.colorScheme.surface, CircleShape)
-                        .padding(1.dp),
-                ) {
-                    RoomAvatar(reader.name, reader.userId, resolver.avatar(reader.avatarMxc), size = AVATAR)
-                }
-            }
-        }
+        ReceiptAvatars(stack, MAX_SHOWN, resolver.avatar, RING, STEP, AVATAR)
         if (readers.size > MAX_SHOWN) {
             Text(
                 "+${readers.size - MAX_SHOWN}",

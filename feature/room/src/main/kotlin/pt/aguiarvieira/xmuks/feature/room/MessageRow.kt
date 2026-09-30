@@ -171,15 +171,11 @@ private fun BubbleRow(
                 onClick = { if (stuck) actions.onUnsent(message) },
                 onLongClick = { actions.onMessageMenu(message) },
             ),
-        receipts =
-            if (receipts.isEmpty()) {
-                null
-            } else {
-                {
-                    val gap = if (mine) Modifier.padding(end = RECEIPT_GAP) else Modifier.padding(start = RECEIPT_GAP)
-                    ReadReceipts(receipts, resolver, actions.openUser, gap)
-                }
-            },
+        // Always there, even with no receipts: the last to leave still animates out.
+        receipts = {
+            val gap = if (mine) Modifier.padding(end = RECEIPT_GAP) else Modifier.padding(start = RECEIPT_GAP)
+            ReadReceipts(receipts, resolver, actions.openUser, gap)
+        },
     ) {
         Column(horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
             if (message.content.isBare()) {
