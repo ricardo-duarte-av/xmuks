@@ -28,6 +28,8 @@ data class TimelineSnapshot(
     val hasMoreBefore: Boolean = true,
     val loaded: Boolean = false,
     val loadingOlder: Boolean = false,
+    /** Shown from memory while its newest page is being fetched (the stream wasn't keeping it current). */
+    val refreshing: Boolean = false,
 )
 
 /** Where pages come from: gomuks' `paginate` (its own database, or the homeserver when it has nothing). */
@@ -85,6 +87,9 @@ class TimelineStore(
         /** Kept current by the stream since it was loaded; false once the stream has dropped. */
         var confirmed = false
 
+        /** What's held is on show while its newest page is fetched. */
+        var refreshing = false
+
         fun canLoadOlder() = loaded && !loadingOlder && hasMoreBefore && rows.isNotEmpty()
 
         /** Drops the room's contents; returns its ID if someone is looking at it (so it reloads now). */
@@ -125,6 +130,7 @@ class TimelineStore(
                     hasMoreBefore = hasMoreBefore,
                     loaded = loaded,
                     loadingOlder = loadingOlder,
+                    refreshing = refreshing,
                 )
         }
     }
@@ -256,10 +262,31 @@ class TimelineStore(
 
     private fun room(roomId: String) = rooms.getOrPut(roomId) { RoomTimeline(roomId) }
 
+    /**
+     * A push for [roomId]: if its timeline is held but the stream isn't keeping it current (the app
+     * is away), its newest page now, so the room is current by the time the notification is tapped.
+     * Rooms not held are left alone: opening them loads them anyway.
+     */
+    suspend fun prefetch(roomId: String) {
+        val stale = mutex.withLock { rooms[roomId]?.let { it.loaded && !it.confirmed } == true }
+        if (stale) loadNewest(roomId)
+    }
+
     private suspend fun loadNewest(roomId: String) {
-        val page = paginator.paginate(roomId, 0, pageSize) ?: return
+        mutex.withLock {
+            rooms[roomId]?.takeIf { it.loaded && !it.refreshing }?.let {
+                it.refreshing = true
+                it.publish()
+            }
+        }
+        val page = paginator.paginate(roomId, 0, pageSize)
         mutex.withLock {
             val room = rooms[roomId] ?: return
+            room.refreshing = false
+            if (page == null) {
+                room.publish()
+                return
+            }
             // Onto what's held only if it reaches back into it (no gap between them); otherwise
             // the newest page replaces it, never leaving a hole in the middle.
             val oldest = page.events.mapNotNull { it.timelineRowId.takeIf { id -> id != 0L } }.minOrNull()

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -129,6 +130,10 @@ class RoomViewModel
         /** Raw events loaded (shown or not): changes with every page, even one of only hidden events. */
         val loadedEvents: StateFlow<Int> =
             timeline.map { it.events.size }.stateIn(viewModelScope, WHILE_VISIBLE, 0)
+
+        /** What's shown came from memory and the newest messages are being fetched. */
+        val refreshing: StateFlow<Boolean> =
+            timeline.map { it.refreshing }.distinctUntilChanged().stateIn(viewModelScope, WHILE_VISIBLE, false)
 
         private val contextTarget = MutableStateFlow<String?>(null)
 

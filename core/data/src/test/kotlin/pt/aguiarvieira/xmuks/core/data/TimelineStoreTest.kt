@@ -222,4 +222,20 @@ class TimelineStoreTest {
             assertEquals((71L..120L).toList(), ids("!b"))
             watching.cancel()
         }
+
+    @Test
+    fun `a push catches up a held room the stream isn't keeping current, and only that`() =
+        runBlocking {
+            store.streamChanged(true)
+            store.open("!a")
+            store.prefetch("!a")
+            assertEquals(1, gomuks.calls.size) // current while the stream is up: nothing to do
+            store.streamChanged(false)
+            gomuks.newest = 124
+            store.prefetch("!a")
+            store.prefetch("!never-opened")
+            assertEquals(listOf("!a" to 0L, "!a" to 0L), gomuks.calls)
+            assertEquals((71L..124L).toList(), ids("!a"))
+            assertEquals(false, store.observe("!a").value.refreshing)
+        }
 }

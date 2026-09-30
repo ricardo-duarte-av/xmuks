@@ -8,8 +8,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
 import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
+import pt.aguiarvieira.xmuks.core.data.timeline.TimelineStore
 import javax.inject.Inject
 
 /**
@@ -23,6 +25,8 @@ class XmuksMessagingService : FirebaseMessagingService() {
     @Inject lateinit var notifier: RoomNotifier
 
     @Inject lateinit var openRoom: OpenRoom
+
+    @Inject lateinit var timelines: TimelineStore
 
     override fun onRegistered(token: String) {
         scope.launch { runCatching { registrar.tokenReceived(token) } }
@@ -41,11 +45,20 @@ class XmuksMessagingService : FirebaseMessagingService() {
             val key = registrar.pushKey() ?: return@runBlocking
             val payload = PushCodec.open(sealed, key) ?: return@runBlocking
             notifier.show(payload, openRoom.roomId.value)
+            // Rooms we hold in memory catch up now, while the process is alive: tapping the
+            // notification then opens a current timeline. Bounded, so FCM's window isn't overrun.
+            withTimeoutOrNull(PREFETCH_MS) {
+                payload.messages
+                    .map { it.roomId }
+                    .distinct()
+                    .forEach { timelines.prefetch(it) }
+            }
         }
     }
 
     private companion object {
         const val PAYLOAD = "payload"
+        const val PREFETCH_MS = 5_000L
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 }

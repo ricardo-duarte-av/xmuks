@@ -28,6 +28,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -118,6 +119,7 @@ fun RoomRoute(
     val newestEvent by viewModel.newestEvent.collectAsStateWithLifecycle()
     val mentionHints by viewModel.mentions.suggestions.collectAsStateWithLifecycle()
     val loadedEvents by viewModel.loadedEvents.collectAsStateWithLifecycle()
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val unread by viewModel.unread.collectAsStateWithLifecycle()
     val context by viewModel.context.collectAsStateWithLifecycle()
     val mode by viewModel.modes.current.collectAsStateWithLifecycle()
@@ -159,7 +161,7 @@ fun RoomRoute(
             roomId = roomId,
             sharedScope = sharedScope,
             room = room,
-            timeline = TimelineState(items, loadingOlder, hasMoreBefore, loadedEvents, unread, newestEvent),
+            timeline = TimelineState(items, loadingOlder, hasMoreBefore, loadedEvents, unread, newestEvent, refreshing),
             bridge = bridge,
             context = context,
             typing = typing,
@@ -297,6 +299,8 @@ data class TimelineState(
     val unread: UnreadMarker? = null,
     /** The newest event from someone else, shown or not: what reading to the bottom marks read. */
     val newestEvent: String? = null,
+    /** Shown from memory while the newest messages are fetched. */
+    val refreshing: Boolean = false,
 )
 
 /**
@@ -554,6 +558,10 @@ private fun LiveTimeline(
                     }
                 }
             }
+        }
+        // The room came from memory: say its newest messages are on their way.
+        if (timeline.refreshing && items != null) {
+            LinearProgressIndicator(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(horizontal = 24.dp))
         }
     }
 }
