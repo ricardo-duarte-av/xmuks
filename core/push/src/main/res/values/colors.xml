@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tints the small icon's circle in notification headers and on conversation avatars: the app's seed colour. -->
+    <color name="notification_accent">#006A60</color>
+</resources>

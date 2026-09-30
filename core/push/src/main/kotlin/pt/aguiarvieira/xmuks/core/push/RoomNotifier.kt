@@ -123,6 +123,7 @@ class RoomNotifier(
             NotificationCompat
                 .Builder(context, channel)
                 .setSmallIcon(R.drawable.ic_notification)
+                .setColor(ContextCompat.getColor(context, R.color.notification_accent))
                 .setStyle(style)
                 .setShortcutId(roomId)
                 .setLocusId(LocusIdCompat(roomId))
