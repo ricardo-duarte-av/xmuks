@@ -42,4 +42,14 @@ class NotificationContentTest {
 
     @Test
     fun snakeCaseIsNotItalic() = assertEquals(0, styles(styledMarkdown("call my_long_name now")).size)
+
+    @Test
+    fun linkFormsShowTheirText() = assertEquals("a b c", styledMarkdown("[a](https://x.com) [b](<https://y.com/a b>) [c](https://z.com \"Z\")").toString())
+
+    @Test
+    fun pushTextAloneHonoursMarkdown() {
+        val user = PushUser("@a:s", "A")
+        val push = PushMessage(0, "\$e", "!r:s", "Room", sender = user, self = user, text = "see [the docs](https://the-url.com)")
+        assertEquals("see the docs", shownOf(push).text.toString())
+    }
 }

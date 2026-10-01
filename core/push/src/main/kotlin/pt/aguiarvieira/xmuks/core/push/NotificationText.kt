@@ -70,7 +70,8 @@ private fun spanFor(marker: String): Any =
         else -> StyleSpan(Typeface.ITALIC)
     }
 
-private val LINK = Regex("\\[([^\\]]+)]\\([^)\\s]+\\)")
+// `[text](url)`, `[text](<url>)` and `[text](url "title")`.
+private val LINK = Regex("\\[([^\\]]+)]\\((?:<[^>]*>|[^)\\s]+)(?:\\s+\"[^\"]*\")?\\)")
 
 // Markers only count outside words: my_long_name stays as it is.
 private val MARKDOWN = Regex("(?<![\\w*_~`])(\\*\\*|__|~~|`|\\*|_)(\\S(?:.*?\\S)?)\\1(?![\\w*_~`])")

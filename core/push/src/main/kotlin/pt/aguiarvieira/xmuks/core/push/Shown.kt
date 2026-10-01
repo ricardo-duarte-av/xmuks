@@ -17,12 +17,12 @@ internal data class Shown(
     val caption: CharSequence? = null,
 )
 
-/** What the push alone says: its text, and its picture if it has one. */
+/** What the push alone says: its text (its markdown honoured), and its picture if it has one. */
 internal fun shownOf(push: PushMessage): Shown =
     if (push.image == null) {
-        Shown(push.text)
+        Shown(styledMarkdown(push.text))
     } else {
-        Shown(PHOTO, push.image, push.text.takeUnless { it.isBlank() || it.startsWith("Sent ") })
+        Shown(PHOTO, push.image, push.text.takeUnless { it.isBlank() || it.startsWith("Sent ") }?.let(::styledMarkdown))
     }
 
 /**
