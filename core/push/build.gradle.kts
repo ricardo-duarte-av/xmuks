@@ -10,11 +10,14 @@ android {
 }
 
 dependencies {
+    api(projects.core.notify)
     implementation(projects.core.data)
     implementation(projects.core.designsystem)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.core.ktx)
-    testImplementation(libs.robolectric)
 }
+
+// Its tests moved to core:notify with the code they cover; Hilt still generates unit-test sources here.
+tasks.withType<Test>().configureEach { failOnNoDiscoveredTests = false }

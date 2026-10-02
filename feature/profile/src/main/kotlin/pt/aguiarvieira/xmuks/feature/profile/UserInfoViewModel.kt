@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
+import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls

@@ -9,9 +9,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import pt.aguiarvieira.xmuks.core.account.PushRegistrar
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
-import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineStore
+import pt.aguiarvieira.xmuks.core.notify.PushCodec
+import pt.aguiarvieira.xmuks.core.notify.RoomNotifier
 import javax.inject.Inject
 
 /**

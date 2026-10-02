@@ -15,9 +15,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
-import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
+import pt.aguiarvieira.xmuks.core.account.CredentialStore
+import pt.aguiarvieira.xmuks.core.account.SecretCipher
 import pt.aguiarvieira.xmuks.core.data.auth.LoginResult
-import pt.aguiarvieira.xmuks.core.data.auth.SecretCipher
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.data.connection.StreamStats
 import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker

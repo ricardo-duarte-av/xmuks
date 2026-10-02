@@ -27,10 +27,12 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import okhttp3.OkHttpClient
 import okio.Path.Companion.toOkioPath
-import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
-import pt.aguiarvieira.xmuks.core.data.auth.KeystoreSecretCipher
+import pt.aguiarvieira.xmuks.core.account.AccountScoped
+import pt.aguiarvieira.xmuks.core.account.CredentialStore
+import pt.aguiarvieira.xmuks.core.account.KeystoreSecretCipher
+import pt.aguiarvieira.xmuks.core.account.PushRegistrar
+import pt.aguiarvieira.xmuks.core.account.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
-import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
 import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
 import pt.aguiarvieira.xmuks.core.data.connection.LiveTasks
 import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker
@@ -50,8 +52,6 @@ import pt.aguiarvieira.xmuks.core.data.profile.Contacts
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.profile.RoomProfiles
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
-import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
-import pt.aguiarvieira.xmuks.core.data.push.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.BridgeScanner

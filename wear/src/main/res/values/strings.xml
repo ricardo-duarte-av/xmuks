@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">xmuks</string>
+    <string name="signed_in_as">Notifications on for\n%1$s</string>
+    <string name="signed_out">Sign in with the xmuks login on your phone to get notifications here, even when the phone is away.</string>
+    <string name="sign_in">Sign in from phone</string>
+    <string name="signing_in">Signing in…</string>
+    <string name="sign_out">Sign out</string>
+    <string name="no_phone">Couldn\'t reach xmuks on the phone. Keep it nearby and signed in.</string>
+    <string name="phone_signed_out">xmuks on the phone isn\'t signed in.</string>
+    <string name="login_failed">gomuks didn\'t accept the login.</string>
+    <string name="no_network">Couldn\'t reach gomuks.</string>
+</resources>

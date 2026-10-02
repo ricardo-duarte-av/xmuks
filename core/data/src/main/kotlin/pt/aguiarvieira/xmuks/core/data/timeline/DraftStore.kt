@@ -8,7 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
+import pt.aguiarvieira.xmuks.core.account.AccountScoped
 
 /**
  * What was being written in each room, kept when the room is left and across restarts. Unsent

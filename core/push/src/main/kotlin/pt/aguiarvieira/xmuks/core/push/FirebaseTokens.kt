@@ -1,8 +1,8 @@
 package pt.aguiarvieira.xmuks.core.push
 
 import com.google.firebase.messaging.FirebaseMessaging
-import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
-import pt.aguiarvieira.xmuks.core.data.push.PushTokenSource
+import pt.aguiarvieira.xmuks.core.account.PushRegistrar
+import pt.aguiarvieira.xmuks.core.account.PushTokenSource
 import javax.inject.Provider
 
 /**

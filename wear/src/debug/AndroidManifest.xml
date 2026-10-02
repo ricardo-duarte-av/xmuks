@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug builds only: sign in over adb, for emulators that have no phone to ask. -->
+        <receiver
+            android:name=".DebugSignInReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="pt.aguiarvieira.xmuks.wear.DEBUG_SIGN_IN" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

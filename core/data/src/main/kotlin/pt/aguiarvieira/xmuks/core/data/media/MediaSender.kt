@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
+import pt.aguiarvieira.xmuks.core.account.AccountScoped
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.SPOILER

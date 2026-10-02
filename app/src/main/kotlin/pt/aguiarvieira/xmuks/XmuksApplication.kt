@@ -8,7 +8,7 @@ import dagger.hilt.android.HiltAndroidApp
 import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
-import pt.aguiarvieira.xmuks.core.push.RoomNotifier
+import pt.aguiarvieira.xmuks.core.notify.RoomNotifier
 import javax.inject.Inject
 
 @HiltAndroidApp

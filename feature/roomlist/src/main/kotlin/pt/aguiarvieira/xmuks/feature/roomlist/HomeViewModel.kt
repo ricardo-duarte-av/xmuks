@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
+import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile

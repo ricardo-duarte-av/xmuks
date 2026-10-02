@@ -1,6 +1,8 @@
 package pt.aguiarvieira.xmuks.core.push
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import coil3.ImageLoader
 import dagger.Module
 import dagger.Provides
@@ -12,10 +14,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
+import pt.aguiarvieira.xmuks.core.account.CredentialStore
+import pt.aguiarvieira.xmuks.core.account.PushRegistrar
+import pt.aguiarvieira.xmuks.core.account.PushTokenSource
+import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
-import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
-import pt.aguiarvieira.xmuks.core.data.push.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.push.RoomNotifications
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
@@ -23,6 +26,8 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
 import pt.aguiarvieira.xmuks.core.network.ExecResult
+import pt.aguiarvieira.xmuks.core.notify.Actions
+import pt.aguiarvieira.xmuks.core.notify.RoomNotifier
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 import javax.inject.Provider
@@ -55,6 +60,11 @@ object PushModule {
     ) = RoomNotifier(
         context,
         images,
+        Actions(ActionReceiver::class.java),
+        // The room's `matrix:roomid/…` link, which the app opens (the same way as any Matrix link).
+        roomIntent = { roomId ->
+            Intent(Intent.ACTION_VIEW, Uri.parse(LinkResolver.roomUri(roomId))).setPackage(context.packageName)
+        },
         server = { store.credentials()?.serverUrl },
         isDirect = { roomId -> rooms.room(roomId).first()?.isDirect },
         isMuted = { roomId -> pushRules.setting(roomId).first() in MUTED },

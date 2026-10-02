@@ -51,5 +51,18 @@
             <!-- Direct Share: our conversation shortcuts as share targets. -->
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- The watch app asks here for our login (Wear Data Layer). -->
+        <service
+            android:name=".watch.WatchLinkService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.REQUEST_RECEIVED" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/xmuks/"
+                    android:scheme="wear" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

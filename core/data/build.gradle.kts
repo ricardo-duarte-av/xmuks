@@ -9,8 +9,9 @@ android {
 
 dependencies {
     api(projects.core.network)
+    api(projects.core.account)
     api(projects.core.database)
-    implementation(libs.androidx.datastore.preferences)
+    api(libs.androidx.datastore.preferences)
     api(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.coil.gif)

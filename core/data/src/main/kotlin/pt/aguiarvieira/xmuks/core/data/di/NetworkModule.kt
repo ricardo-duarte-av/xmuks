@@ -6,7 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import okhttp3.OkHttpClient
-import pt.aguiarvieira.xmuks.core.data.auth.CredentialStore
+import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import pt.aguiarvieira.xmuks.core.network.AuthApi
 import pt.aguiarvieira.xmuks.core.network.AuthInterceptor
 import pt.aguiarvieira.xmuks.core.network.CompressionInterceptor

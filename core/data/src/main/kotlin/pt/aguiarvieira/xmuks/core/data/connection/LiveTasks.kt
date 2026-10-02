@@ -15,8 +15,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import pt.aguiarvieira.xmuks.core.account.PushRegistrar
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
-import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient

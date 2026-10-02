@@ -12,8 +12,8 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import pt.aguiarvieira.xmuks.core.account.PushRegistrar
 import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
-import pt.aguiarvieira.xmuks.core.data.push.PushRegistrar
 import java.util.concurrent.TimeUnit
 
 /**

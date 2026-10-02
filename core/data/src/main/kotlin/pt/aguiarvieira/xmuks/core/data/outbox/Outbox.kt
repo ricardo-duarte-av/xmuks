@@ -9,7 +9,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
-import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
+import pt.aguiarvieira.xmuks.core.account.AccountScoped
 import pt.aguiarvieira.xmuks.core.database.outbox.OutboxDao
 import pt.aguiarvieira.xmuks.core.database.outbox.OutboxEntity
 import pt.aguiarvieira.xmuks.core.database.outbox.OutboxState

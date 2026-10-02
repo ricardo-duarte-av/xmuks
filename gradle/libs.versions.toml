@@ -60,6 +60,11 @@ zstdJni = "1.5.7-20"
 coil = "3.6.3"
 jsoup = "1.23.2"
 
+# --- Wear OS (the watch app) ---
+wearComposeMaterial3 = "1.7.0"
+wearPhoneInteractions = "1.1.1"
+playServicesWearable = "20.0.1"
+
 # --- Firebase (M6) ---
 firebaseBom = "34.19.0"
 googleServices = "4.5.0"
@@ -138,6 +143,7 @@ telephoto-zoomable-image-coil3 = { group = "me.saket.telephoto", name = "zoomabl
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver3", version.ref = "okhttp" }
 okhttp-mockwebserver-junit4 = { group = "com.squareup.okhttp3", name = "mockwebserver3-junit4", version.ref = "okhttp" }
 zstd-jni = { group = "com.github.luben", name = "zstd-jni", version.ref = "zstdJni" }
+coil = { group = "io.coil-kt.coil3", name = "coil", version.ref = "coil" }
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-gif = { group = "io.coil-kt.coil3", name = "coil-gif", version.ref = "coil" }
 coil-svg = { group = "io.coil-kt.coil3", name = "coil-svg", version.ref = "coil" }
@@ -145,6 +151,10 @@ jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 
 # Firebase
+androidx-wear-compose-material3 = { group = "androidx.wear.compose", name = "compose-material3", version.ref = "wearComposeMaterial3" }
+androidx-wear-phone-interactions = { group = "androidx.wear", name = "wear-phone-interactions", version.ref = "wearPhoneInteractions" }
+play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
+kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutines" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
 

@@ -9,7 +9,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
-import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
+import pt.aguiarvieira.xmuks.core.account.AccountScoped
 import pt.aguiarvieira.xmuks.core.database.AccountDataEntity
 import pt.aguiarvieira.xmuks.core.database.EventEntity
 import pt.aguiarvieira.xmuks.core.database.InvitedRoomEntity

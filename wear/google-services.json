@@ -1,0 +1,32 @@
+{
+  "project_info": {
+    "project_number": "532032404365",
+    "project_id": "matrix-400109",
+    "storage_bucket": "matrix-400109.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:532032404365:android:c20006361c2b70deec9bc4",
+        "android_client_info": {
+          "package_name": "pt.aguiarvieira.xmuks"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAAGwca7l1BN9uatWbC3TsYrPphjdVb4BA"
+        },
+        {
+          "current_key": "AIzaSyB4l5X1EpWsVA0IdZYVBVE9ANm1AvaVj0Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

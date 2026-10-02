@@ -4,5 +4,6 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ./gradlew spotlessCheck detekt lintDebug testDebugUnitTest :core:protocol:test verifyRoborazziDebug \
-  :app:assembleRelease -PwarningsAsErrors=true --console=plain "$@"
+  :app:assembleRelease :wear:assembleRelease -PwarningsAsErrors=true --console=plain "$@"
 scripts/check-jni-mapping.sh app/build/outputs/mapping/release/mapping.txt
+scripts/check-jni-mapping.sh wear/build/outputs/mapping/release/mapping.txt

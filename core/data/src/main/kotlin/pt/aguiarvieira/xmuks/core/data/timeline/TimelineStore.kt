@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
+import pt.aguiarvieira.xmuks.core.account.AccountScoped
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.GomuksEvent
 import pt.aguiarvieira.xmuks.core.protocol.GomuksFrame

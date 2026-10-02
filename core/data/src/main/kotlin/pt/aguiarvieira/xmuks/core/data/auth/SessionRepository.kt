@@ -2,7 +2,8 @@ package pt.aguiarvieira.xmuks.core.data.auth
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
+import pt.aguiarvieira.xmuks.core.account.AccountScoped
+import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import pt.aguiarvieira.xmuks.core.network.AuthApi
 import pt.aguiarvieira.xmuks.core.network.AuthResult
 import pt.aguiarvieira.xmuks.core.network.Credentials

@@ -15,6 +15,8 @@ import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
+import pt.aguiarvieira.xmuks.core.notify.Avatars
+import pt.aguiarvieira.xmuks.core.notify.RoomNotifier
 
 /**
  * A room on the home screen: the same shortcut notifications publish for it (its ID, avatar and
