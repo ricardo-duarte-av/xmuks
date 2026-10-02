@@ -1,9 +1,8 @@
-package pt.aguiarvieira.xmuks.core.data
+package pt.aguiarvieira.xmuks.core.notify
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import pt.aguiarvieira.xmuks.core.data.media.mxcCacheKey
 
 class MxcCacheKeyTest {
     @Test

@@ -30,7 +30,7 @@ import pt.aguiarvieira.xmuks.core.protocol.GomuksFrame
  * warm the avatar cache so the room list (and, later, notifications) never waits on the network.
  *
  * A changed avatar is a new `mxc://` URI, so only new or changed avatars cost a request; see
- * [pt.aguiarvieira.xmuks.core.data.media.MediaCacheStrategy] for how long cached ones are trusted.
+ * [pt.aguiarvieira.xmuks.core.notify.MediaCacheStrategy] for how long cached ones are trusted.
  */
 class LiveTasks(
     private val context: Context,

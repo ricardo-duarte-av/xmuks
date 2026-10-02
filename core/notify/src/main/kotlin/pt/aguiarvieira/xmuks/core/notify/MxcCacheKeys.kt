@@ -1,4 +1,4 @@
-package pt.aguiarvieira.xmuks.core.data.media
+package pt.aguiarvieira.xmuks.core.notify
 
 import coil3.intercept.Interceptor
 import coil3.request.ImageResult

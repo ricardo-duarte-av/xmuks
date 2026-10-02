@@ -39,13 +39,11 @@ import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
 import pt.aguiarvieira.xmuks.core.data.media.LinkPreviewFetcher
-import pt.aguiarvieira.xmuks.core.data.media.MediaCacheStrategy
 import pt.aguiarvieira.xmuks.core.data.media.MediaDownloads
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
-import pt.aguiarvieira.xmuks.core.data.media.MxcCacheKeys
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.profile.Contacts
@@ -78,6 +76,8 @@ import pt.aguiarvieira.xmuks.core.network.ExecMode
 import pt.aguiarvieira.xmuks.core.network.ExecResult
 import pt.aguiarvieira.xmuks.core.network.GomuksConnection
 import pt.aguiarvieira.xmuks.core.network.SseClient
+import pt.aguiarvieira.xmuks.core.notify.MediaCacheStrategy
+import pt.aguiarvieira.xmuks.core.notify.MxcCacheKeys
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 import pt.aguiarvieira.xmuks.core.protocol.PaginationResponse
 import java.util.concurrent.TimeUnit

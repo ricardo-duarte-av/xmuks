@@ -1,4 +1,4 @@
-package pt.aguiarvieira.xmuks.core.data
+package pt.aguiarvieira.xmuks.core.notify
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -14,7 +14,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Test
 import org.junit.runner.RunWith
-import pt.aguiarvieira.xmuks.core.data.media.MediaCacheStrategy
 
 @OptIn(ExperimentalCoilApi::class)
 @RunWith(AndroidJUnit4::class)

@@ -7,6 +7,8 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import coil3.ImageLoader
+import coil3.annotation.ExperimentalCoilApi
+import coil3.disk.DiskCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.Module
@@ -22,6 +24,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import okhttp3.OkHttpClient
+import okio.Path.Companion.toOkioPath
 import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import pt.aguiarvieira.xmuks.core.account.KeystoreSecretCipher
 import pt.aguiarvieira.xmuks.core.account.PushRegistrar
@@ -33,6 +36,8 @@ import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
 import pt.aguiarvieira.xmuks.core.network.ExecResult
 import pt.aguiarvieira.xmuks.core.notify.Actions
+import pt.aguiarvieira.xmuks.core.notify.MediaCacheStrategy
+import pt.aguiarvieira.xmuks.core.notify.MxcCacheKeys
 import pt.aguiarvieira.xmuks.core.notify.PushPayload
 import pt.aguiarvieira.xmuks.core.notify.RoomNotifier
 import pt.aguiarvieira.xmuks.core.protocol.Event
@@ -49,8 +54,13 @@ object WearModule {
     private const val CONNECT_TIMEOUT_S = 15L
     private const val READ_TIMEOUT_S = 30L
 
-    /** How long a message waits for a dismissal (read on another client) before it shows. */
-    const val HOLD_MS = 4_000L
+    /**
+     * How long a message waits for a dismissal (read on another client) before it shows. The
+     * dismissal came 185 ms behind its message when measured; 2 s leaves room for a slow network.
+     */
+    const val HOLD_MS = 2_000L
+
+    private const val IMAGE_CACHE_BYTES = 32L * 1024 * 1024
 
     @Provides @Singleton
     fun scope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -129,16 +139,30 @@ object WearModule {
             },
         )
 
-    /** Notification avatars and pictures: through gomuks' client (the push's media token covers them too). */
-    @Provides @Singleton
+    /**
+     * Notification avatars and pictures, through gomuks' client, kept on the watch: cached by
+     * mxc:// (every push's URL carries a new media token, so by URL nothing would ever be reused)
+     * and trusted for a month, as on the phone. A repeat sender's avatar costs no 4G at all.
+     */
+    @OptIn(ExperimentalCoilApi::class)
+    @Provides
+    @Singleton
     fun imageLoader(
         @ApplicationContext context: Context,
         @Named("api") api: OkHttpClient,
     ): ImageLoader =
         ImageLoader
             .Builder(context)
-            .components { add(OkHttpNetworkFetcherFactory(callFactory = { api })) }
-            .build()
+            .components {
+                add(MxcCacheKeys())
+                add(OkHttpNetworkFetcherFactory(callFactory = { api }, cacheStrategy = { MediaCacheStrategy() }))
+            }.diskCache {
+                DiskCache
+                    .Builder()
+                    .directory(context.cacheDir.resolve("images").toOkioPath())
+                    .maxSizeBytes(IMAGE_CACHE_BYTES)
+                    .build()
+            }.build()
 
     @Provides @Singleton
     fun roomNotifier(

@@ -10,6 +10,7 @@ android {
 dependencies {
     api(projects.core.network)
     api(projects.core.account)
+    api(projects.core.notify)
     api(projects.core.database)
     api(libs.androidx.datastore.preferences)
     api(libs.coil.compose)
