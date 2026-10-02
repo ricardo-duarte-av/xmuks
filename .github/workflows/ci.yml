@@ -193,7 +193,9 @@ jobs:
     name: Upload watch app to Play (Wear OS internal track)
     if: github.ref_type == 'tag' && github.repository_owner == 'ricardo-duarte-av'
     runs-on: ubuntu-latest
-    needs: [build, verify-tag]
+    # After the phone's upload, never beside it: Play allows one open edit per app, and committing
+    # one deletes any other ("This Edit has been deleted"). The phone's goes first, and on its own.
+    needs: [build, verify-tag, play]
     steps:
       - uses: actions/download-artifact@v4
         with:
