@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Read by Play services, never by our code: release resource shrinking would drop it otherwise
+     (a tools:keep on the values file itself isn't honoured), and the watch and phone never meet. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@array/android_wear_capabilities" />

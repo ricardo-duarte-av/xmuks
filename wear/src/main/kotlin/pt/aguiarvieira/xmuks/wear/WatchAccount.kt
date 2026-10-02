@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.wear
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -58,21 +59,43 @@ class WatchAccount
             return logIn(handoff)
         }
 
-        /** The phone app's answer to our login request; null when no phone app could be reached. */
-        private suspend fun askPhone(): ByteArray? =
-            runCatching {
-                val nodes =
+        /**
+         * The phone app's answer to our login request; null when no phone app could be reached.
+         * Phones announcing our capability are asked first; failing that, every connected device
+         * (one without our app just doesn't answer).
+         */
+        private suspend fun askPhone(): ByteArray? {
+            val withApp =
+                runCatching {
                     Wearable
                         .getCapabilityClient(context)
                         .getCapability(WatchLink.PHONE_CAPABILITY, CapabilityClient.FILTER_REACHABLE)
                         .await()
                         .nodes
-                val phone = nodes.firstOrNull { it.isNearby } ?: nodes.firstOrNull() ?: return null
-                Wearable
-                    .getMessageClient(context)
-                    .sendRequest(phone.id, WatchLink.LOGIN_PATH, ByteArray(0))
-                    .await()
-            }.getOrNull()
+                }.getOrDefault(emptySet())
+            val connected =
+                runCatching {
+                    Wearable
+                        .getNodeClient(
+                            context
+                        ).connectedNodes
+                        .await()
+                }.getOrDefault(emptyList())
+            val candidates = (withApp.sortedByDescending { it.isNearby } + connected).distinctBy { it.id }
+            for (node in candidates) {
+                val answer =
+                    runCatching {
+                        Wearable
+                            .getMessageClient(context)
+                            .sendRequest(node.id, WatchLink.LOGIN_PATH, ByteArray(0))
+                            .await()
+                    }.onFailure { Log.w(TAG, "No answer from ${node.displayName}: $it") }
+                        .getOrNull()
+                if (answer != null) return answer
+            }
+            Log.w(TAG, "No phone answered (${withApp.size} with our app, ${connected.size} connected)")
+            return null
+        }
 
         /** Logs in with [handoff] for ourselves: our own gomuks session and our own pusher. */
         suspend fun logIn(handoff: LoginHandoff): SignIn {
@@ -119,5 +142,6 @@ class WatchAccount
         private companion object {
             val SEND_READ_RECEIPTS = booleanPreferencesKey("send_read_receipts")
             const val PHONE_TIMEOUT_MS = 15_000L
+            const val TAG = "xmuks-wear"
         }
     }
