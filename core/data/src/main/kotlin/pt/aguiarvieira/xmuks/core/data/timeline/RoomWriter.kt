@@ -238,11 +238,14 @@ internal fun messageParams(
     replyTo: ReplyTarget? = null,
     editing: String? = null,
     baseContent: JsonObject? = null,
+    /** Content keys gomuks' `base_content` type doesn't know (it drops those): sent as they are. */
+    extra: JsonObject? = null,
 ): JsonObject =
     buildJsonObject {
         put("room_id", JsonPrimitive(roomId))
         put("text", JsonPrimitive(text))
         baseContent?.let { put("base_content", it) }
+        extra?.let { put("extra", it) }
         when {
             editing != null -> {
                 put(

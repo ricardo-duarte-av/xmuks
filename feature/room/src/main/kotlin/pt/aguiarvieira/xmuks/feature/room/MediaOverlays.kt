@@ -14,9 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-// What sits over a timeline picture: play, tap to show, upload progress.
+// What sits over a timeline picture: play, tap to show, spoiler, upload progress.
 
 @Composable
 internal fun PlayBadge() {
@@ -51,6 +52,21 @@ internal fun TapToShow() {
             stringResource(R.string.tap_to_show),
             color = Color.White,
             style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+    }
+}
+
+/** Over a picture its sender hid as a spoiler (MSC4193), with their reason when they gave one. */
+@Composable
+internal fun SpoilerBadge(reason: String?) {
+    Surface(shape = RoundedCornerShape(50), color = Color.Black.copy(alpha = SCRIM)) {
+        Text(
+            if (reason == null) stringResource(R.string.spoiler) else stringResource(R.string.spoiler_reason, reason),
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
         )
     }

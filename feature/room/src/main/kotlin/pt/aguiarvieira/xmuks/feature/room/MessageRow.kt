@@ -424,7 +424,11 @@ private fun MediaImage(
                     .tapOrHold(enabled = uploadProgress == null, onClick = click),
             contentAlignment = Alignment.Center,
         ) {
-            placeholder?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+            if (placeholder != null) {
+                Image(placeholder, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            } else if (!revealed) {
+                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHighest))
+            }
             if (source != null) {
                 val loader = resolver.images
                 if (loader != null) {
@@ -434,6 +438,7 @@ private fun MediaImage(
                 }
             }
             when {
+                !revealed && media.spoiler -> SpoilerBadge(media.spoilerReason)
                 !revealed -> TapToShow()
                 media.animated && !animate -> GifBadge()
                 uploadProgress != null -> UploadProgress(uploadProgress)

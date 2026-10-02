@@ -2,6 +2,7 @@ package pt.aguiarvieira.xmuks.core.data.timeline
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 import pt.aguiarvieira.xmuks.core.protocol.Event
@@ -108,5 +109,7 @@ internal fun localpart(userId: String): String = userId.removePrefix("@").substr
 internal fun JsonObject.obj(key: String) = get(key) as? JsonObject
 
 internal fun JsonObject.str(key: String) = (get(key) as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
+
+internal fun JsonObject.bool(key: String) = (get(key) as? JsonPrimitive)?.takeIf { !it.isString }?.booleanOrNull
 
 internal fun JsonObject.long(key: String) = (get(key) as? JsonPrimitive)?.longOrNull

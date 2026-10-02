@@ -108,7 +108,10 @@ class MediaActions(
 
     fun choose(size: ImageSize) = _draft.update { it?.copy(chosen = size) }
 
-    fun send(caption: String) {
+    fun send(
+        caption: String,
+        spoiler: Boolean,
+    ) {
         val draft = _draft.value?.takeIf { !it.sending } ?: return
         _draft.value = draft.copy(sending = true, error = null)
         scope.launch {
@@ -117,7 +120,7 @@ class MediaActions(
                 val file = if (size == ImageSize.Original) null else resized[size] ?: preparer.resized(draft.file, size)
                 preparer.prepare(draft.file, file)
             }.onSuccess { prepared ->
-                sender.send(roomId, prepared, caption.trim(), replyTo(), encrypted())
+                sender.send(roomId, prepared, caption.trim(), replyTo(), encrypted(), spoiler)
                 sizing?.cancel()
                 resized.clear()
                 _draft.value = null

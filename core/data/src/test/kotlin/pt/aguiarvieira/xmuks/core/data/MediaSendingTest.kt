@@ -15,6 +15,7 @@ import pt.aguiarvieira.xmuks.core.data.media.Thumbnail
 import pt.aguiarvieira.xmuks.core.data.media.UploadSource
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.mediaMessage
+import pt.aguiarvieira.xmuks.core.data.timeline.messageParams
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 import java.io.File
 
@@ -98,5 +99,22 @@ class MediaSendingTest {
         val plain = mediaMessage("m.audio", json("""{"msgtype": "m.audio", "body": "song.mp3", "url": "mxc://s/b"}"""), "song.mp3")
         assertEquals(null, (plain as MessageContent.Audio).waveform)
         assertFalse(plain.voice)
+    }
+
+    @Test
+    fun `media sent as a spoiler is marked, and spoilers read back with their reason`() {
+        val gomuks = json("""{"msgtype": "m.image", "url": "mxc://s/i", "info": {}}""")
+        // gomuks drops keys its base_content type doesn't know: the mark goes in `extra`.
+        val extra = MediaSender.extraContent(spoiler = true)!!
+        val params = messageParams("!r", "", baseContent = MediaSender.withOurs(gomuks, prepared(), null), extra = extra)
+        assertEquals("true", params["extra"]!!.jsonObject["page.codeberg.everypizza.msc4193.spoiler"].toString())
+        assertEquals(null, MediaSender.extraContent(spoiler = false))
+        val sent = JsonObject(gomuks + extra)
+
+        val read = mediaMessage("m.image", sent, "i.png") as MessageContent.Image
+        assertTrue(read.media.spoiler)
+        val reasoned = json("""{"msgtype": "m.image", "url": "mxc://s/i", "m.spoiler": true, "m.spoiler.reason": "plot"}""")
+        assertEquals("plot", (mediaMessage("m.image", reasoned, "i.png") as MessageContent.Image).media.spoilerReason)
+        assertFalse((mediaMessage("m.image", gomuks, "i.png") as MessageContent.Image).media.spoiler)
     }
 }

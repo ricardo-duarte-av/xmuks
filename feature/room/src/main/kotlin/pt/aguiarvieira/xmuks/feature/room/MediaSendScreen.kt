@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
@@ -29,6 +31,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +43,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -54,7 +61,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 internal fun MediaSendScreen(
     draft: MediaDraft,
     onChoose: (ImageSize) -> Unit,
-    onSend: (caption: String) -> Unit,
+    onSend: (caption: String, spoiler: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     Dialog(
@@ -70,10 +77,11 @@ internal fun MediaSendScreen(
 private fun MediaSendContent(
     draft: MediaDraft,
     onChoose: (ImageSize) -> Unit,
-    onSend: (caption: String) -> Unit,
+    onSend: (caption: String, spoiler: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val caption = rememberTextFieldState()
+    var spoiler by rememberSaveable { mutableStateOf(false) }
     Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
         Column(
             Modifier
@@ -97,6 +105,19 @@ private fun MediaSendContent(
             }
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Preview(draft) }
             if (draft.options.size > 1) SizeChoice(draft, onChoose)
+            // Pictures and videos only: MSC4193 hides those, and a file or audio shows nothing to hide.
+            if (draft.file.kind == MediaKind.Image || draft.file.kind == MediaKind.Video) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .toggleable(spoiler, role = Role.Checkbox, onValueChange = { spoiler = it })
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = spoiler, onCheckedChange = null, modifier = Modifier.padding(12.dp))
+                    Text(stringResource(R.string.send_as_spoiler), color = Color.White)
+                }
+            }
             draft.error?.let {
                 Text(
                     stringResource(R.string.attach_failed, it),
@@ -117,7 +138,7 @@ private fun MediaSendContent(
                     modifier = Modifier.weight(1f),
                 )
                 FilledIconButton(
-                    onClick = { onSend(caption.text.toString()) },
+                    onClick = { onSend(caption.text.toString(), spoiler) },
                     enabled = !draft.sending,
                     modifier = Modifier.size(56.dp),
                 ) {

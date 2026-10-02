@@ -16,6 +16,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import pt.aguiarvieira.xmuks.core.data.connection.AccountScoped
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
+import pt.aguiarvieira.xmuks.core.data.timeline.SPOILER
 import pt.aguiarvieira.xmuks.core.data.timeline.messageParams
 import pt.aguiarvieira.xmuks.core.data.timeline.obj
 import java.util.UUID
@@ -55,6 +56,8 @@ class MediaSender(
         val media: PreparedMedia,
         val replyTo: ReplyTarget?,
         val encrypt: Boolean,
+        /** Sent as a spoiler (MSC4193): hidden until tapped. */
+        val spoiler: Boolean,
         val job: Job? = null,
         /** Order of sending: messages go out in it, however their uploads race. */
         val seq: Long = 0,
@@ -79,6 +82,7 @@ class MediaSender(
         caption: String,
         replyTo: ReplyTarget?,
         encrypt: Boolean,
+        spoiler: Boolean = false,
     ) {
         val thumbnail = media.thumbnail
         val shown =
@@ -94,7 +98,7 @@ class MediaSender(
                 height = media.height ?: thumbnail?.height,
                 blurhash = thumbnail?.blurhash,
             )
-        start(Upload(shown, media, replyTo, encrypt, seq = sequence.incrementAndGet()))
+        start(Upload(shown, media, replyTo, encrypt, spoiler, seq = sequence.incrementAndGet()))
     }
 
     fun retry(id: String) {
@@ -125,6 +129,7 @@ class MediaSender(
                 upload.media,
                 upload.replyTo,
                 upload.encrypt,
+                upload.spoiler,
                 job,
                 upload.seq
             )
@@ -161,7 +166,8 @@ class MediaSender(
                 roomId,
                 upload.shown.caption,
                 upload.replyTo,
-                baseContent = withOurs(content, media, thumbnail)
+                baseContent = withOurs(content, media, thumbnail),
+                extra = extraContent(upload.spoiler),
             )
         )
     }
@@ -174,7 +180,18 @@ class MediaSender(
             val upload = all[id] ?: return@update all
             // Everything but what's shown stays as it was: the job, and the place in the send order.
             all +
-                (id to Upload(edit(upload.shown), upload.media, upload.replyTo, upload.encrypt, upload.job, upload.seq))
+                (
+                    id to
+                        Upload(
+                            edit(upload.shown),
+                            upload.media,
+                            upload.replyTo,
+                            upload.encrypt,
+                            upload.spoiler,
+                            upload.job,
+                            upload.seq
+                        )
+                )
         }
     }
 
@@ -216,6 +233,10 @@ class MediaSender(
             }
             return JsonObject(content + ("info" to JsonObject(info)))
         }
+
+        /** What goes beside gomuks' content: the spoiler mark (MSC4193), when it's one. */
+        fun extraContent(spoiler: Boolean): JsonObject? =
+            if (spoiler) JsonObject(mapOf(SPOILER to JsonPrimitive(true))) else null
 
         private const val BLURHASH = "xyz.amorgan.blurhash"
     }

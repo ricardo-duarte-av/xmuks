@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -48,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -65,6 +67,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
+import pt.aguiarvieira.xmuks.core.designsystem.util.Blurhash
 import java.text.DateFormat
 import java.util.Date
 
@@ -300,7 +303,12 @@ private fun GalleryTile(
         contentAlignment = Alignment.Center,
     ) {
         val source = kind?.let { timelineSource(media, it, resolver) }
-        if (source != null) {
+        if (source != null && media.spoiler) {
+            // Hidden here too: its blurhash and the badge; opening it is the tap that shows it.
+            val blur = remember(media.blurhash) { media.blurhash?.let { Blurhash.decode(it)?.asImageBitmap() } }
+            blur?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+            SpoilerBadge(null)
+        } else if (source != null) {
             val loader = resolver.images
             if (loader != null) {
                 AsyncImage(source, null, loader, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)

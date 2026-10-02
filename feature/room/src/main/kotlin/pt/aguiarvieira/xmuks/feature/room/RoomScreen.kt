@@ -268,7 +268,7 @@ class ComposerActions(
     /** Several picked together: on to the share screen, one caption each. */
     val onPickMany: (List<android.net.Uri>) -> Unit = {},
     val onChooseSize: (ImageSize) -> Unit = {},
-    val onSendMedia: (caption: String) -> Unit = {},
+    val onSendMedia: (caption: String, spoiler: Boolean) -> Unit = { _, _ -> },
     val onCancelMedia: () -> Unit = {},
     val onSendVoice: (java.io.File) -> Unit = {},
     val onSendLocation: (PickedLocation) -> Unit = {},

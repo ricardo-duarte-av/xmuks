@@ -36,8 +36,19 @@ internal fun media(content: JsonObject): Media? {
         thumbnailMxc = info?.str("thumbnail_url") ?: thumbFile?.str("url"),
         thumbnailEncrypted = thumbFile != null,
         name = content.str("filename") ?: content.str("body"),
+        spoiler = content.bool(SPOILER) == true || content.bool(STABLE_SPOILER) == true,
+        spoilerReason =
+            (
+                content.str(
+                    "$SPOILER.reason"
+                ) ?: content.str("$STABLE_SPOILER.reason")
+            )?.takeIf { it.isNotBlank() },
     )
 }
+
+/** MSC4193's media spoiler: its unstable key (what clients send today) and the stable one. */
+const val SPOILER = "page.codeberg.everypizza.msc4193.spoiler"
+private const val STABLE_SPOILER = "m.spoiler"
 
 /** Media captions (MSC2530): `body` is the caption when a separate `filename` is given. */
 internal fun caption(content: JsonObject): String? {

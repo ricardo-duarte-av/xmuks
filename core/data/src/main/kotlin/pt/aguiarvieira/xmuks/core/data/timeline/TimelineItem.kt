@@ -219,6 +219,9 @@ data class Media(
     val thumbnailEncrypted: Boolean,
     /** The file's name (`filename`, else the body when it's not a caption): what to save it as. */
     val name: String? = null,
+    /** Hidden until tapped (MSC4193), whatever the preview setting; [spoilerReason] says why. */
+    val spoiler: Boolean = false,
+    val spoilerReason: String? = null,
 ) {
     /** An animated image (a GIF): its thumbnail is a still, the file itself can be large. */
     val animated: Boolean get() = mimeType == "image/gif"

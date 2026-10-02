@@ -16,7 +16,8 @@ internal class MediaReveal(
 )
 
 /**
- * Without previews, a picture waits (blurhash) for a tap; our own uploads always show. A GIF plays
+ * Without previews, or when its sender marked it a spoiler, a picture waits (blurhash) for a tap;
+ * our own uploads always show. A GIF plays
  * on its own with autoplay, or once tapped: the first tap plays it, the next opens it.
  */
 @Composable
@@ -28,7 +29,7 @@ internal fun rememberReveal(
     val display = LocalMediaDisplay.current
     var tapped by rememberSaveable(eventId) { mutableStateOf(false) }
     var playing by rememberSaveable(eventId) { mutableStateOf(false) }
-    val revealed = display.showPreviews || tapped || uploading
+    val revealed = (display.showPreviews && !media.spoiler) || tapped || uploading
     val animate = media.animated && (display.autoplayGifs || playing)
     val onTap: (() -> Unit)? =
         when {

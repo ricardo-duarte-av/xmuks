@@ -3,6 +3,7 @@ package pt.aguiarvieira.xmuks.core.push
 import android.text.SpannableStringBuilder
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 import pt.aguiarvieira.xmuks.core.protocol.Event
@@ -66,11 +67,20 @@ private fun byType(
         }
 
         "m.image", "m.sticker" -> {
-            Shown(if (event.effectiveType == "m.sticker") STICKER else PHOTO, push.image ?: media(content), caption)
+            val what = if (event.effectiveType == "m.sticker") STICKER else PHOTO
+            if (spoiler(
+                    content
+                )
+            ) {
+                Shown("$what · $SPOILER", null, caption)
+            } else {
+                Shown(what, push.image ?: media(content), caption)
+            }
         }
 
         "m.video" -> {
-            Shown(line("🎬", VIDEO, duration(content)), thumbnail(content), caption)
+            val what = line("🎬", VIDEO, duration(content))
+            pictured(what, thumbnail(content), content, caption)
         }
 
         "m.audio" -> {
@@ -95,6 +105,21 @@ private const val VIDEO = "Video"
 private const val PHOTO = "📷 Photo"
 private const val STICKER = "Sticker"
 private const val LOCATION = "Location"
+private const val SPOILER = "Spoiler"
+
+/** A picture or video with its [picture], unless its sender hid it (MSC4193): then none. */
+private fun pictured(
+    what: String,
+    picture: String?,
+    content: JsonObject,
+    caption: String?,
+): Shown = if (spoiler(content)) Shown("$what · $SPOILER", null, caption) else Shown(what, picture, caption)
+
+/** Its sender marked it a spoiler (MSC4193, unstable key or stable). */
+private fun spoiler(content: JsonObject) =
+    listOf("page.codeberg.everypizza.msc4193.spoiler", "m.spoiler").any {
+        (content[it] as? JsonPrimitive)?.booleanOrNull == true
+    }
 
 private fun audioLine(
     content: JsonObject,
