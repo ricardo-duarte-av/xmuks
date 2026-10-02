@@ -219,7 +219,7 @@ private fun Picture(
     )
 }
 
-/** Annotated text with inline images (custom emoji) sized to the line. */
+/** Annotated text with inline images (custom emoji) sized to the line, and spoilers that tap to reveal. */
 @Composable
 private fun RichText(
     text: AnnotatedString,
@@ -228,6 +228,7 @@ private fun RichText(
     images: InlineImages,
     lastLine: LastLine? = null,
 ) {
+    val spoilers = rememberSpoilers(text, color)
     val ids =
         remember(text) {
             text
@@ -244,33 +245,55 @@ private fun RichText(
                 .toDp()
         } * MAX_PICTURE_FRACTION
     val inline =
-        ids.associateWith { id ->
-            val picture = parsePicture(id)
-            val mxc = picture?.third ?: id.removePrefix(HtmlParser.IMAGE_PREFIX)
-            val placeholder =
-                if (picture == null) {
-                    Placeholder(EMOJI_EM.em, EMOJI_EM.em, PlaceholderVerticalAlign.TextCenter)
-                } else {
-                    val scale = minOf(1f, maxWidth / picture.first.dp)
-                    with(density) {
-                        Placeholder(
-                            (picture.first.dp * scale).toSp(),
-                            (picture.second.dp * scale).toSp(),
-                            PlaceholderVerticalAlign.TextBottom,
+        ids
+            .flatMap { id ->
+                val picture = parsePicture(id)
+                val mxc = picture?.third ?: id.removePrefix(HtmlParser.IMAGE_PREFIX)
+                val placeholder =
+                    if (picture == null) {
+                        Placeholder(EMOJI_EM.em, EMOJI_EM.em, PlaceholderVerticalAlign.TextCenter)
+                    } else {
+                        val scale = minOf(1f, maxWidth / picture.first.dp)
+                        with(density) {
+                            Placeholder(
+                                (picture.first.dp * scale).toSp(),
+                                (picture.second.dp * scale).toSp(),
+                                PlaceholderVerticalAlign.TextBottom,
+                            )
+                        }
+                    }
+                val drawn =
+                    InlineTextContent(placeholder) { alt ->
+                        val open = images.open
+                        AsyncImage(
+                            model = images.url(mxc),
+                            contentDescription = alt,
+                            contentScale = ContentScale.Fit,
+                            modifier =
+                                (
+                                    if (open !=
+                                        null
+                                    ) {
+                                        Modifier.clickable { open(mxc, alt) }
+                                    } else {
+                                        Modifier
+                                    }
+                                ).fillMaxSize(),
                         )
                     }
-                }
-            InlineTextContent(placeholder) { alt ->
-                val open = images.open
-                AsyncImage(
-                    model = images.url(mxc),
-                    contentDescription = alt,
-                    contentScale = ContentScale.Fit,
-                    modifier = (if (open != null) Modifier.clickable { open(mxc, alt) } else Modifier).fillMaxSize(),
-                )
-            }
-        }
-    Text(text, color = color, style = style, inlineContent = inline, onTextLayout = { lastLine?.update(it) })
+                listOf(id to drawn, HIDDEN_PREFIX + id to InlineTextContent(placeholder) {})
+            }.toMap()
+    Text(
+        spoilers.text,
+        color = color,
+        style = style,
+        inlineContent = inline,
+        onTextLayout = {
+            spoilers.layout = it
+            lastLine?.update(it)
+        },
+        modifier = spoilers.covers,
+    )
 }
 
 @Composable

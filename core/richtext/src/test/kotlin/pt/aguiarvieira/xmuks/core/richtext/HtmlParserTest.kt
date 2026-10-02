@@ -52,10 +52,47 @@ class HtmlParserTest {
     }
 
     @Test
-    fun `spoilers hide text, colours apply`() {
+    fun `spoilers are marked, colours apply`() {
         val text = para("""<span data-mx-spoiler>secret</span> <font data-mx-color="#ff0000">red</font>""")
-        assertTrue(text.spanStyles.any { it.item.background == Color.DarkGray })
+        assertEquals("secret", spoilerRanges(text).single().let { text.text.substring(it.start, it.end) })
         assertTrue(text.spanStyles.any { it.item.color == Color(0xFFFF0000) })
+    }
+
+    @Test
+    fun `a spoiler's reason shows in brackets, gomuks' or the attribute's`() {
+        val gomuks = para("""<span class="spoiler-reason">spoilertest</span><span class="hicli-spoiler">cw</span>""")
+        assertEquals("(spoilertest) cw", gomuks.text)
+        assertEquals("cw", spoilerRanges(gomuks).single().let { gomuks.text.substring(it.start, it.end) })
+        assertEquals("(why) cw", para("""<span data-mx-spoiler="why">cw</span>""").text)
+    }
+
+    @Test
+    fun `hidden spoilers hide text and links, revealed ones keep them, each taps to toggle`() {
+        val text = para("""<span class="hicli-spoiler">see <a href="https://x.org">x</a></span> and <span class="hicli-spoiler">two</span>""")
+        val spoilers = spoilerRanges(text)
+        val tapped = mutableListOf<String>()
+        val hidden = withSpoilers(text, spoilers, emptySet()) { tapped += it }
+        assertTrue(hidden.getLinkAnnotations(0, hidden.length).none { it.item is LinkAnnotation.Url })
+        assertTrue(hidden.spanStyles.any { it.item.color == Color.Transparent && it.start == spoilers[1].start })
+        hidden.getLinkAnnotations(0, hidden.length).forEach { (it.item as LinkAnnotation.Clickable).linkInteractionListener?.onClick(it.item) }
+        assertEquals(spoilers.map { it.item }, tapped)
+
+        val firstShown = withSpoilers(text, spoilers, setOf(spoilers[0].item)) {}
+        assertEquals(
+            "https://x.org",
+            firstShown
+                .getLinkAnnotations(0, firstShown.length)
+                .mapNotNull { it.item as? LinkAnnotation.Url }
+                .single()
+                .url
+        )
+        assertTrue(firstShown.spanStyles.none { it.item.color == Color.Transparent && it.start == spoilers[0].start })
+    }
+
+    @Test
+    fun `quoted spoilers stay solid blocks`() {
+        val snippet = snippetOf(parser.parse("""a <span class="hicli-spoiler">b</span>"""), colors)
+        assertTrue(snippet.spanStyles.any { it.item.background == Color.DarkGray && snippet.text.substring(it.start, it.end) == "b" })
     }
 
     @Test
@@ -110,7 +147,7 @@ class HtmlParserTest {
             para(
                 """<span class="hicli-spoiler">secret</span> <span style="background-color: #000000;color: #39ff14;">M</span>""",
             )
-        assertTrue(text.spanStyles.any { it.item.background == Color.DarkGray })
+        assertEquals(1, spoilerRanges(text).size)
         assertTrue(text.spanStyles.any { it.item.color == Color(0xFF39FF14) && it.item.background == Color(0xFF000000) })
     }
 

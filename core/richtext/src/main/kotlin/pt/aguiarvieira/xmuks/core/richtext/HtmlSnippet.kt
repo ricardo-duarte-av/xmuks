@@ -39,7 +39,16 @@ internal fun snippetOf(
             if (i > 0) append('\n')
             when (line) {
                 is Line.Text -> {
+                    val start = length
                     append(line.text)
+                    // Too small to tap: a quoted spoiler stays a solid block.
+                    spoilerRanges(line.text).forEach {
+                        addStyle(
+                            SpanStyle(color = colors.spoiler, background = colors.spoiler),
+                            start + it.start,
+                            start + it.end
+                        )
+                    }
                 }
 
                 is Line.Code -> {

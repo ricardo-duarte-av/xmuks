@@ -84,6 +84,9 @@ class HtmlParser(
 ) {
     private val ws = WhitespaceWriter(preserveWhitespace)
 
+    /** Spoilers so far: each one's annotation item, so each is revealed on its own. */
+    private var spoilers = 0
+
     fun parse(html: String): List<HtmlBlock> = blocks(Jsoup.parseBodyFragment(html).body().childNodes())
 
     private fun blocks(nodes: List<Node>): List<HtmlBlock> {
@@ -308,8 +311,16 @@ class HtmlParser(
      * `style` attribute and spoilers into the `hicli-spoiler` class; raw HTML keeps the originals.
      */
     private fun AnnotatedString.Builder.appendSpan(el: Element) {
+        // gomuks writes a spoiler's reason as a span of its own; raw HTML keeps it in the attribute.
+        if (el.hasClass("spoiler-reason")) {
+            appendSpoilerReason(el.text())
+            return
+        }
         if (el.hasAttr("data-mx-spoiler") || el.hasClass("hicli-spoiler")) {
-            withStyle(SpanStyle(color = colors.spoiler, background = colors.spoiler)) { children(el) }
+            el.attr("data-mx-spoiler").takeIf { it.isNotBlank() }?.let { appendSpoilerReason(it) }
+            pushStringAnnotation(SPOILER_TAG, (spoilers++).toString())
+            children(el)
+            pop()
             return
         }
         val style = el.attr("style")
@@ -336,6 +347,11 @@ class HtmlParser(
         ) { children(el) }
     }
 
+    /** Small and muted, in brackets, as gomuks web shows it. */
+    private fun AnnotatedString.Builder.appendSpoilerReason(reason: String) {
+        withStyle(SpanStyle(color = colors.spoiler, fontSize = REASON.em)) { ws.verbatim(this, "($reason) ") }
+    }
+
     private fun AnnotatedString.hasImages() = getStringAnnotations(INLINE_TAG, 0, length).isNotEmpty()
 
     /**
@@ -351,6 +367,9 @@ class HtmlParser(
 
     companion object {
         const val IMAGE_PREFIX = "img:"
+
+        /** A spoiler's text is annotated with this tag (see [spoilerRanges]); drawn hidden until tapped. */
+        const val SPOILER_TAG = "spoiler"
 
         /** A sized picture: `pic:<width>x<height>:<mxc>`, in dp. */
         const val PICTURE_PREFIX = "pic:"
@@ -379,10 +398,13 @@ class HtmlParser(
         /** Block elements that can turn up inside inline ones; each keeps a line of its own. */
         private val INLINE_BLOCKS =
             HEADINGS + setOf("p", "div", "li", "ul", "ol", "blockquote", "pre", "tr", "table", "details", "summary")
-
-        private const val INLINE_TAG = "androidx.compose.foundation.text.inlineContent"
         private const val SMALL = 0.75f
+        private const val REASON = 0.8f
     }
 }
+
+/** Where [text]'s spoilers are. */
+fun spoilerRanges(text: AnnotatedString): List<AnnotatedString.Range<String>> =
+    text.getStringAnnotations(HtmlParser.SPOILER_TAG, 0, text.length)
 
 private fun Element.isHidden() = attr("style").replace(" ", "").contains("display:none")
