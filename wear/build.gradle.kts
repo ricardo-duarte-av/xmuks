@@ -35,9 +35,10 @@ android {
 
     defaultConfig {
         applicationId = "pt.aguiarvieira.xmuks"
-        // Its own range: Play needs every APK of one app to have a different version code.
-        versionCode = 1_000_001
-        versionName = "0.0.1"
+        // The phone app's release (gradle.properties), in a range of its own: Play needs every
+        // upload of one app, phone or watch, to have a version code it hasn't seen.
+        versionCode = 1_000_000 + providers.gradleProperty("xmuks.versionCode").get().toInt()
+        versionName = providers.gradleProperty("xmuks.versionName").get()
     }
 
     signingConfigs {

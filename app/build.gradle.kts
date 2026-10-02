@@ -44,9 +44,9 @@ android {
 
     defaultConfig {
         applicationId = "pt.aguiarvieira.xmuks"
-        // CI's verify-tag job checks that a `vX.Y.Z` tag matches versionName.
-        versionCode = 32
-        versionName = "0.0.32"
+        // Shared with the watch app (gradle.properties); CI checks a `vX.Y.Z` tag against it.
+        versionCode = providers.gradleProperty("xmuks.versionCode").get().toInt()
+        versionName = providers.gradleProperty("xmuks.versionName").get()
         manifestPlaceholders["mapsApiKey"] = mapsApiKey
     }
 
