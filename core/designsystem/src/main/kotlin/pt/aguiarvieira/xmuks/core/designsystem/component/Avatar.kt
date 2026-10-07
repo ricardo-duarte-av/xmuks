@@ -17,11 +17,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.materialkolor.hct.Hct
 import com.materialkolor.ktx.toColor
+import pt.aguiarvieira.xmuks.core.protocol.leadingEmoji
 
 /**
  * Placeholder avatar: initials on a tone derived from [id], so the same room or user gets the same
- * colour on every screen, in notifications and across launches. Real images come in with Coil
- * (M6); this is what shows while they load or when there is none.
+ * colour on every screen, in notifications and across launches. A name starting with an emoji
+ * shows that emoji instead ("🐈 Cats"). Real images come in with Coil; this is what shows while
+ * they load or when there is none.
  */
 @Composable
 fun InitialsAvatar(
@@ -32,6 +34,7 @@ fun InitialsAvatar(
 ) {
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val (container, content) = remember(id, dark) { avatarColors(id, dark) }
+    val emoji = remember(name) { leadingEmoji(name) }
     Box(
         modifier =
             modifier
@@ -41,10 +44,11 @@ fun InitialsAvatar(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = initialsOf(name),
+            text = emoji ?: initialsOf(name),
             color = content,
             style = MaterialTheme.typography.titleMediumEmphasized,
-            fontSize = (size.value * 0.36f).sp,
+            // An emoji is a picture: it gets more of the tile than letters do.
+            fontSize = (size.value * if (emoji != null) EMOJI_SCALE else INITIALS_SCALE).sp,
         )
     }
 }
@@ -66,6 +70,8 @@ fun initialsOf(name: String): String =
         .take(2)
         .joinToString("") { String(Character.toChars(it)).uppercase() }
 
+private const val INITIALS_SCALE = 0.36f
+private const val EMOJI_SCALE = 0.5f
 private const val HUE_BUCKETS = 12
 private const val CONTAINER_CHROMA = 36.0
 

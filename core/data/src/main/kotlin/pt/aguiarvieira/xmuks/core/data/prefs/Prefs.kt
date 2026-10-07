@@ -57,6 +57,13 @@ object Prefs {
         )
     val lowBandwidth = Pref.Bool("low_bandwidth", false, DEVICE_GLOBAL)
 
+    /**
+     * xmuks' own, not gomuks': a room with an avatar takes its colours from it. Kept on this
+     * device (globally, or for one room), never in the account, where gomuks web would meet a key
+     * it doesn't know.
+     */
+    val roomAvatarColors = Pref.Bool("xmuks_room_avatar_colors", true, listOf(RoomDevice, Device))
+
     /** Every preference, in gomuks' order (its settings screen's). */
     val all: List<Pref<*>> =
         listOf(

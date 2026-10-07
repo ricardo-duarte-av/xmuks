@@ -26,6 +26,9 @@
     <string name="section_timeline">Timeline</string>
     <string name="section_media">Media and emoji</string>
     <string name="section_room_list">Room list</string>
+    <string name="section_appearance">Appearance</string>
+    <string name="pref_room_avatar_colors">Room colours from avatars</string>
+    <string name="pref_room_avatar_colors_desc">A room with an avatar takes its colours from it, instead of the system\'s</string>
 
     <string name="pref_send_read_receipts">Send read receipts</string>
     <string name="pref_send_read_receipts_desc">Should read receipts be sent to other users? If off, they use the private type, which only syncs to your own devices.</string>

@@ -15,6 +15,7 @@ dependencies {
     api(libs.androidx.compose.foundation)
     api(libs.androidx.compose.animation)
     implementation(libs.material.kolor)
+    implementation(projects.core.protocol)
     api(libs.coil.compose)
     implementation(libs.kotlinx.serialization.json)
 }

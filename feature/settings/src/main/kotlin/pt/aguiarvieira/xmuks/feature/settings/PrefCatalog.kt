@@ -11,6 +11,7 @@ internal enum class Section(
     Timeline(R.string.section_timeline),
     Media(R.string.section_media),
     RoomList(R.string.section_room_list),
+    Appearance(R.string.section_appearance),
 }
 
 /** A preference as the settings screen shows it. */
@@ -182,5 +183,11 @@ internal val ENTRIES: List<PrefEntry> =
             R.string.pref_alphabetical_order,
             R.string.pref_alphabetical_order_desc,
             Section.RoomList
+        ),
+        PrefEntry(
+            Prefs.roomAvatarColors,
+            R.string.pref_room_avatar_colors,
+            R.string.pref_room_avatar_colors_desc,
+            Section.Appearance,
         ),
     )

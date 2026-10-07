@@ -10,6 +10,7 @@ import android.graphics.Shader
 import android.graphics.Typeface
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.IconCompat
+import pt.aguiarvieira.xmuks.core.protocol.leadingEmoji
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -79,11 +80,13 @@ object Avatars {
         val out = createBitmap(size, size)
         val canvas = Canvas(out)
         canvas.drawColor(colorOf(id))
-        val letter = name.firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "?"
+        // A name starting with an emoji shows it ("🐈 Cats"), a little larger than a letter.
+        val emoji = leadingEmoji(name)
+        val letter = emoji ?: name.firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "?"
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = android.graphics.Color.WHITE
-                textSize = size * TEXT_FRACTION
+                textSize = size * if (emoji != null) EMOJI_FRACTION else TEXT_FRACTION
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
             }
@@ -103,6 +106,7 @@ object Avatars {
     private const val SIZE = 192
     private const val ADAPTIVE = 216
     private const val TEXT_FRACTION = 0.45f
+    private const val EMOJI_FRACTION = 0.55f
 
     @Suppress("MagicNumber") // the palette itself
     private val PALETTE =
