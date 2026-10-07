@@ -226,7 +226,7 @@ fun XmuksNavHost(
                             }
                         }
                         entry<RoomKey>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
-                            Destination {
+                            Destination(roomId = key.roomId) {
                                 RoomRoute(
                                     roomId = key.roomId,
                                     sharedScope = key.scope,
@@ -243,7 +243,7 @@ fun XmuksNavHost(
                             }
                         }
                         entry<ThreadKey> { key ->
-                            Destination {
+                            Destination(roomId = key.roomId) {
                                 RoomRoute(
                                     roomId = key.roomId,
                                     sharedScope = THREAD_SCOPE,
@@ -258,7 +258,7 @@ fun XmuksNavHost(
                             }
                         }
                         entry<RoomInfoKey> { key ->
-                            Destination {
+                            Destination(roomId = key.roomId) {
                                 RoomInfoRoute(
                                     roomId = key.roomId,
                                     onBack = { backStack.removeLastOrNull() },
@@ -286,7 +286,7 @@ fun XmuksNavHost(
                             }
                         }
                         entry<ShareKey> { key ->
-                            Destination {
+                            Destination(roomId = key.roomId) {
                                 ShareRoute(
                                     request = ShareRequest(key.uris, key.text, key.roomId),
                                     onDone = { roomId ->
@@ -299,12 +299,12 @@ fun XmuksNavHost(
                             }
                         }
                         entry<PreferencesKey> { key ->
-                            Destination {
+                            Destination(roomId = key.roomId) {
                                 PreferencesRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
                             }
                         }
                         entry<SearchKey> { key ->
-                            Destination {
+                            Destination(roomId = key.roomId) {
                                 SearchRoute(
                                     roomId = key.roomId,
                                     onBack = { backStack.removeLastOrNull() },
@@ -339,7 +339,7 @@ fun XmuksNavHost(
                             }
                         }
                         entry<GalleryKey> { key ->
-                            Destination {
+                            Destination(roomId = key.roomId) {
                                 GalleryRoute(
                                     roomId = key.roomId,
                                     onBack = { backStack.removeLastOrNull() },
@@ -348,12 +348,12 @@ fun XmuksNavHost(
                             }
                         }
                         entry<RoomStateKey> { key ->
-                            Destination {
+                            Destination(roomId = key.roomId) {
                                 RoomStateRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
                             }
                         }
                         entry<RoomMembersKey> { key ->
-                            Destination {
+                            Destination(roomId = key.roomId) {
                                 RoomMembersRoute(
                                     roomId = key.roomId,
                                     onBack = { backStack.removeLastOrNull() },
@@ -362,7 +362,7 @@ fun XmuksNavHost(
                             }
                         }
                         entry<UserKey> { key ->
-                            Destination {
+                            Destination(roomId = key.roomId) {
                                 UserInfoRoute(
                                     userId = key.userId,
                                     roomId = key.roomId,
@@ -386,13 +386,18 @@ fun XmuksNavHost(
     }
 }
 
-/** Gives the destination's shared elements the navigation's animated scope. */
+/**
+ * Gives the destination's shared elements the navigation's animated scope; a room's screens
+ * ([roomId]) also get the room's colours.
+ */
 @Composable
-private fun Destination(content: @Composable () -> Unit) {
-    CompositionLocalProvider(
-        LocalAnimatedVisibilityScope provides LocalNavAnimatedContentScope.current,
-        content = content
-    )
+private fun Destination(
+    roomId: String? = null,
+    content: @Composable () -> Unit,
+) {
+    CompositionLocalProvider(LocalAnimatedVisibilityScope provides LocalNavAnimatedContentScope.current) {
+        RoomColors(roomId, content = content)
+    }
 }
 
 /** Opening a room replaces an open one (on large screens the detail pane swaps, not stacks). */

@@ -78,8 +78,6 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
-import pt.aguiarvieira.xmuks.core.designsystem.theme.RoomTheme
-import pt.aguiarvieira.xmuks.core.designsystem.theme.rememberAvatarSeed
 import pt.aguiarvieira.xmuks.core.richtext.LocalRichTextOptions
 import pt.aguiarvieira.xmuks.core.richtext.RichTextOptions
 import pt.aguiarvieira.xmuks.core.richtext.SafeUriHandler
@@ -159,89 +157,86 @@ fun RoomRoute(
             ),
         LocalMediaDisplay provides MediaDisplay.of(prefs),
     ) {
-        // The room in its avatar's colours (unless turned off); with no avatar, the app's.
-        RoomTheme(rememberAvatarSeed(room?.avatarUrl?.takeIf { prefs.get(Prefs.roomAvatarColors) })) {
-            RoomScreen(
-                roomId = roomId,
-                sharedScope = sharedScope,
-                room = room,
-                timeline =
-                    TimelineState(items, loadingOlder, hasMoreBefore, loadedEvents, unread, newestEvent, refreshing),
-                bridge = bridge,
-                context = context,
-                typing = typing,
-                resolver = resolver,
-                onBack = onBack,
-                onLoadOlder = viewModel::loadOlder,
-                onOpenMedia = onOpenMedia,
-                onOpenUser = onOpenUser,
-                onOpenRoomInfo = onOpenRoomInfo,
-                onSearch = onSearch,
-                player = viewModel.player,
-                onSaveMedia = rememberMediaSaver(),
-                onOpenThread = if (threadRoot == null) onOpenThread else null,
-                compactThreads = prefs.get(Prefs.smallThreads),
-                inThread = threadRoot != null,
-                pins = PinsUi(pins, pinnedItems, viewModel.pins::toggle, viewModel.pins::load),
-                onShowContext = viewModel::showContext,
-                onLeaveContext = viewModel::leaveContext,
-                composer =
-                    ComposerActions(
-                        draft = viewModel.draft,
-                        onSend = viewModel::send,
-                        onResend = viewModel::resend,
-                        onDiscard = viewModel::discard,
-                        mode = mode,
-                        onReply = viewModel.modes::reply,
-                        onEdit = viewModel.modes::edit,
-                        onCancelMode = viewModel.modes::cancel,
-                        onMarkRead = viewModel::markRead,
-                        history = history,
-                        onShowHistory = viewModel::showHistory,
-                        onHideHistory = viewModel::hideHistory,
-                        onDelete = viewModel::delete,
-                        commands = commands,
-                        emoji =
-                            EmojiState(
-                                packs = packs,
-                                recent = recent,
-                                onReact = viewModel.emoji::react,
-                                onToggle = viewModel.emoji::toggle,
-                                onSticker = viewModel.emoji::sendSticker,
-                                onUsed = viewModel.emoji::used,
-                                onSubscribe = viewModel.emoji::setSubscribed,
-                            ),
-                        personas = personas,
-                        onChoosePersona = viewModel.personas::choose,
-                        // A poll starts in the room, never in a thread.
-                        attachments =
-                            if (threadRoot ==
-                                null
-                            ) {
-                                SUPPORTED_ATTACHMENTS
-                            } else {
-                                SUPPORTED_ATTACHMENTS - Attachment.Poll
-                            },
-                        mediaDraft = mediaDraft,
-                        onPickMedia = viewModel.attach::pick,
-                        onPickMany = { uris -> onSendFiles(uris.map { it.toString() }) },
-                        onChooseSize = viewModel.attach::choose,
-                        onSendMedia = viewModel.attach::send,
-                        onCancelMedia = viewModel.attach::cancel,
-                        onSendVoice = viewModel.attach::sendVoice,
-                        onSendLocation = viewModel::sendLocation,
-                        polls = viewModel.polls,
-                        mentions = MentionHintsUi(mentionHints, viewModel.media::avatar, viewModel.mentions::pick),
-                        linkPreviews =
-                            LinkPreviewsUi(
-                                linkPreviews,
-                                viewModel.linkPreviews::load,
-                                viewModel.linkPreviews::dismiss,
-                            ),
-                    ),
-                modifier = modifier,
-            )
-        }
+        RoomScreen(
+            roomId = roomId,
+            sharedScope = sharedScope,
+            room = room,
+            timeline =
+                TimelineState(items, loadingOlder, hasMoreBefore, loadedEvents, unread, newestEvent, refreshing),
+            bridge = bridge,
+            context = context,
+            typing = typing,
+            resolver = resolver,
+            onBack = onBack,
+            onLoadOlder = viewModel::loadOlder,
+            onOpenMedia = onOpenMedia,
+            onOpenUser = onOpenUser,
+            onOpenRoomInfo = onOpenRoomInfo,
+            onSearch = onSearch,
+            player = viewModel.player,
+            onSaveMedia = rememberMediaSaver(),
+            onOpenThread = if (threadRoot == null) onOpenThread else null,
+            compactThreads = prefs.get(Prefs.smallThreads),
+            inThread = threadRoot != null,
+            pins = PinsUi(pins, pinnedItems, viewModel.pins::toggle, viewModel.pins::load),
+            onShowContext = viewModel::showContext,
+            onLeaveContext = viewModel::leaveContext,
+            composer =
+                ComposerActions(
+                    draft = viewModel.draft,
+                    onSend = viewModel::send,
+                    onResend = viewModel::resend,
+                    onDiscard = viewModel::discard,
+                    mode = mode,
+                    onReply = viewModel.modes::reply,
+                    onEdit = viewModel.modes::edit,
+                    onCancelMode = viewModel.modes::cancel,
+                    onMarkRead = viewModel::markRead,
+                    history = history,
+                    onShowHistory = viewModel::showHistory,
+                    onHideHistory = viewModel::hideHistory,
+                    onDelete = viewModel::delete,
+                    commands = commands,
+                    emoji =
+                        EmojiState(
+                            packs = packs,
+                            recent = recent,
+                            onReact = viewModel.emoji::react,
+                            onToggle = viewModel.emoji::toggle,
+                            onSticker = viewModel.emoji::sendSticker,
+                            onUsed = viewModel.emoji::used,
+                            onSubscribe = viewModel.emoji::setSubscribed,
+                        ),
+                    personas = personas,
+                    onChoosePersona = viewModel.personas::choose,
+                    // A poll starts in the room, never in a thread.
+                    attachments =
+                        if (threadRoot ==
+                            null
+                        ) {
+                            SUPPORTED_ATTACHMENTS
+                        } else {
+                            SUPPORTED_ATTACHMENTS - Attachment.Poll
+                        },
+                    mediaDraft = mediaDraft,
+                    onPickMedia = viewModel.attach::pick,
+                    onPickMany = { uris -> onSendFiles(uris.map { it.toString() }) },
+                    onChooseSize = viewModel.attach::choose,
+                    onSendMedia = viewModel.attach::send,
+                    onCancelMedia = viewModel.attach::cancel,
+                    onSendVoice = viewModel.attach::sendVoice,
+                    onSendLocation = viewModel::sendLocation,
+                    polls = viewModel.polls,
+                    mentions = MentionHintsUi(mentionHints, viewModel.media::avatar, viewModel.mentions::pick),
+                    linkPreviews =
+                        LinkPreviewsUi(
+                            linkPreviews,
+                            viewModel.linkPreviews::load,
+                            viewModel.linkPreviews::dismiss,
+                        ),
+                ),
+            modifier = modifier,
+        )
     }
 }
 
