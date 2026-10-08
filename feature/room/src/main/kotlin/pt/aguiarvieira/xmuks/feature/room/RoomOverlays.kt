@@ -50,6 +50,9 @@ internal class OverlayState {
 
     /** The pinned messages' list. */
     var pinsShown by mutableStateOf(false)
+
+    /** A message was opened from the pinned list: back returns to the list. */
+    var backToPins by mutableStateOf(false)
     var deleting by mutableStateOf<TimelineItem.Message?>(null)
     var picker by mutableStateOf<PickerRequest?>(null)
 

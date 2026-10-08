@@ -383,12 +383,23 @@ fun RoomScreen(
         }
     }
     BackHandler(enabled = context != null, onBack = onLeaveContext)
+    // A pinned message opened from the list: back goes back to the list (out of the message's
+    // context first, if it was shown in one), not to wherever the timeline was.
+    BackHandler(enabled = overlays.backToPins && !overlays.pinsShown) {
+        overlays.backToPins = false
+        if (context != null) onLeaveContext()
+        overlays.pinsShown = true
+    }
     RoomOverlays(overlays, composer, resolver, onSaveMedia, onOpenThread, pins)
     if (overlays.pinsShown) {
         PinnedSheet(pins, resolver, onShow = { eventId ->
             overlays.pinsShown = false
+            overlays.backToPins = true
             actions.jumpTo(eventId)
-        }) { overlays.pinsShown = false }
+        }) {
+            overlays.pinsShown = false
+            overlays.backToPins = false
+        }
     }
 
     Scaffold(

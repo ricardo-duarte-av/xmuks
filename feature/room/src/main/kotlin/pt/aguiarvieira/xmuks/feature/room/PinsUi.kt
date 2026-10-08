@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +36,10 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /** What the room screen needs of pins: which, the list once loaded, and changing them. */
 @Immutable
@@ -119,12 +124,39 @@ internal fun PinnedSheet(
                             },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         modifier = Modifier.tapOrHold { onShow(message.eventId) },
-                    ) { Text(message.senderName, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                message.senderName,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                            Text(
+                                remember(message.timestamp) { pinnedAt(message.timestamp) },
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+/** When a pinned message was sent: always its date and time, pins being from any time. */
+private fun pinnedAt(timestamp: Long): String =
+    if (timestamp <= 0) {
+        ""
+    } else {
+        Instant
+            .ofEpochMilli(timestamp)
+            .atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT))
+    }
 
 @Composable
 private fun UnpinButton(onClick: () -> Unit) {
