@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -79,19 +80,29 @@ internal fun UnreadRow(modifier: Modifier = Modifier) {
 }
 
 /**
+ * Whether the "N new messages" chip has done its job: used once, or its divider seen. Kept by the
+ * room screen, not the timeline: the timeline leaves the screen while a jump shows the unread
+ * messages in their context, and coming back must not bring the chip back.
+ */
+@Stable
+internal class UnreadJumpState {
+    var done by mutableStateOf(false)
+}
+
+/**
  * "↑ N new messages" at the top of the timeline while the start of what's unread is above the
  * screen (or not loaded yet). [onJump] gets the divider's index when it's loaded, null when not.
- * Once the divider has been on screen the chip is done.
+ * It's there once: tapped, or once the divider has been on screen, it's [UnreadJumpState.done].
  */
 @Composable
 internal fun BoxScope.UnreadJump(
     items: List<TimelineItem>,
     list: LazyListState,
     unread: UnreadMarker?,
+    state: UnreadJumpState,
     onJump: (dividerIndex: Int?) -> Unit,
 ) {
     unread ?: return
-    var seen by remember(unread.eventId) { mutableStateOf(false) }
     val divider = items.indexOf(TimelineItem.UnreadSeparator)
     val above by remember(divider) {
         derivedStateOf {
@@ -102,10 +113,13 @@ internal fun BoxScope.UnreadJump(
             ) < divider
         }
     }
-    LaunchedEffect(above) { if (!above) seen = true }
-    if (seen || !above) return
+    LaunchedEffect(above) { if (!above) state.done = true }
+    if (state.done || !above) return
     ExtendedFloatingActionButton(
-        onClick = { onJump(divider.takeIf { it >= 0 }) },
+        onClick = {
+            state.done = true
+            onJump(divider.takeIf { it >= 0 })
+        },
         icon = { Icon(painterResource(R.drawable.ic_arrow_up), null) },
         text = { Text(pluralStringResource(R.plurals.unread_jump, unread.count, unread.count)) },
         modifier = Modifier.align(Alignment.TopCenter).padding(12.dp),

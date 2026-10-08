@@ -345,6 +345,8 @@ fun RoomScreen(
     val focus = LocalFocusManager.current
     // After we send, the timeline follows to our message wherever it was scrolled.
     val followNext = remember { FollowRequest() }
+    // The "N new messages" chip, once used, stays gone for this visit (see UnreadJumpState).
+    val unreadJump = remember(timeline.unread?.eventId) { UnreadJumpState() }
     val liveList = rememberLazyListState()
     val contextList = remember(context?.eventId) { LazyListState() }
     var highlighted by remember { mutableStateOf<String?>(null) }
@@ -462,7 +464,7 @@ fun RoomScreen(
             if (context != null) {
                 ContextTimeline(context, contextList, resolver, actions, highlighted, onLeaveContext)
             } else {
-                LiveTimeline(timeline, liveList, followNext, resolver, actions, highlighted, onLoadOlder)
+                LiveTimeline(timeline, liveList, followNext, unreadJump, resolver, actions, highlighted, onLoadOlder)
                 MarkReadAtBottom(timeline, liveList, composer.onMarkRead)
             }
         }
@@ -535,6 +537,7 @@ private fun LiveTimeline(
     timeline: TimelineState,
     list: LazyListState,
     followNext: FollowRequest,
+    unreadJump: UnreadJumpState,
     resolver: MediaResolver,
     actions: TimelineActions,
     highlighted: String?,
@@ -561,7 +564,7 @@ private fun LiveTimeline(
                 LoadOlderNearTop(list, timeline, onLoadOlder)
                 Timeline(items, list, resolver, actions, highlighted, loadingOlder = timeline.loadingOlder)
                 val scope = rememberCoroutineScope()
-                UnreadJump(items, list, timeline.unread) { divider ->
+                UnreadJump(items, list, timeline.unread, unreadJump) { divider ->
                     if (divider != null) {
                         scope.launch { list.animateScrollToItem(divider, list.focusOffset()) }
                     } else {
