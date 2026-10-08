@@ -28,6 +28,17 @@ data class SyncComplete(
     @SerialName("space_edges") val spaceEdges: Map<String, List<SpaceEdge>> = emptyMap(),
     /** When non-null, the complete list of top-level spaces (replace, don't merge). */
     @SerialName("top_level_spaces") val topLevelSpaces: List<String>? = null,
+    /** To-device events, only while `listen_to_device` is on (MatrixRTC media keys). */
+    @SerialName("to_device") val toDevice: List<ToDeviceEvent> = emptyList(),
+)
+
+/** A to-device event gomuks didn't consume itself; [encrypted] when it arrived Olm-encrypted. */
+@Serializable
+data class ToDeviceEvent(
+    val sender: String,
+    val type: String,
+    val content: JsonObject = JsonObject(emptyMap()),
+    val encrypted: Boolean = false,
 )
 
 @Serializable
@@ -48,6 +59,8 @@ data class SyncRoom(
     @SerialName("dismiss_up_to") val dismissUpTo: String? = null,
     @SerialName("dismiss_up_to_ts") val dismissUpToTs: Long = 0,
     val notifications: List<SyncNotification> = emptyList(),
+    /** Rowids (in [events]) of new MSC4354 sticky events that aren't in [timeline]. */
+    val sticky: List<Long> = emptyList(),
 )
 
 /** Room metadata (`database.Room`). */
@@ -125,6 +138,8 @@ data class Event(
     val reactions: Map<String, Int>? = null,
     @SerialName("last_edit_rowid") val lastEditRowId: Long? = null,
     @SerialName("unread_type") val unreadType: Int = 0,
+    /** MSC4354: how long after [timestamp] this event stays sticky; null for ordinary events. */
+    @SerialName("sticky_duration_ms") val stickyDurationMs: Long? = null,
 ) {
     /** The type to render: the decrypted type for encrypted events. */
     val effectiveType: String get() = decryptedType ?: type

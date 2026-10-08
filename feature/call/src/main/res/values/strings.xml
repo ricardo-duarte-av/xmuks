@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="call_minimise">Back to the app (the call continues)</string>
+    <string name="call_connecting">Connecting…</string>
+    <string name="call_reconnecting">Reconnecting…</string>
+    <string name="call_ended">Call ended</string>
+    <string name="call_calling">Calling…</string>
+    <string name="call_waiting">Waiting for others to join</string>
+    <string name="call_muted">Muted</string>
+    <string name="call_you">You</string>
+    <string name="call_mute">Mute</string>
+    <string name="call_unmute">Unmute</string>
+    <string name="call_camera_on">Turn camera on</string>
+    <string name="call_camera_off">Turn camera off</string>
+    <string name="call_flip_camera">Switch camera</string>
+    <string name="call_hang_up">Hang up</string>
+</resources>

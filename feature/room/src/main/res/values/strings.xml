@@ -133,6 +133,8 @@
         <item quantity="other">%1$d pinned messages</item>
     </plurals>
     <string name="search_room">Search</string>
+    <string name="voice_call">Voice call</string>
+    <string name="video_call">Video call</string>
     <string name="poll">Poll</string>
     <string name="attach_poll">Poll</string>
     <string name="poll_new">New poll</string>

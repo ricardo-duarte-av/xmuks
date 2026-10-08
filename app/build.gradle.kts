@@ -89,6 +89,7 @@ dependencies {
     implementation(projects.feature.profile)
     implementation(projects.feature.settings)
     implementation(projects.feature.share)
+    implementation(projects.feature.call)
     implementation(projects.core.push)
 
     implementation(libs.androidx.core.ktx)

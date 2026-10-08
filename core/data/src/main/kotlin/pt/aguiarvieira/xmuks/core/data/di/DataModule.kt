@@ -35,6 +35,7 @@ import pt.aguiarvieira.xmuks.core.account.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
 import pt.aguiarvieira.xmuks.core.data.connection.LiveTasks
+import pt.aguiarvieira.xmuks.core.data.connection.StreamFrames
 import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
@@ -119,6 +120,9 @@ object DataModule {
 
     @Provides @Singleton
     fun streamStats() = StreamStatsTracker()
+
+    @Provides @Singleton
+    fun streamFrames() = StreamFrames()
 
     /** Everything wiped when the account changes (logout, or login to a different account). */
     @Provides @Singleton
@@ -205,6 +209,7 @@ object DataModule {
         timelines: TimelineStore,
         scope: CoroutineScope,
         bridges: BridgeScanner,
+        frames: StreamFrames,
     ): GomuksConnection {
         val server = { store.credentials()?.serverUrl }
         val connection =
@@ -219,6 +224,7 @@ object DataModule {
                 timelines.onFrame(frame)
                 stats.accept(frame)
                 liveTasks.onFrame(frame)
+                frames.accept(frame)
             }
         // Timelines are only as current as the stream: they learn when it drops (see TimelineStore).
         scope.launch {

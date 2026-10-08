@@ -35,6 +35,7 @@ import pt.aguiarvieira.xmuks.core.data.links.LinkTarget
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalAnimatedVisibilityScope
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalSharedTransitionScope
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
+import pt.aguiarvieira.xmuks.feature.call.CallRoute
 import pt.aguiarvieira.xmuks.feature.media.MediaViewerRoute
 import pt.aguiarvieira.xmuks.feature.profile.IgnoredUsersRoute
 import pt.aguiarvieira.xmuks.feature.profile.InviteRoute
@@ -135,6 +136,12 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
     val roomIdOrAlias: String,
     val via: List<String> = emptyList(),
     val eventId: String? = null,
+) : NavKey
+
+/** The call in a room (joining it on arrival); [video] turns the camera on when we join. */
+@Serializable data class CallKey(
+    val roomId: String,
+    val video: Boolean = false,
 ) : NavKey
 
 /** Full-screen media, over whatever opened it (never a list-detail pane). */
@@ -244,6 +251,7 @@ fun XmuksNavHost(
                                     onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                     onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
                                     onSearch = { backStack.add(SearchKey(key.roomId)) },
+                                    onCall = { video -> backStack.add(CallKey(key.roomId, video)) },
                                     onSendFiles = { uris -> backStack.add(ShareKey(uris, null, key.roomId)) },
                                     onOpenThread = { root -> backStack.add(ThreadKey(key.roomId, root)) },
                                 )
@@ -398,6 +406,15 @@ fun XmuksNavHost(
                         entry<MediaKey> { key ->
                             Destination {
                                 MediaViewerRoute(media = key.media, onBack = { backStack.removeLastOrNull() })
+                            }
+                        }
+                        entry<CallKey> { key ->
+                            Destination {
+                                CallRoute(
+                                    roomId = key.roomId,
+                                    video = key.video,
+                                    onBack = { backStack.removeLastOrNull() },
+                                )
                             }
                         }
                     },

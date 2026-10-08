@@ -3,7 +3,7 @@
 # Usage: scripts/check-jni-mapping.sh app/build/outputs/mapping/release/mapping.txt
 set -euo pipefail
 mapping="$1"
-jni_prefixes=("com.github.luben.zstd.")
+jni_prefixes=("com.github.luben.zstd." "livekit.org.webrtc.")
 bad=$(awk -v prefixes="${jni_prefixes[*]}" '
   BEGIN { n = split(prefixes, p, " ") }
   /^[^ ]/ { in_jni = 0; for (i = 1; i <= n; i++) if (index($1, p[i]) == 1) in_jni = 1; cls = $1; next }

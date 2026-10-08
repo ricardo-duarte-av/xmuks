@@ -98,6 +98,8 @@ fun RoomRoute(
     onOpenLink: (uri: String) -> Unit = {},
     onOpenRoomInfo: () -> Unit = {},
     onSearch: () -> Unit = {},
+    /** Starts (or joins) the room's call; null where calls aren't offered. */
+    onCall: ((video: Boolean) -> Unit)? = null,
     /** Files to send with a caption each (the share screen, for this room). */
     onSendFiles: (List<String>) -> Unit = {},
     /** One of the room's threads, shown in place of its main timeline. */
@@ -173,6 +175,7 @@ fun RoomRoute(
             onOpenUser = onOpenUser,
             onOpenRoomInfo = onOpenRoomInfo,
             onSearch = onSearch,
+            onCall = onCall.takeIf { threadRoot == null },
             player = viewModel.player,
             onSaveMedia = rememberMediaSaver(),
             onOpenThread = if (threadRoot == null) onOpenThread else null,
@@ -328,6 +331,7 @@ fun RoomScreen(
     modifier: Modifier = Modifier,
     onOpenRoomInfo: () -> Unit = {},
     onSearch: () -> Unit = {},
+    onCall: ((video: Boolean) -> Unit)? = null,
     player: InlinePlayer? = null,
     onSaveMedia: (Media) -> Unit = {},
     /** Opening threads; null when this is one. */
@@ -424,6 +428,7 @@ fun RoomScreen(
                     onSearch,
                     inThread,
                     bridge,
+                    onCall,
                 )
                 val pinned = pins.pins.eventIds.size
                 if (pinned > 0 && !inThread) PinnedBar(pinned, { overlays.pinsShown = true })
@@ -485,6 +490,7 @@ private fun HeaderCard(
     onSearch: () -> Unit,
     inThread: Boolean = false,
     bridge: BridgeInfo? = null,
+    onCall: ((video: Boolean) -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
@@ -508,6 +514,20 @@ private fun HeaderCard(
             },
             actions = {
                 bridge?.let { BridgeBadge(it, resolver, roomId, sharedScope) }
+                if (onCall != null) {
+                    IconButton(onClick = { onCall(false) }) {
+                        Icon(
+                            painterResource(R.drawable.ic_call),
+                            contentDescription = stringResource(R.string.voice_call)
+                        )
+                    }
+                    IconButton(onClick = { onCall(true) }) {
+                        Icon(
+                            painterResource(R.drawable.ic_videocam),
+                            contentDescription = stringResource(R.string.video_call)
+                        )
+                    }
+                }
                 IconButton(onClick = { menu = true }) {
                     Icon(painterResource(R.drawable.ic_more), contentDescription = stringResource(R.string.room_menu))
                 }

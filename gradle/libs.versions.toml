@@ -59,6 +59,9 @@ telephoto = "0.19.0"
 zstdJni = "1.5.7-20"
 coil = "3.6.3"
 jsoup = "1.23.2"
+# MatrixRTC calls: LiveKit SFU client (bundles webrtc-sdk) and Jetpack Telecom.
+livekit = "2.29.0"
+coreTelecom = "1.1.0-rc01"
 
 # --- Wear OS (the watch app) ---
 wearComposeMaterial3 = "1.7.0"
@@ -148,6 +151,8 @@ coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref 
 coil-gif = { group = "io.coil-kt.coil3", name = "coil-gif", version.ref = "coil" }
 coil-svg = { group = "io.coil-kt.coil3", name = "coil-svg", version.ref = "coil" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+livekit-android = { group = "io.livekit", name = "livekit-android", version.ref = "livekit" }
+androidx-core-telecom = { group = "androidx.core", name = "core-telecom", version.ref = "coreTelecom" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 
 # Firebase
