@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -54,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import pt.aguiarvieira.xmuks.core.data.rooms.Invite
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
@@ -72,6 +74,7 @@ fun HomeRoute(
     modifier: Modifier = Modifier,
     onOpenNotifications: () -> Unit = {},
     onSearchMessages: () -> Unit = {},
+    onOpenInvite: (roomId: String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     var tab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
@@ -83,9 +86,22 @@ fun HomeRoute(
     val profile by viewModel.profile.collectAsStateWithLifecycle()
     val badges by viewModel.badges.collectAsStateWithLifecycle()
     val display by viewModel.display.collectAsStateWithLifecycle()
+    val invites by viewModel.invites.collectAsStateWithLifecycle()
     CompositionLocalProvider(LocalRoomListDisplay provides display) {
         HomeScreen(
-            state = HomeUiState(tab, chats, dms, spaces, connection, refreshing, viewModel.account, profile, badges),
+            state =
+                HomeUiState(
+                    tab,
+                    chats,
+                    dms,
+                    spaces,
+                    connection,
+                    refreshing,
+                    viewModel.account,
+                    profile,
+                    badges,
+                    invites
+                ),
             onTabChange = { tab = it },
             onRefresh = viewModel::refresh,
             onOpenRoom = onOpenRoom,
@@ -95,6 +111,7 @@ fun HomeRoute(
             onOpenNotifications = onOpenNotifications,
             onSearchMessages = onSearchMessages,
             search = viewModel.search,
+            onOpenInvite = onOpenInvite,
         )
     }
 }
@@ -109,6 +126,8 @@ data class HomeUiState(
     val account: String,
     val profile: OwnProfile? = null,
     val badges: TabBadges = TabBadges(),
+    /** Pending invites, newest first; each tab shows its own kind. */
+    val invites: List<InviteRow> = emptyList(),
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -125,6 +144,7 @@ fun HomeScreen(
     search: SearchQueries = remember { SearchQueries() },
     onOpenNotifications: () -> Unit = {},
     onSearchMessages: () -> Unit = {},
+    onOpenInvite: (roomId: String) -> Unit = {},
 ) {
     // Three cards on a tinted ground, like the room: header, the tab's content, the tab bar.
     Scaffold(
@@ -214,7 +234,9 @@ fun HomeScreen(
                                     now,
                                     emptyText(searching, R.string.empty_chats),
                                     SharedScopes.CHATS,
-                                    onOpenRoom
+                                    onOpenRoom,
+                                    invites = state.invites.filterUnless(searching) { !it.isSpace },
+                                    onOpenInvite = onOpenInvite,
                                 )
                             }
 
@@ -224,12 +246,21 @@ fun HomeScreen(
                                     now,
                                     emptyText(searching, R.string.empty_dms),
                                     SharedScopes.DMS,
-                                    onOpenRoom
+                                    onOpenRoom,
+                                    invites = state.invites.filterUnless(searching) { it.isDirect && !it.isSpace },
+                                    onOpenInvite = onOpenInvite,
                                 )
                             }
 
                             HomeTab.Spaces -> {
-                                SpaceGrid(state.spaces, emptyText(searching, R.string.empty_spaces), onOpenSpace)
+                                SpaceGrid(
+                                    state.spaces,
+                                    emptyText(searching, R.string.empty_spaces),
+                                    onOpenSpace,
+                                    invites = state.invites.filterUnless(searching) { it.isSpace },
+                                    now = now,
+                                    onOpenInvite = onOpenInvite,
+                                )
                             }
                         }
                     }
@@ -273,6 +304,12 @@ private fun AccountButton(
         }
     }
 }
+
+/** A tab's invites ([keep]); none while searching, which looks for rooms. */
+private fun List<InviteRow>.filterUnless(
+    searching: Boolean,
+    keep: (Invite) -> Boolean,
+) = if (searching) emptyList() else filter { keep(it.invite) }
 
 private fun SearchQueries.of(tab: HomeTab) =
     when (tab) {
@@ -342,25 +379,41 @@ internal fun RoomList(
     sharedScope: String,
     onOpenRoom: (roomId: String, scope: String) -> Unit,
     modifier: Modifier = Modifier,
+    /** Waiting for an answer: listed above the rooms. */
+    invites: List<InviteRow> = emptyList(),
+    onOpenInvite: (roomId: String) -> Unit = {},
 ) {
     when {
         rooms == null -> {
             Box(modifier.fillMaxSize())
         }
 
-        rooms.isEmpty() -> {
+        rooms.isEmpty() && invites.isEmpty() -> {
             EmptyState(stringResource(emptyText), modifier)
         }
 
         else -> {
             val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
-            val list = rememberTopAnchoredState(rooms)
+            // Invites go above the rooms: arriving while the list is at its top, they show there.
+            val list = rememberTopAnchoredState(remember(rooms, invites) { rooms to invites })
             var menuFor by remember { mutableStateOf<RoomSummary?>(null) }
             LazyColumn(
                 modifier = modifier.fillMaxSize(),
                 state = list,
                 contentPadding = PaddingValues(vertical = 4.dp),
             ) {
+                if (invites.isNotEmpty()) {
+                    item(key = "invites", contentType = "heading") { InvitesHeading(Modifier.animateItem()) }
+                    items(invites, key = { "invite:" + it.invite.roomId }, contentType = { "invite" }) { row ->
+                        InviteListItem(
+                            row,
+                            now,
+                            is24Hour,
+                            onClick = { onOpenInvite(row.invite.roomId) },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                }
                 items(rooms, key = { it.roomId }, contentType = { "room" }) { room ->
                     RoomListItem(
                         room = room,
@@ -384,22 +437,37 @@ private fun SpaceGrid(
     emptyText: Int,
     onOpenSpace: (String) -> Unit,
     modifier: Modifier = Modifier,
+    invites: List<InviteRow> = emptyList(),
+    now: Long = 0,
+    onOpenInvite: (roomId: String) -> Unit = {},
 ) {
     when {
         spaces == null -> {
             Box(modifier.fillMaxSize())
         }
 
-        spaces.isEmpty() -> {
+        spaces.isEmpty() && invites.isEmpty() -> {
             EmptyState(stringResource(emptyText), modifier)
         }
 
         else -> {
+            val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 104.dp),
                 modifier = modifier.fillMaxSize(),
                 contentPadding = PaddingValues(12.dp),
             ) {
+                // Space invites run the grid's width, above the spaces.
+                if (invites.isNotEmpty()) {
+                    item(key = "invites", span = { GridItemSpan(maxLineSpan) }) { InvitesHeading() }
+                    items(
+                        invites,
+                        key = { "invite:" + it.invite.roomId },
+                        span = { GridItemSpan(maxLineSpan) }
+                    ) { row ->
+                        InviteListItem(row, now, is24Hour, onClick = { onOpenInvite(row.invite.roomId) })
+                    }
+                }
                 items(spaces, key = { it.roomId }) { space ->
                     SpaceTile(space, onClick = { onOpenSpace(space.roomId) }, modifier = Modifier.animateItem())
                 }

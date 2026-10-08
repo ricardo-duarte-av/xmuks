@@ -295,7 +295,7 @@ private const val NAME = "name"
 private const val TOPIC = "topic"
 private val AVATAR_SIZE = 96.dp
 
-private val JOIN_RULES =
+internal val JOIN_RULES =
     mapOf(
         "public" to R.string.join_public,
         "invite" to R.string.join_invite,

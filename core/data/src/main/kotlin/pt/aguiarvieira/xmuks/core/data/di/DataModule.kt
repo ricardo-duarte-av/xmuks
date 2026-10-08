@@ -54,6 +54,7 @@ import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.BridgeScanner
 import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvents
+import pt.aguiarvieira.xmuks.core.data.rooms.InvitesRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.MentionTargets
 import pt.aguiarvieira.xmuks.core.data.rooms.Mentions
 import pt.aguiarvieira.xmuks.core.data.rooms.MessageSearch
@@ -355,6 +356,14 @@ object DataModule {
         database: XmuksDatabase,
         rooms: RoomListRepository,
     ) = Contacts(exec, database, rooms)
+
+    @Provides @Singleton
+    fun invitesRepository(
+        database: XmuksDatabase,
+        rooms: RoomInfoRepository,
+        contacts: Contacts,
+        media: MediaUrls,
+    ) = InvitesRepository(database.roomListDao(), rooms, contacts, media)
 
     @Provides @Singleton
     fun roomInfoRepository(

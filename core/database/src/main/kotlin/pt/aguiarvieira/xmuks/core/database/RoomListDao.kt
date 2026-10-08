@@ -85,6 +85,12 @@ interface RoomListDao {
     )
     fun counts(): Flow<CacheCounts>
 
+    @Query("SELECT * FROM invited_rooms ORDER BY createdAt DESC")
+    fun invites(): Flow<List<InvitedRoomEntity>>
+
+    @Query("SELECT * FROM invited_rooms WHERE roomId = :roomId")
+    fun invite(roomId: String): Flow<InvitedRoomEntity?>
+
     @Query("SELECT * FROM sync_meta WHERE id = 0")
     fun meta(): Flow<SyncMetaEntity?>
 

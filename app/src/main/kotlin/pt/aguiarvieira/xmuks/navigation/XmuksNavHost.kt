@@ -37,6 +37,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.LocalSharedTransitionSc
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.feature.media.MediaViewerRoute
 import pt.aguiarvieira.xmuks.feature.profile.IgnoredUsersRoute
+import pt.aguiarvieira.xmuks.feature.profile.InviteRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomInfoRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomMembersRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomPreviewRoute
@@ -121,6 +122,11 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
 
 /** A room's member list, on its own. */
 @Serializable data class RoomMembersKey(
+    val roomId: String,
+) : NavKey
+
+/** An invite, to see what it is and answer it. */
+@Serializable data class InviteKey(
     val roomId: String,
 ) : NavKey
 
@@ -213,6 +219,7 @@ fun XmuksNavHost(
                                     onOpenProfile = { backStack.add(UserKey(it)) },
                                     onOpenNotifications = { backStack.add(NotificationsKey) },
                                     onSearchMessages = { backStack.add(SearchKey()) },
+                                    onOpenInvite = { backStack.add(InviteKey(it)) },
                                 )
                             }
                         }
@@ -269,6 +276,19 @@ fun XmuksNavHost(
                                     onOpenGallery = { backStack.add(GalleryKey(key.roomId)) },
                                     onOpenPreferences = { backStack.add(PreferencesKey(key.roomId)) },
                                     onLeft = { backStack.leftRoom(key.roomId) },
+                                )
+                            }
+                        }
+                        entry<InviteKey> { key ->
+                            Destination {
+                                InviteRoute(
+                                    roomId = key.roomId,
+                                    onBack = { backStack.removeLastOrNull() },
+                                    onOpenRoom = { roomId ->
+                                        backStack.remove(key)
+                                        backStack.openRoom(roomId, LINK_SCOPE)
+                                    },
+                                    onOpenUser = { backStack.add(UserKey(it)) },
                                 )
                             }
                         }

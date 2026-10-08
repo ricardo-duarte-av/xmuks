@@ -164,4 +164,29 @@
     <string name="profile_in_room">As shown in %1$s</string>
     <string name="profile_elsewhere">Everywhere else</string>
     <string name="room_gallery">Media</string>
+    <string name="invite_title">Invite</string>
+    <string name="invite_gone">This invite has been answered or withdrawn.</string>
+    <string name="invite_kind_dm">Direct message</string>
+    <string name="invite_kind_room">Room</string>
+    <string name="invite_kind_space">Space</string>
+    <string name="invite_from">Invited by</string>
+    <string name="invite_reason">“%1$s”</string>
+    <string name="invite_when">Invited %1$s</string>
+    <string name="invite_details">Details</string>
+    <string name="invite_encryption">Encryption</string>
+    <string name="invite_room_version">Room version</string>
+    <string name="invite_room_id">Room ID</string>
+    <string name="invite_unverified">As the inviter\'s server describes it, until you join.</string>
+    <string name="invite_shared">Rooms you share with %1$s</string>
+    <string name="invite_shared_none">None: you don\'t share any rooms.</string>
+    <string name="invite_shared_unknown">Their server doesn\'t say which rooms you share.</string>
+    <string name="invite_decline">Decline</string>
+    <string name="invite_decline_ignore">Decline and ignore %1$s</string>
+    <string name="invite_shared_count_unknown">Unknown</string>
+    <string name="fold">Fold</string>
+    <string name="unfold">Unfold</string>
+    <plurals name="invite_shared_rooms">
+        <item quantity="one">%1$d room</item>
+        <item quantity="other">%1$d rooms</item>
+    </plurals>
 </resources>

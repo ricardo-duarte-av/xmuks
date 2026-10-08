@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.roomlist
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -7,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -14,21 +16,32 @@ import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
+import pt.aguiarvieira.xmuks.core.data.rooms.Invite
+import pt.aguiarvieira.xmuks.core.data.rooms.InvitesRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.TabBadges
+import pt.aguiarvieira.xmuks.core.data.rooms.Unread
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 import javax.inject.Inject
 
 enum class HomeTab { Chats, Dms, Spaces }
+
+/** An invite as the room list shows it, its avatar ready to load. */
+@Immutable
+data class InviteRow(
+    val invite: Invite,
+    val avatarUrl: String?,
+)
 
 @HiltViewModel
 class HomeViewModel
     @Inject
     constructor(
         rooms: RoomListRepository,
+        invites: InvitesRepository,
         private val sync: SyncController,
         store: CredentialStore,
         preferences: PreferenceStore,
@@ -56,9 +69,25 @@ class HomeViewModel
                 .stateIn(viewModelScope, WHILE_VISIBLE, null)
         val spaces: StateFlow<List<SpaceSummary>?> =
             rooms.topLevelSpaces().filteredBy(search.spaces) { it.name }.stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        /** Pending invites, newest first; each tab shows its own kind. */
+        val invites: StateFlow<List<InviteRow>> =
+            invites
+                .invites()
+                .map { list -> list.map { InviteRow(it, invites.media.avatar(it.avatarMxc)) } }
+                .stateIn(viewModelScope, WHILE_VISIBLE, emptyList())
         val connection: StateFlow<ConnectionState> = sync.state
         val profile: StateFlow<OwnProfile?> = rooms.ownProfile().stateIn(viewModelScope, WHILE_VISIBLE, null)
-        val badges: StateFlow<TabBadges> = rooms.tabBadges().stateIn(viewModelScope, WHILE_VISIBLE, TabBadges())
+
+        /** Unread, and invites waiting for an answer (as loud as a mention: someone wants us). */
+        val badges: StateFlow<TabBadges> =
+            combine(rooms.tabBadges(), this.invites) { badges, invites ->
+                badges.copy(
+                    chats = badges.chats.plusInvites(invites.count { !it.invite.isSpace }),
+                    dms = badges.dms.plusInvites(invites.count { it.invite.isDirect && !it.invite.isSpace }),
+                    spaces = badges.spaces.plusInvites(invites.count { it.invite.isSpace }),
+                )
+            }.stateIn(viewModelScope, WHILE_VISIBLE, TabBadges())
         val account: String = store.credentials()?.let { "${it.username} · ${it.serverUrl.host}" }.orEmpty()
 
         private val _refreshing = MutableStateFlow(false)
@@ -81,6 +110,9 @@ class HomeViewModel
                 }
             }
         }
+
+        private fun Unread.plusInvites(count: Int) =
+            if (count == 0) this else copy(notifications = notifications + count, highlights = highlights + count)
 
         private companion object {
             val WHILE_VISIBLE = SharingStarted.WhileSubscribed(5_000)
