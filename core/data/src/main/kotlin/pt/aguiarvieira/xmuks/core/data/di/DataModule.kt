@@ -239,6 +239,7 @@ object DataModule {
         store: CredentialStore,
         scope: CoroutineScope,
         timelines: TimelineStore,
+        @Named("plain") http: OkHttpClient,
     ) = ForegroundConnection(
         context,
         connection,
@@ -246,6 +247,8 @@ object DataModule {
         scope,
         // Back in the foreground: a room still on screen from before may have missed things.
         onForeground = { scope.launch { timelines.refreshWatched() } },
+        // Every client is built from this one, so they share its pool (images included).
+        dropIdleConnections = { http.connectionPool.evictAll() },
     )
 
     @Provides @Singleton

@@ -21,6 +21,12 @@ import pt.aguiarvieira.xmuks.core.network.GomuksConnection
  * foreground keeps it for [lingerMs] so a quick app switch doesn't pay for a reconnect; after that
  * the stream closes and FCM takes over. Network changes (and getting our network back when we
  * return to the foreground) cut any backoff short; a kept stream gone silent is restarted.
+ *
+ * Coming back, and on a new network, idle pooled connections are dropped first ([dropIdleConnections]).
+ * gomuks speaks HTTP/2, so every request shares one connection; one opened in the background (say,
+ * by a push) can have died silently since (Android cut our network, a NAT forgot it), and the
+ * stream, sending and the room's refresh would all hang on it until a timeout: the room opened
+ * from a notification with its progress bar stuck and messages pending for 10–15 s.
  */
 class ForegroundConnection(
     private val context: Context,
@@ -30,6 +36,8 @@ class ForegroundConnection(
     private val lingerMs: Long = 30_000,
     /** The app came to the foreground. */
     private val onForeground: () -> Unit = {},
+    /** Closes pooled connections not in use, so the next requests open fresh ones. */
+    private val dropIdleConnections: () -> Unit = {},
 ) : DefaultLifecycleObserver {
     val state: StateFlow<ConnectionState> = connection.state
 
@@ -41,7 +49,11 @@ class ForegroundConnection(
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         context.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(
             object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) = connection.reconnectNow()
+                // A new network: connections made on the old one are no use.
+                override fun onAvailable(network: Network) {
+                    dropIdleConnections()
+                    connection.reconnectNow()
+                }
 
                 // Back in the foreground, Android gives the app its network back: stop waiting.
                 override fun onBlockedStatusChanged(
@@ -56,6 +68,9 @@ class ForegroundConnection(
     }
 
     override fun onStart(owner: LifecycleOwner) {
+        // Before anything asks gomuks for something: nothing may go out on a connection left from
+        // the background.
+        dropIdleConnections()
         inForeground = true
         update()
         wakeUp()
