@@ -10,6 +10,7 @@ import org.junit.Test
 import pt.aguiarvieira.xmuks.core.data.timeline.Change
 import pt.aguiarvieira.xmuks.core.data.timeline.MemberProfile
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
+import pt.aguiarvieira.xmuks.core.data.timeline.ReplyKind
 import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItemBuilder
@@ -129,6 +130,43 @@ class TimelineItemBuilderTest {
         assertEquals("ann", msgs[0].reply!!.senderName)
         assertEquals("question?", msgs[0].reply!!.text)
         assertNull(msgs[1].reply!!.senderName)
+    }
+
+    @Test
+    fun `a reply to something that isn't a message says what it was`() {
+        val reaction = ev(type = "m.reaction", content = """{"m.relates_to":{"rel_type":"m.annotation","event_id":"${'$'}x","key":"👍"}}""")
+        val join = ev(sender = "@ann:x", type = "m.room.member", stateKey = "@ann:x", content = """{"membership":"join"}""")
+        val avatar =
+            ev(
+                sender = "@ann:x",
+                type = "m.room.member",
+                stateKey = "@ann:x",
+                content = """{"membership":"join","displayname":"Ann","avatar_url":"mxc://x/new"}""",
+            ) { copy(unsigned = json("""{"prev_content":{"membership":"join","displayname":"Ann","avatar_url":"mxc://x/old"}}""")) }
+        val kick = ev(sender = "@mod:x", type = "m.room.member", stateKey = "@spam:x", content = """{"membership":"leave","displayname":"Spammer"}""")
+        val pins = ev(type = "m.room.pinned_events", stateKey = "", content = """{"pinned":["${'$'}x"]}""")
+        val odd = ev(type = "org.example.thing", content = "{}")
+        val originals = listOf(reaction, join, avatar, kick, pins, odd)
+        val replies =
+            originals.map {
+                ev(content = """{"msgtype":"m.text","body":"re","m.relates_to":{"m.in_reply_to":{"event_id":"${it.eventId}"}}}""")
+            }
+        val kinds = build(*replies.toTypedArray(), extra = originals).messages().map { it.reply!!.kind }
+        assertEquals(ReplyKind.Reaction("👍"), kinds[0])
+        assertEquals(ReplyKind.Changed(Change.Joined), kinds[1])
+        val profile = (kinds[2] as ReplyKind.Changed).change as Change.ProfileChanged
+        assertTrue(profile.avatarChanged)
+        assertFalse(profile.nameChanged)
+        assertEquals(ReplyKind.Changed(Change.Kicked("Spammer", null)), kinds[3])
+        assertEquals(ReplyKind.PinsChanged, kinds[4])
+        assertEquals(ReplyKind.Other("org.example.thing"), kinds[5])
+    }
+
+    @Test
+    fun `a reply to a message with text has no kind`() {
+        val original = ev(sender = "@ann:x", content = """{"msgtype":"m.text","body":"question?"}""")
+        val reply = ev(content = """{"msgtype":"m.text","body":"answer","m.relates_to":{"m.in_reply_to":{"event_id":"${original.eventId}"}}}""")
+        assertNull(build(reply, extra = listOf(original)).messages()[0].reply!!.kind)
     }
 
     @Test

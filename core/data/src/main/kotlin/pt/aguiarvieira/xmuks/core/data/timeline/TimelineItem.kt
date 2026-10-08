@@ -242,8 +242,38 @@ data class ReplyPreview(
     val text: String?,
     /** Its formatted body, when it has one: shown as formatted, not as the markdown behind it. */
     val html: String? = null,
+    /** What the replied-to event is, when it isn't a message with text (a reaction, a join...). */
+    val kind: ReplyKind? = null,
 ) {
     val senderName: String? get() = sender?.text
+}
+
+/**
+ * A replied-to event that has no text of its own: anything can be replied to, a reaction or a
+ * membership change as much as a message, and the quote says what it was.
+ */
+sealed interface ReplyKind {
+    data class Reaction(
+        val key: String?,
+    ) : ReplyKind
+
+    /** A membership or room change, as the timeline shows it. */
+    data class Changed(
+        val change: Change,
+    ) : ReplyKind
+
+    data object PinsChanged : ReplyKind
+
+    data object PermissionsChanged : ReplyKind
+
+    data object Deleted : ReplyKind
+
+    data object Undecryptable : ReplyKind
+
+    /** Something else: its event type. */
+    data class Other(
+        val type: String,
+    ) : ReplyKind
 }
 
 /**

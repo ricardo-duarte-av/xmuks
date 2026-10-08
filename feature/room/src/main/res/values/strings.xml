@@ -166,4 +166,27 @@
     <string name="gallery_audio">Audio</string>
     <string name="gallery_files">Files</string>
     <string name="gallery_empty">No media in this room</string>
+    <!-- A replied-to event without text: what it was, under its sender's name. -->
+    <string name="reply_joined">Joined</string>
+    <string name="reply_left">Left</string>
+    <string name="reply_invited">Invited %1$s</string>
+    <string name="reply_kicked">Removed %1$s</string>
+    <string name="reply_banned">Banned %1$s</string>
+    <string name="reply_name">Changed their name</string>
+    <string name="reply_avatar">Changed their avatar</string>
+    <string name="reply_name_avatar">Changed their name and avatar</string>
+    <string name="reply_profile">Updated their profile</string>
+    <string name="reply_room_name">Renamed the room to %1$s</string>
+    <string name="reply_room_name_removed">Removed the room name</string>
+    <string name="reply_topic">Changed the topic</string>
+    <string name="reply_room_avatar">Changed the room avatar</string>
+    <string name="reply_created">Created the room</string>
+    <string name="reply_encryption">Turned on encryption</string>
+    <string name="reply_reaction">Reacted with %1$s</string>
+    <string name="reply_reaction_unknown">A reaction</string>
+    <string name="reply_pins">Changed the pinned messages</string>
+    <string name="reply_permissions">Changed permissions</string>
+    <string name="reply_deleted">Deleted message</string>
+    <string name="reply_undecryptable">Can\'t be decrypted</string>
+    <string name="reply_other">An event (%1$s)</string>
 </resources>

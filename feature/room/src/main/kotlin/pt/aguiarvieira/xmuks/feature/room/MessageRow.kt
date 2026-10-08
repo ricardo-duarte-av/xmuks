@@ -56,9 +56,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import pt.aguiarvieira.xmuks.core.data.timeline.Change
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.Reaction
+import pt.aguiarvieira.xmuks.core.data.timeline.ReplyKind
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyPreview
 import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
@@ -525,7 +527,11 @@ internal fun Reply(
             } else {
                 SenderName(sender, MaterialTheme.typography.labelMedium)
                 val html = reply.html
-                if (html != null) {
+                val kind = reply.kind
+                if (kind != null) {
+                    // Not a message: what it was ("Joined", "Reacted with 👍").
+                    Quiet(replyKindLabel(kind), color)
+                } else if (html != null) {
                     HtmlSnippet(html, color, MaterialTheme.typography.bodyMedium, maxLines = REPLY_LINES)
                 } else {
                     Text(

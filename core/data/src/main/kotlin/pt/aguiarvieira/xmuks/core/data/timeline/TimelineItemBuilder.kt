@@ -201,11 +201,14 @@ class TimelineItemBuilder(
         val originalProfile =
             original.effectiveContent.obj(PER_MESSAGE_PROFILE)
                 ?: original.effectiveContent.obj(PER_MESSAGE_PROFILE_STABLE)
+        val text = original.localContent?.previewText ?: original.effectiveContent.str("body")
+        val html = htmlOf(original.localContent?.sanitizedHtml, original.effectiveContent)
         return ReplyPreview(
             eventId = eventId,
             sender = senderLabel(originalProfile, original.sender, members),
-            text = original.localContent?.previewText ?: original.effectiveContent.str("body"),
-            html = htmlOf(original.localContent?.sanitizedHtml, original.effectiveContent),
+            text = text,
+            html = html,
+            kind = if (text.isNullOrBlank() && html == null) replyKind(original, members) else null,
         )
     }
 
@@ -315,16 +318,7 @@ class TimelineItemBuilder(
     ): TimelineItem.StateChange? {
         val content = event.effectiveContent
         val actor = members[event.sender]?.displayName ?: localpart(event.sender)
-        val change: Change =
-            when (event.effectiveType) {
-                "m.room.member" -> memberChange(event, content, members) ?: return null
-                "m.room.name" -> Change.RoomName(content.str("name"))
-                "m.room.topic" -> Change.RoomTopic(content.str("topic"))
-                "m.room.avatar" -> Change.RoomAvatar
-                "m.room.create" -> Change.RoomCreated
-                "m.room.encryption" -> Change.EncryptionEnabled
-                else -> return null
-            }
+        val change = roomChange(event, content, members) ?: return null
         return TimelineItem.StateChange(
             key = "e:${event.rowId}",
             eventId = event.eventId,
@@ -336,38 +330,6 @@ class TimelineItemBuilder(
             reactions = reactionsOf(event, myReactions),
             readBy = readers[event.eventId].orEmpty().toReaders(me, event.sender, members),
         )
-    }
-
-    private fun memberChange(
-        event: Event,
-        content: JsonObject,
-        members: Map<String, MemberProfile>,
-    ): Change? {
-        val target = event.stateKey ?: return null
-        val targetName = content.str("displayname") ?: members[target]?.displayName ?: localpart(target)
-        val previous = event.unsigned?.obj("prev_content")
-        val was = previous?.str("membership")
-        return when (content.str("membership")) {
-            "join" -> {
-                if (was != "join") Change.Joined else profileChange(previous, content)
-            }
-
-            "invite" -> {
-                Change.Invited(targetName)
-            }
-
-            "leave" -> {
-                if (event.sender == target) Change.Left else Change.Kicked(targetName, content.str("reason"))
-            }
-
-            "ban" -> {
-                Change.Banned(targetName, content.str("reason"))
-            }
-
-            else -> {
-                null
-            }
-        }
     }
 
     /** Member events loaded with the timeline are newer than any fetched snapshot: they win. */
