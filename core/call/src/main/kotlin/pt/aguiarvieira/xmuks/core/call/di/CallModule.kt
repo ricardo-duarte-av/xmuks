@@ -12,6 +12,7 @@ import okhttp3.OkHttpClient
 import pt.aguiarvieira.xmuks.core.call.CallManager
 import pt.aguiarvieira.xmuks.core.call.media.SfuTokens
 import pt.aguiarvieira.xmuks.core.call.signalling.RtcApi
+import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.connection.StreamFrames
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient
@@ -38,6 +39,7 @@ object CallModule {
         tokens: SfuTokens,
         frames: StreamFrames,
         database: XmuksDatabase,
+        roomCalls: RoomCalls,
         scope: CoroutineScope,
-    ) = CallManager(context, api, tokens, frames, database, scope)
+    ) = CallManager(context, api, tokens, frames, database, roomCalls, scope)
 }

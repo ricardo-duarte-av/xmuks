@@ -33,7 +33,12 @@ data class RoomSummary(
     val bridgeProtocol: String? = null,
     /** …and its logo, ready to load as a thumbnail. */
     val bridgeAvatarUrl: String? = null,
+    /** A call is going on in the room. */
+    val call: CallBadge? = null,
 )
+
+/** What kind of call a room has going on, for its badge. */
+enum class CallBadge { Voice, Video }
 
 /** What the room list shows under the room name. */
 sealed interface Preview {

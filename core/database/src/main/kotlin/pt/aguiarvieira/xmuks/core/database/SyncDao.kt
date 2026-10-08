@@ -148,7 +148,29 @@ interface SyncDao {
         lastRequestId: Long,
     )
 
+    // --- Call members ---
+
+    @Query("SELECT eventTs FROM call_members WHERE roomId = :roomId AND `key` = :key")
+    suspend fun callMemberTs(
+        roomId: String,
+        key: String,
+    ): Long?
+
+    @Upsert suspend fun upsertCallMember(member: CallMemberEntity)
+
+    @Query("DELETE FROM call_members WHERE roomId = :roomId AND `key` = :key")
+    suspend fun deleteCallMember(
+        roomId: String,
+        key: String,
+    )
+
+    @Query("DELETE FROM call_members WHERE roomId IN (:roomIds)")
+    suspend fun deleteCallMembersOf(roomIds: List<String>)
+
     // --- Wiping (account change, identity change), inside the caller's transaction ---
+
+    @Query("DELETE FROM call_members")
+    suspend fun wipeCallMembers()
 
     @Query("DELETE FROM rooms")
     suspend fun wipeRooms()

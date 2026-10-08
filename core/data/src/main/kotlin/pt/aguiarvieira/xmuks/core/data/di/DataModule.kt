@@ -33,6 +33,7 @@ import pt.aguiarvieira.xmuks.core.account.KeystoreSecretCipher
 import pt.aguiarvieira.xmuks.core.account.PushRegistrar
 import pt.aguiarvieira.xmuks.core.account.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
+import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
 import pt.aguiarvieira.xmuks.core.data.connection.LiveTasks
 import pt.aguiarvieira.xmuks.core.data.connection.StreamFrames
@@ -123,6 +124,12 @@ object DataModule {
 
     @Provides @Singleton
     fun streamFrames() = StreamFrames()
+
+    @Provides @Singleton
+    fun roomCalls(
+        database: XmuksDatabase,
+        exec: ExecClient,
+    ) = RoomCalls(database, exec)
 
     /** Everything wiped when the account changes (logout, or login to a different account). */
     @Provides @Singleton

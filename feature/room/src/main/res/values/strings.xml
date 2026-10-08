@@ -135,6 +135,14 @@
     <string name="search_room">Search</string>
     <string name="voice_call">Voice call</string>
     <string name="video_call">Video call</string>
+    <string name="call_return">Return to call</string>
+    <string name="call_join_count">Join · %1$d</string>
+    <string name="call_voice_ongoing">Voice call in progress</string>
+    <string name="call_video_ongoing">Video call in progress</string>
+    <plurals name="call_people">
+        <item quantity="one">%1$d person</item>
+        <item quantity="other">%1$d people</item>
+    </plurals>
     <string name="poll">Poll</string>
     <string name="attach_poll">Poll</string>
     <string name="poll_new">New poll</string>

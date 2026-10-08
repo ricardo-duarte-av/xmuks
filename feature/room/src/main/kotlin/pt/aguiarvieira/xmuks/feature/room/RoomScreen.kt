@@ -65,6 +65,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import pt.aguiarvieira.xmuks.core.data.calls.RoomCall
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.emoji.ImagePack
 import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
@@ -118,6 +119,7 @@ fun RoomRoute(
     val hasMoreBefore by viewModel.hasMoreBefore.collectAsStateWithLifecycle()
     val linkPreviews by viewModel.linkPreviews.previews.collectAsStateWithLifecycle()
     val bridge by viewModel.bridge.collectAsStateWithLifecycle()
+    val call by viewModel.call.collectAsStateWithLifecycle()
     val newestEvent by viewModel.newestEvent.collectAsStateWithLifecycle()
     val mentionHints by viewModel.mentions.suggestions.collectAsStateWithLifecycle()
     val loadedEvents by viewModel.loadedEvents.collectAsStateWithLifecycle()
@@ -176,6 +178,7 @@ fun RoomRoute(
             onOpenRoomInfo = onOpenRoomInfo,
             onSearch = onSearch,
             onCall = onCall.takeIf { threadRoot == null },
+            call = call,
             player = viewModel.player,
             onSaveMedia = rememberMediaSaver(),
             onOpenThread = if (threadRoot == null) onOpenThread else null,
@@ -332,6 +335,8 @@ fun RoomScreen(
     onOpenRoomInfo: () -> Unit = {},
     onSearch: () -> Unit = {},
     onCall: ((video: Boolean) -> Unit)? = null,
+    /** The room's call, while there is one. */
+    call: RoomCall? = null,
     player: InlinePlayer? = null,
     onSaveMedia: (Media) -> Unit = {},
     /** Opening threads; null when this is one. */
@@ -429,9 +434,12 @@ fun RoomScreen(
                     inThread,
                     bridge,
                     onCall,
+                    call,
                 )
-                val pinned = pins.pins.eventIds.size
-                if (pinned > 0 && !inThread) PinnedBar(pinned, { overlays.pinsShown = true })
+                UnderHeader(call, onCall, pinned = if (inThread) 0 else pins.pins.eventIds.size) {
+                    overlays.pinsShown =
+                        true
+                }
             }
         },
         bottomBar = {
@@ -491,6 +499,7 @@ private fun HeaderCard(
     inThread: Boolean = false,
     bridge: BridgeInfo? = null,
     onCall: ((video: Boolean) -> Unit)? = null,
+    call: RoomCall? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
@@ -514,7 +523,9 @@ private fun HeaderCard(
             },
             actions = {
                 bridge?.let { BridgeBadge(it, resolver, roomId, sharedScope) }
-                if (onCall != null) {
+                if (onCall != null && call != null) {
+                    CallPill(call, onCall)
+                } else if (onCall != null) {
                     IconButton(onClick = { onCall(false) }) {
                         Icon(
                             painterResource(R.drawable.ic_call),

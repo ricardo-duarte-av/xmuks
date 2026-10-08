@@ -33,6 +33,7 @@ import pt.aguiarvieira.xmuks.core.call.media.TokenSubject
 import pt.aguiarvieira.xmuks.core.call.signalling.CallMembers
 import pt.aguiarvieira.xmuks.core.call.signalling.MembershipManager
 import pt.aguiarvieira.xmuks.core.call.signalling.RtcApi
+import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.protocol.GomuksEvent
 import pt.aguiarvieira.xmuks.core.protocol.GomuksFrame
 import pt.aguiarvieira.xmuks.core.protocol.rtc.CallMembership
@@ -104,6 +105,7 @@ class CallSession internal constructor(
     private val tokens: SfuTokens,
     private val frames: Flow<GomuksFrame>,
     private val context: Context,
+    private val roomCalls: RoomCalls,
     private val formatPreference: FormatPreference,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
@@ -151,6 +153,7 @@ class CallSession internal constructor(
         val state = api.roomState(room.roomId).getOrThrow()
         val sticky = api.stickyEvents(room.roomId).getOrDefault(emptyList())
         lock.withLock { members.load(state, sticky) }
+        roomCalls.refresh(room.roomId, state + sticky)
 
         val present = lock.withLock { members.active(clock()) }.filterNot { it.isOwn() }
         val format = chooseFormat(present)

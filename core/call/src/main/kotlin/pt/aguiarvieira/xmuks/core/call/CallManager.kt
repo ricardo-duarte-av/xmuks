@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.call.media.SfuTokens
 import pt.aguiarvieira.xmuks.core.call.signalling.RtcApi
+import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.connection.StreamFrames
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 
@@ -20,6 +21,7 @@ class CallManager(
     private val tokens: SfuTokens,
     private val frames: StreamFrames,
     private val database: XmuksDatabase,
+    private val roomCalls: RoomCalls,
     private val scope: CoroutineScope,
 ) {
     private val mutableActive = MutableStateFlow<CallSession?>(null)
@@ -49,7 +51,17 @@ class CallManager(
                     encrypted = entity.encrypted,
                     dmUserId = entity.dmUserId,
                 )
-            val session = CallSession(room, CallIdentity(userId, deviceId), api, tokens, frames.frames, context, format)
+            val session =
+                CallSession(
+                    room,
+                    CallIdentity(userId, deviceId),
+                    api,
+                    tokens,
+                    frames.frames,
+                    context,
+                    roomCalls,
+                    format
+                )
             mutableActive.value = session
             session.start(video)
             // Forget the session once it has ended, unless another call replaced it meanwhile.

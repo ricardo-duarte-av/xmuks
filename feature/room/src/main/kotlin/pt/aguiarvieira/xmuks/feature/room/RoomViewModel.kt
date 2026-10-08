@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import pt.aguiarvieira.xmuks.core.data.calls.RoomCall
+import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.commands.CommandParser
 import pt.aguiarvieira.xmuks.core.data.media.LinkPreviewFetcher
@@ -70,6 +72,7 @@ class RoomViewModel
         val media: MediaUrls,
         linkPreviews: LinkPreviewFetcher,
         mentionTargets: MentionTargets,
+        private val roomCalls: RoomCalls,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -102,6 +105,9 @@ class RoomViewModel
             combine(thread?.let { session.itemsOf(it.snapshot) } ?: session.items, unread) { items, u ->
                 items.asReversed().withUnreadSeparator(u?.timestamp)
             }.stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        /** The room's call, while there is one. */
+        val call: StateFlow<RoomCall?> = roomCalls.of(roomId).stateIn(viewModelScope, WHILE_VISIBLE, null)
 
         /** What this room is bridged to, if it is. */
         val bridge: StateFlow<BridgeInfo?> = session.bridge.stateIn(viewModelScope, WHILE_VISIBLE, null)
@@ -348,6 +354,8 @@ class RoomViewModel
 
         init {
             viewModelScope.launch { session.open() }
+            // Sync only reports call changes: a call already going on is found by looking.
+            if (thread == null) viewModelScope.launch { roomCalls.load(roomId) }
             thread?.let { viewModelScope.launch { it.open() } }
             // Taken once, before reading at the bottom moves the marker on.
             viewModelScope.launch {

@@ -107,6 +107,26 @@ data class RoomStateEntity(
 )
 
 /**
+ * Someone's live presence in a room's call (MatrixRTC membership, either encoding), kept so the room
+ * list and room header know a call is going on without loading every room's state. One row per
+ * membership slot ([key]: state key or sticky key); a leave deletes it, [expiresAt] retires it.
+ */
+@Entity(tableName = "call_members", primaryKeys = ["roomId", "key"])
+data class CallMemberEntity(
+    val roomId: String,
+    val key: String,
+    val userId: String,
+    val deviceId: String,
+    val eventId: String,
+    val intent: String?,
+    val sticky: Boolean,
+    val createdTs: Long,
+    val expiresAt: Long,
+    /** The event's own timestamp: sticky events race, and the newest per key wins. */
+    val eventTs: Long,
+)
+
+/**
  * What a room is bridged to (its `m.bridge` state, which nothing else in sync carries): the
  * network's name and logo, or both null for a room checked and found not bridged. Learnt once per
  * room (a background scan, a room's state fetched when it's opened); a bridge state change in a

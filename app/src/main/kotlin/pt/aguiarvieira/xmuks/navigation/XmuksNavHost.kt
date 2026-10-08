@@ -6,6 +6,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
@@ -13,9 +17,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -36,6 +44,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.LocalAnimatedVisibility
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalSharedTransitionScope
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.feature.call.CallRoute
+import pt.aguiarvieira.xmuks.feature.call.OngoingCallStrip
 import pt.aguiarvieira.xmuks.feature.media.MediaViewerRoute
 import pt.aguiarvieira.xmuks.feature.profile.IgnoredUsersRoute
 import pt.aguiarvieira.xmuks.feature.profile.InviteRoute
@@ -204,221 +213,236 @@ fun XmuksNavHost(
             shareConsumed()
         }
     }
-    SharedTransitionLayout(modifier = modifier) {
-        CompositionLocalProvider(LocalSharedTransitionScope provides this) {
-            NavDisplay(
-                backStack = backStack,
-                onBack = { backStack.removeLastOrNull() },
-                entryDecorators =
-                    listOf(
-                        rememberSaveableStateHolderNavEntryDecorator(),
-                        rememberViewModelStoreNavEntryDecorator(),
-                    ),
-                sceneStrategies = listOf(listDetail, SinglePaneSceneStrategy()),
-                sharedTransitionScope = this,
-                entryProvider =
-                    entryProvider {
-                        entry<HomeKey>(metadata = ListDetailSceneStrategy.listPane()) {
-                            Destination {
-                                HomeRoute(
-                                    onOpenRoom = backStack::openRoom,
-                                    onOpenSpace = { backStack.add(SpaceKey(it)) },
-                                    onOpenProfile = { backStack.add(UserKey(it)) },
-                                    onOpenNotifications = { backStack.add(NotificationsKey) },
-                                    onSearchMessages = { backStack.add(SearchKey()) },
-                                    onOpenInvite = { backStack.add(InviteKey(it)) },
-                                )
+    var stripShown by remember { mutableStateOf(false) }
+    Column(modifier) {
+        // In a call but looking elsewhere: a way back to it over every screen, which then sit below it.
+        OngoingCallStrip(
+            hidden = { roomId -> (backStack.lastOrNull() as? CallKey)?.roomId == roomId },
+            onOpen = { roomId -> backStack.add(CallKey(roomId)) },
+            modifier = Modifier.onSizeChanged { stripShown = it.height > 0 },
+        )
+        SharedTransitionLayout(
+            modifier =
+                Modifier
+                    .weight(
+                        1f
+                    ).then(if (stripShown) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier),
+        ) {
+            CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                NavDisplay(
+                    backStack = backStack,
+                    onBack = { backStack.removeLastOrNull() },
+                    entryDecorators =
+                        listOf(
+                            rememberSaveableStateHolderNavEntryDecorator(),
+                            rememberViewModelStoreNavEntryDecorator(),
+                        ),
+                    sceneStrategies = listOf(listDetail, SinglePaneSceneStrategy()),
+                    sharedTransitionScope = this,
+                    entryProvider =
+                        entryProvider {
+                            entry<HomeKey>(metadata = ListDetailSceneStrategy.listPane()) {
+                                Destination {
+                                    HomeRoute(
+                                        onOpenRoom = backStack::openRoom,
+                                        onOpenSpace = { backStack.add(SpaceKey(it)) },
+                                        onOpenProfile = { backStack.add(UserKey(it)) },
+                                        onOpenNotifications = { backStack.add(NotificationsKey) },
+                                        onSearchMessages = { backStack.add(SearchKey()) },
+                                        onOpenInvite = { backStack.add(InviteKey(it)) },
+                                    )
+                                }
                             }
-                        }
-                        entry<SpaceKey>(metadata = ListDetailSceneStrategy.listPane()) { key ->
-                            Destination {
-                                SpaceRoute(
-                                    spaceId = key.spaceId,
-                                    onBack = { backStack.removeLastOrNull() },
-                                    onOpenRoom = backStack::openRoom,
-                                )
+                            entry<SpaceKey>(metadata = ListDetailSceneStrategy.listPane()) { key ->
+                                Destination {
+                                    SpaceRoute(
+                                        spaceId = key.spaceId,
+                                        onBack = { backStack.removeLastOrNull() },
+                                        onOpenRoom = backStack::openRoom,
+                                    )
+                                }
                             }
-                        }
-                        entry<RoomKey>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
-                            Destination(roomId = key.roomId) {
-                                RoomRoute(
-                                    roomId = key.roomId,
-                                    sharedScope = key.scope,
-                                    jumpTo = key.eventId,
-                                    onOpenLink = openLink,
-                                    onBack = { backStack.removeLastOrNull() },
-                                    onOpenMedia = { backStack.add(MediaKey(it)) },
-                                    onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
-                                    onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
-                                    onSearch = { backStack.add(SearchKey(key.roomId)) },
-                                    onCall = { video -> backStack.add(CallKey(key.roomId, video)) },
-                                    onSendFiles = { uris -> backStack.add(ShareKey(uris, null, key.roomId)) },
-                                    onOpenThread = { root -> backStack.add(ThreadKey(key.roomId, root)) },
-                                )
+                            entry<RoomKey>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
+                                Destination(roomId = key.roomId) {
+                                    RoomRoute(
+                                        roomId = key.roomId,
+                                        sharedScope = key.scope,
+                                        jumpTo = key.eventId,
+                                        onOpenLink = openLink,
+                                        onBack = { backStack.removeLastOrNull() },
+                                        onOpenMedia = { backStack.add(MediaKey(it)) },
+                                        onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
+                                        onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
+                                        onSearch = { backStack.add(SearchKey(key.roomId)) },
+                                        onCall = { video -> backStack.add(CallKey(key.roomId, video)) },
+                                        onSendFiles = { uris -> backStack.add(ShareKey(uris, null, key.roomId)) },
+                                        onOpenThread = { root -> backStack.add(ThreadKey(key.roomId, root)) },
+                                    )
+                                }
                             }
-                        }
-                        entry<ThreadKey> { key ->
-                            Destination(roomId = key.roomId) {
-                                RoomRoute(
-                                    roomId = key.roomId,
-                                    sharedScope = THREAD_SCOPE,
-                                    threadRoot = key.rootId,
-                                    onOpenLink = openLink,
-                                    onBack = { backStack.removeLastOrNull() },
-                                    onOpenMedia = { backStack.add(MediaKey(it)) },
-                                    onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
-                                    onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
-                                    onSearch = { backStack.add(SearchKey(key.roomId)) },
-                                )
+                            entry<ThreadKey> { key ->
+                                Destination(roomId = key.roomId) {
+                                    RoomRoute(
+                                        roomId = key.roomId,
+                                        sharedScope = THREAD_SCOPE,
+                                        threadRoot = key.rootId,
+                                        onOpenLink = openLink,
+                                        onBack = { backStack.removeLastOrNull() },
+                                        onOpenMedia = { backStack.add(MediaKey(it)) },
+                                        onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
+                                        onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
+                                        onSearch = { backStack.add(SearchKey(key.roomId)) },
+                                    )
+                                }
                             }
-                        }
-                        entry<RoomInfoKey> { key ->
-                            Destination(roomId = key.roomId) {
-                                RoomInfoRoute(
-                                    roomId = key.roomId,
-                                    onBack = { backStack.removeLastOrNull() },
-                                    onOpenMedia = { backStack.add(MediaKey(it)) },
-                                    onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
-                                    onOpenMembers = { backStack.add(RoomMembersKey(key.roomId)) },
-                                    onOpenState = { backStack.add(RoomStateKey(key.roomId)) },
-                                    onOpenGallery = { backStack.add(GalleryKey(key.roomId)) },
-                                    onOpenPreferences = { backStack.add(PreferencesKey(key.roomId)) },
-                                    onLeft = { backStack.leftRoom(key.roomId) },
-                                )
+                            entry<RoomInfoKey> { key ->
+                                Destination(roomId = key.roomId) {
+                                    RoomInfoRoute(
+                                        roomId = key.roomId,
+                                        onBack = { backStack.removeLastOrNull() },
+                                        onOpenMedia = { backStack.add(MediaKey(it)) },
+                                        onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
+                                        onOpenMembers = { backStack.add(RoomMembersKey(key.roomId)) },
+                                        onOpenState = { backStack.add(RoomStateKey(key.roomId)) },
+                                        onOpenGallery = { backStack.add(GalleryKey(key.roomId)) },
+                                        onOpenPreferences = { backStack.add(PreferencesKey(key.roomId)) },
+                                        onLeft = { backStack.leftRoom(key.roomId) },
+                                    )
+                                }
                             }
-                        }
-                        entry<InviteKey> { key ->
-                            Destination {
-                                InviteRoute(
-                                    roomId = key.roomId,
-                                    onBack = { backStack.removeLastOrNull() },
-                                    onOpenRoom = { roomId ->
-                                        backStack.remove(key)
-                                        backStack.openRoom(roomId, LINK_SCOPE)
-                                    },
-                                    onOpenUser = { backStack.add(UserKey(it)) },
-                                )
+                            entry<InviteKey> { key ->
+                                Destination {
+                                    InviteRoute(
+                                        roomId = key.roomId,
+                                        onBack = { backStack.removeLastOrNull() },
+                                        onOpenRoom = { roomId ->
+                                            backStack.remove(key)
+                                            backStack.openRoom(roomId, LINK_SCOPE)
+                                        },
+                                        onOpenUser = { backStack.add(UserKey(it)) },
+                                    )
+                                }
                             }
-                        }
-                        entry<RoomPreviewKey> { key ->
-                            Destination {
-                                RoomPreviewRoute(
-                                    roomIdOrAlias = key.roomIdOrAlias,
-                                    via = key.via,
-                                    onBack = { backStack.removeLastOrNull() },
-                                    onOpenRoom = { roomId ->
-                                        backStack.remove(key)
-                                        backStack.openRoom(roomId, LINK_SCOPE, key.eventId)
-                                    },
-                                )
+                            entry<RoomPreviewKey> { key ->
+                                Destination {
+                                    RoomPreviewRoute(
+                                        roomIdOrAlias = key.roomIdOrAlias,
+                                        via = key.via,
+                                        onBack = { backStack.removeLastOrNull() },
+                                        onOpenRoom = { roomId ->
+                                            backStack.remove(key)
+                                            backStack.openRoom(roomId, LINK_SCOPE, key.eventId)
+                                        },
+                                    )
+                                }
                             }
-                        }
-                        entry<ShareKey> { key ->
-                            Destination(roomId = key.roomId) {
-                                ShareRoute(
-                                    request = ShareRequest(key.uris, key.text, key.roomId),
-                                    onDone = { roomId ->
-                                        backStack.remove(key)
-                                        // Back in the room it came from, or to the one chosen.
-                                        val here = (backStack.lastOrNull() as? RoomKey)?.roomId
-                                        if (roomId != null && roomId != here) backStack.openRoom(roomId, LINK_SCOPE)
-                                    },
-                                )
+                            entry<ShareKey> { key ->
+                                Destination(roomId = key.roomId) {
+                                    ShareRoute(
+                                        request = ShareRequest(key.uris, key.text, key.roomId),
+                                        onDone = { roomId ->
+                                            backStack.remove(key)
+                                            // Back in the room it came from, or to the one chosen.
+                                            val here = (backStack.lastOrNull() as? RoomKey)?.roomId
+                                            if (roomId != null && roomId != here) backStack.openRoom(roomId, LINK_SCOPE)
+                                        },
+                                    )
+                                }
                             }
-                        }
-                        entry<PreferencesKey> { key ->
-                            Destination(roomId = key.roomId) {
-                                PreferencesRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
+                            entry<PreferencesKey> { key ->
+                                Destination(roomId = key.roomId) {
+                                    PreferencesRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
+                                }
                             }
-                        }
-                        entry<SearchKey> { key ->
-                            Destination(roomId = key.roomId) {
-                                SearchRoute(
-                                    roomId = key.roomId,
-                                    onBack = { backStack.removeLastOrNull() },
-                                    onOpenEvent = {
-                                        roomId,
-                                        eventId,
-                                        ->
-                                        backStack.openRoom(roomId, LINK_SCOPE, eventId)
-                                    },
-                                )
+                            entry<SearchKey> { key ->
+                                Destination(roomId = key.roomId) {
+                                    SearchRoute(
+                                        roomId = key.roomId,
+                                        onBack = { backStack.removeLastOrNull() },
+                                        onOpenEvent = {
+                                            roomId,
+                                            eventId,
+                                            ->
+                                            backStack.openRoom(roomId, LINK_SCOPE, eventId)
+                                        },
+                                    )
+                                }
                             }
-                        }
-                        entry<NotificationsKey> {
-                            Destination {
-                                NotificationsRoute(
-                                    onBack = { backStack.removeLastOrNull() },
-                                    onOpenEvent = {
-                                        roomId,
-                                        eventId,
-                                        ->
-                                        backStack.openRoom(roomId, LINK_SCOPE, eventId)
-                                    },
-                                )
+                            entry<NotificationsKey> {
+                                Destination {
+                                    NotificationsRoute(
+                                        onBack = { backStack.removeLastOrNull() },
+                                        onOpenEvent = {
+                                            roomId,
+                                            eventId,
+                                            ->
+                                            backStack.openRoom(roomId, LINK_SCOPE, eventId)
+                                        },
+                                    )
+                                }
                             }
-                        }
-                        entry<IgnoredUsersKey> {
-                            Destination {
-                                IgnoredUsersRoute(
-                                    onBack = { backStack.removeLastOrNull() },
-                                    onOpenUser = { backStack.add(UserKey(it)) },
-                                )
+                            entry<IgnoredUsersKey> {
+                                Destination {
+                                    IgnoredUsersRoute(
+                                        onBack = { backStack.removeLastOrNull() },
+                                        onOpenUser = { backStack.add(UserKey(it)) },
+                                    )
+                                }
                             }
-                        }
-                        entry<GalleryKey> { key ->
-                            Destination(roomId = key.roomId) {
-                                GalleryRoute(
-                                    roomId = key.roomId,
-                                    onBack = { backStack.removeLastOrNull() },
-                                    onOpenMedia = { backStack.add(MediaKey(it)) },
-                                )
+                            entry<GalleryKey> { key ->
+                                Destination(roomId = key.roomId) {
+                                    GalleryRoute(
+                                        roomId = key.roomId,
+                                        onBack = { backStack.removeLastOrNull() },
+                                        onOpenMedia = { backStack.add(MediaKey(it)) },
+                                    )
+                                }
                             }
-                        }
-                        entry<RoomStateKey> { key ->
-                            Destination(roomId = key.roomId) {
-                                RoomStateRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
+                            entry<RoomStateKey> { key ->
+                                Destination(roomId = key.roomId) {
+                                    RoomStateRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
+                                }
                             }
-                        }
-                        entry<RoomMembersKey> { key ->
-                            Destination(roomId = key.roomId) {
-                                RoomMembersRoute(
-                                    roomId = key.roomId,
-                                    onBack = { backStack.removeLastOrNull() },
-                                    onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
-                                )
+                            entry<RoomMembersKey> { key ->
+                                Destination(roomId = key.roomId) {
+                                    RoomMembersRoute(
+                                        roomId = key.roomId,
+                                        onBack = { backStack.removeLastOrNull() },
+                                        onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
+                                    )
+                                }
                             }
-                        }
-                        entry<UserKey> { key ->
-                            Destination(roomId = key.roomId) {
-                                UserInfoRoute(
-                                    userId = key.userId,
-                                    roomId = key.roomId,
-                                    onOpenLink = openLink,
-                                    onOpenRoom = { backStack.openRoom(it, LINK_SCOPE) },
-                                    onOpenIgnoredUsers = { backStack.add(IgnoredUsersKey) },
-                                    onOpenPreferences = { backStack.add(PreferencesKey()) },
-                                    onBack = { backStack.removeLastOrNull() },
-                                    onOpenMedia = { backStack.add(MediaKey(it)) },
-                                )
+                            entry<UserKey> { key ->
+                                Destination(roomId = key.roomId) {
+                                    UserInfoRoute(
+                                        userId = key.userId,
+                                        roomId = key.roomId,
+                                        onOpenLink = openLink,
+                                        onOpenRoom = { backStack.openRoom(it, LINK_SCOPE) },
+                                        onOpenIgnoredUsers = { backStack.add(IgnoredUsersKey) },
+                                        onOpenPreferences = { backStack.add(PreferencesKey()) },
+                                        onBack = { backStack.removeLastOrNull() },
+                                        onOpenMedia = { backStack.add(MediaKey(it)) },
+                                    )
+                                }
                             }
-                        }
-                        entry<MediaKey> { key ->
-                            Destination {
-                                MediaViewerRoute(media = key.media, onBack = { backStack.removeLastOrNull() })
+                            entry<MediaKey> { key ->
+                                Destination {
+                                    MediaViewerRoute(media = key.media, onBack = { backStack.removeLastOrNull() })
+                                }
                             }
-                        }
-                        entry<CallKey> { key ->
-                            Destination {
-                                CallRoute(
-                                    roomId = key.roomId,
-                                    video = key.video,
-                                    onBack = { backStack.removeLastOrNull() },
-                                )
+                            entry<CallKey> { key ->
+                                Destination {
+                                    CallRoute(
+                                        roomId = key.roomId,
+                                        video = key.video,
+                                        onBack = { backStack.removeLastOrNull() },
+                                    )
+                                }
                             }
-                        }
-                    },
-            )
+                        },
+                )
+            }
         }
     }
 }

@@ -11,6 +11,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import pt.aguiarvieira.xmuks.core.account.AccountScoped
 import pt.aguiarvieira.xmuks.core.database.AccountDataEntity
+import pt.aguiarvieira.xmuks.core.database.CallMemberEntity
 import pt.aguiarvieira.xmuks.core.database.EventEntity
 import pt.aguiarvieira.xmuks.core.database.InvitedRoomEntity
 import pt.aguiarvieira.xmuks.core.database.RoomEntity
@@ -31,6 +32,8 @@ import pt.aguiarvieira.xmuks.core.protocol.InvitedRoom
 import pt.aguiarvieira.xmuks.core.protocol.Room
 import pt.aguiarvieira.xmuks.core.protocol.SyncComplete
 import pt.aguiarvieira.xmuks.core.protocol.SyncRoom
+import pt.aguiarvieira.xmuks.core.protocol.rtc.CallMemberships
+import pt.aguiarvieira.xmuks.core.protocol.rtc.RtcTypes
 
 /**
  * Applies the stream to the database — one write transaction per frame — and is the stream's
@@ -126,6 +129,7 @@ class SyncIngestor(
         dao.wipeAccountData()
         dao.wipeInvites()
         dao.wipeBridges()
+        dao.wipeCallMembers()
         dao.wipeMeta()
     }
 
@@ -226,6 +230,25 @@ class SyncIngestor(
         dao.upsertEvents(room.events.filter { it.rowId in wanted }.map { it.toEntity() })
         dao.upsertState(members.map { (userId, rowId) -> RoomStateEntity(roomId, MEMBER, userId, rowId) })
         dao.upsertAccountData(room.accountData.values.map { it.toEntity(roomId, generation) })
+        applyCallMembers(roomId, room)
+    }
+
+    /** Call memberships: legacy ones when the sync says they're current state, sticky ones as they come. */
+    private suspend fun applyCallMembers(
+        roomId: String,
+        room: SyncRoom,
+    ) {
+        val currentLegacy =
+            room.state[RtcTypes.LEGACY_MEMBER]
+                ?.values
+                ?.toSet()
+                .orEmpty()
+        for (event in room.events) {
+            val type = event.effectiveType
+            val relevant =
+                (type == RtcTypes.LEGACY_MEMBER && event.rowId in currentLegacy) || type == RtcTypes.STICKY_MEMBER
+            if (relevant) recordCallMember(dao, roomId, event)
+        }
     }
 
     private suspend fun applyDecrypted(event: GomuksEvent.EventsDecrypted) {
@@ -262,6 +285,7 @@ class SyncIngestor(
         roomIds.chunked(SQL_VARIABLE_CHUNK).forEach { ids ->
             dao.deleteEventsOf(ids)
             dao.deleteStateOf(ids)
+            dao.deleteCallMembersOf(ids)
             dao.deleteAccountDataOf(ids)
             dao.deleteInvites(ids)
             dao.deleteEdgesFrom(ids)
@@ -278,6 +302,39 @@ class SyncIngestor(
         /** Stay well under SQLite's bound-parameter limit. */
         const val SQL_VARIABLE_CHUNK = 500
     }
+}
+
+/**
+ * Records one call membership event (join or leave) for [roomId]. Legacy state always applies; a
+ * sticky event only when it's no older than what its key holds (they can arrive out of order).
+ */
+internal suspend fun recordCallMember(
+    dao: SyncDao,
+    roomId: String,
+    event: Event,
+) {
+    val key = CallMemberships.keyOf(event) ?: return
+    val sticky = event.effectiveType == RtcTypes.STICKY_MEMBER
+    if (sticky && (dao.callMemberTs(roomId, key) ?: Long.MIN_VALUE) > event.timestamp) return
+    val membership = if (CallMemberships.isLeave(event)) null else CallMemberships.parse(event)
+    if (membership == null) {
+        dao.deleteCallMember(roomId, key)
+        return
+    }
+    dao.upsertCallMember(
+        CallMemberEntity(
+            roomId = roomId,
+            key = key,
+            userId = membership.userId,
+            deviceId = membership.deviceId,
+            eventId = membership.eventId,
+            intent = membership.intent,
+            sticky = sticky,
+            createdTs = membership.createdTs,
+            expiresAt = membership.expiresAt,
+            eventTs = event.timestamp,
+        ),
+    )
 }
 
 private fun Room.toEntity(generation: Long) =

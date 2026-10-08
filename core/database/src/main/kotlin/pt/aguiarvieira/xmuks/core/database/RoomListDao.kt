@@ -301,4 +301,11 @@ interface RoomListDao {
         roomId: String,
         type: String,
     ): Flow<String?>
+
+    /** Every live call member, everywhere (expiry is the caller's to apply: it moves with time). */
+    @Query("SELECT * FROM call_members")
+    fun callMembers(): Flow<List<CallMemberEntity>>
+
+    @Query("SELECT * FROM call_members WHERE roomId = :roomId")
+    fun callMembers(roomId: String): Flow<List<CallMemberEntity>>
 }

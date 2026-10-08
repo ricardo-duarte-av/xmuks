@@ -1,22 +1,30 @@
 package pt.aguiarvieira.xmuks.feature.roomlist
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import pt.aguiarvieira.xmuks.core.data.rooms.CallBadge
 import pt.aguiarvieira.xmuks.core.data.rooms.Preview
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.Unread
@@ -59,6 +67,25 @@ fun RoomListItem(
                 size = display.avatar,
                 modifier = Modifier.sharedElement(SharedKeys.avatar(room.roomId, sharedScope)),
             )
+            // A call going on: a badge top right, where it can't be mistaken for the bridge's.
+            room.call?.let { call ->
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = BADGE_OFFSET, y = -BADGE_OFFSET)
+                        .size(display.avatar * BADGE_FRACTION)
+                        .background(colors.primary, CircleShape)
+                        .border(2.dp, colors.surface, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painterResource(if (call == CallBadge.Video) R.drawable.ic_videocam else R.drawable.ic_call),
+                        contentDescription = stringResource(R.string.call_in_progress),
+                        tint = colors.onPrimary,
+                        modifier = Modifier.fillMaxSize().padding(3.dp),
+                    )
+                }
+            }
             // Bridged elsewhere: that network's logo, bottom right.
             room.bridgeProtocol?.let { protocol ->
                 NetworkBadge(
@@ -91,10 +118,16 @@ fun RoomListItem(
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val inCall = room.call != null
                 Text(
-                    text = if (display.showPreview) previewLine(room) else "",
+                    text =
+                        when {
+                            inCall -> stringResource(R.string.call_in_progress)
+                            display.showPreview -> previewLine(room)
+                            else -> ""
+                        },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = colors.onSurfaceVariant,
+                    color = if (inCall) colors.primary else colors.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),

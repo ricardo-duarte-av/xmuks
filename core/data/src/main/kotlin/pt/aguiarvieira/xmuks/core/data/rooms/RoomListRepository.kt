@@ -53,7 +53,25 @@ class RoomListRepository(
     fun roomsInSpace(spaceId: String): Flow<List<RoomSummary>> = rooms(dao.roomsInSpace(spaceId))
 
     fun room(roomId: String): Flow<RoomSummary?> =
-        combine(dao.roomSummary(roomId), me) { row, me -> row?.toSummary(me) }
+        combine(
+            dao.roomSummary(roomId),
+            me,
+            callRooms
+        ) { row, me, calls -> row?.toSummary(me)?.copy(call = calls[roomId]) }
+
+    /** Rooms with a call going on (expiry checked whenever the list changes anyway). */
+    private val callRooms: Flow<Map<String, CallBadge>> =
+        dao
+            .callMembers()
+            .map { rows ->
+                val now = System.currentTimeMillis()
+                rows
+                    .filter { it.expiresAt > now }
+                    .groupBy { it.roomId }
+                    .mapValues { (_, members) ->
+                        if (members.any { it.intent == "video" }) CallBadge.Video else CallBadge.Voice
+                    }
+            }.distinctUntilChanged()
 
     /** Those of [roomIds] we're in (once, not live), most recently active first. */
     suspend fun rooms(roomIds: List<String>): List<RoomSummary> {
@@ -83,8 +101,9 @@ class RoomListRepository(
      * thread, drop identical results, and emit at most every [UI_THROTTLE_MS] (always the latest).
      */
     private fun rooms(source: Flow<List<RoomSummaryRow>>) =
-        combine(source, me) { rows, me -> rows.map { it.toSummary(me) } }
-            .distinctUntilChanged()
+        combine(source, me, callRooms) { rows, me, calls ->
+            rows.map { it.toSummary(me).copy(call = calls[it.roomId]) }
+        }.distinctUntilChanged()
             .throttleLatest(UI_THROTTLE_MS)
             .flowOn(Dispatchers.Default)
 
