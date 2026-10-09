@@ -50,8 +50,8 @@ class ContactsSync(
                     .map { dms ->
                         dms
                             .mapNotNull { dm ->
-                                dm.dmUserId?.let { Triple(it, dm.name, dm.avatarUrl) }
-                            }.distinctBy { it.first }
+                                dm.dmUserId?.let { DmPerson(it, dm.name, dm.avatarUrl, dm.bridgeProtocol) }
+                            }.distinctBy { it.userId }
                     }.distinctUntilChanged()
             combine(preferences.value(Prefs.syncContacts), people, database.roomListDao().meta()) { on, list, meta ->
                 Triple(on, list, meta?.userId)
@@ -64,9 +64,7 @@ class ContactsSync(
                         ) {
                             contacts.sync(
                                 me,
-                                list.map { (id, name, avatar) ->
-                                    ContactPerson(id, name, photo(avatar))
-                                }
+                                list.map { dm -> ContactPerson(dm.userId, dm.name, photo(dm.avatarUrl), dm.network) }
                             )
                         } else {
                             contacts.clear()
@@ -118,3 +116,10 @@ class ContactsSync(
         const val JPEG_QUALITY = 85
     }
 }
+
+private data class DmPerson(
+    val userId: String,
+    val name: String,
+    val avatarUrl: String?,
+    val network: String?,
+)

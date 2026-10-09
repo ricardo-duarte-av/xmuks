@@ -16,10 +16,17 @@ data class ContactPerson(
     val name: String,
     /** JPEG, when they have an avatar. */
     val photo: ByteArray? = null,
+    /**
+     * The network their DM is bridged to ("WhatsApp"), or null for a Matrix user. A bridged person
+     * gets only Message (named for the network, so the same person on two bridges reads apart):
+     * the bridges don't carry Matrix calls.
+     */
+    val network: String? = null,
 ) {
-    override fun equals(other: Any?) = other is ContactPerson && other.userId == userId && other.name == name
+    override fun equals(other: Any?) =
+        other is ContactPerson && other.userId == userId && other.name == name && other.network == network
 
-    override fun hashCode() = userId.hashCode() * 31 + name.hashCode()
+    override fun hashCode() = (userId.hashCode() * 31 + name.hashCode()) * 31 + network.hashCode()
 }
 
 /**
@@ -49,7 +56,7 @@ class PhoneContacts(
             .filter { it != account }
             .forEach { remove(it) }
         val existing = existing(account)
-        val labelled = labelled()
+        val labels = messageLabels()
         val wanted = people.associateBy { it.userId }
         val ops = ArrayList<ContentProviderOperation>()
         (existing.keys - wanted.keys).forEach { userId ->
@@ -67,7 +74,7 @@ class PhoneContacts(
             ) {
                 insert(ops, account, person)
             } else {
-                update(ops, rawId, person, rewriteActions = rawId !in labelled)
+                update(ops, rawId, person, rewriteActions = labels[rawId] != messageLabel(person))
             }
         }
         ops.chunked(BATCH).forEach { resolver.applyBatch(AUTHORITY, ArrayList(it)) }
@@ -87,16 +94,16 @@ class PhoneContacts(
         AccountManager.get(context).removeAccountExplicitly(account)
     }
 
-    /** Raw contacts whose Message row already carries today's label (theirs need no rewrite). */
-    private fun labelled(): Set<Long> =
+    /** Each raw contact's Message row label: when it isn't what it should be now, the rows are rewritten. */
+    private fun messageLabels(): Map<Long, String?> =
         resolver
             .query(
                 Data.CONTENT_URI,
-                arrayOf(Data.RAW_CONTACT_ID),
-                "${Data.MIMETYPE} = ? AND ${Data.DATA3} = ?",
-                arrayOf(PeopleUris.MIME_MESSAGE, context.getString(R.string.contact_message)),
+                arrayOf(Data.RAW_CONTACT_ID, Data.DATA3),
+                "${Data.MIMETYPE} = ?",
+                arrayOf(PeopleUris.MIME_MESSAGE),
                 null,
-            )?.use { c -> buildSet { while (c.moveToNext()) add(c.getLong(0)) } }
+            )?.use { c -> buildMap { while (c.moveToNext()) put(c.getLong(0), c.getString(1)) } }
             .orEmpty()
 
     /** Our raw contacts by user, from their source id. */
@@ -147,7 +154,7 @@ class PhoneContacts(
                     ).withValue(CommonDataKinds.Photo.PHOTO, it)
                     .build()
         }
-        actions().forEach { (mime, label) -> ops += actionRow(row(), mime, label, person).build() }
+        actions(person).forEach { (mime, label) -> ops += actionRow(row(), mime, label, person).build() }
     }
 
     /**
@@ -203,7 +210,8 @@ class PhoneContacts(
         rawId: Long,
         person: ContactPerson,
     ) {
-        for ((mime, label) in actions()) {
+        // Every kind goes (a bridged person keeps no call rows); what this person has comes back.
+        for (mime in ACTION_MIMES) {
             ops +=
                 ContentProviderOperation
                     .newDelete(syncUri(Data.CONTENT_URI))
@@ -211,6 +219,8 @@ class PhoneContacts(
                         "${Data.RAW_CONTACT_ID} = ? AND ${Data.MIMETYPE} = ?",
                         arrayOf(rawId.toString(), mime)
                     ).build()
+        }
+        for ((mime, label) in actions(person)) {
             val insert =
                 ContentProviderOperation
                     .newInsert(
@@ -220,12 +230,21 @@ class PhoneContacts(
         }
     }
 
-    private fun actions() =
-        listOf(
-            PeopleUris.MIME_MESSAGE to context.getString(R.string.contact_message),
-            PeopleUris.MIME_VOICE_CALL to context.getString(R.string.contact_voice_call),
-            PeopleUris.MIME_VIDEO_CALL to context.getString(R.string.contact_video_call),
-        )
+    /** What a person's contact offers: Message, and calls unless they're on a bridge. */
+    private fun actions(person: ContactPerson) =
+        if (person.network != null) {
+            listOf(PeopleUris.MIME_MESSAGE to messageLabel(person))
+        } else {
+            listOf(
+                PeopleUris.MIME_MESSAGE to messageLabel(person),
+                PeopleUris.MIME_VOICE_CALL to context.getString(R.string.contact_voice_call),
+                PeopleUris.MIME_VIDEO_CALL to context.getString(R.string.contact_video_call),
+            )
+        }
+
+    private fun messageLabel(person: ContactPerson): String =
+        person.network?.let { context.getString(R.string.contact_message_on, it) }
+            ?: context.getString(R.string.contact_message)
 
     private fun syncUri(uri: android.net.Uri) =
         uri.buildUpon().appendQueryParameter(android.provider.ContactsContract.CALLER_IS_SYNCADAPTER, "true").build()
@@ -234,5 +253,7 @@ class PhoneContacts(
         const val ACCOUNT_TYPE = "pt.aguiarvieira.xmuks"
         private const val AUTHORITY = android.provider.ContactsContract.AUTHORITY
         private const val BATCH = 300
+        private val ACTION_MIMES =
+            listOf(PeopleUris.MIME_MESSAGE, PeopleUris.MIME_VOICE_CALL, PeopleUris.MIME_VIDEO_CALL)
     }
 }
