@@ -35,6 +35,8 @@ data class RoomSummary(
     val bridgeAvatarUrl: String? = null,
     /** A call is going on in the room. */
     val call: CallBadge? = null,
+    /** The other person, in a DM. */
+    val dmUserId: String? = null,
 )
 
 /** What kind of call a room has going on, for its badge. */

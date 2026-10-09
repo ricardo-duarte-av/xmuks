@@ -41,6 +41,14 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="matrix.to" />
             </intent-filter>
+            <!-- Message / Voice call / Video call on a person xmuks put in Contacts (ContactsSync). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.pt.aguiarvieira.xmuks.message" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.pt.aguiarvieira.xmuks.call" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.pt.aguiarvieira.xmuks.videocall" />
+            </intent-filter>
             <!-- Shared from other apps: one or more files, or text. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

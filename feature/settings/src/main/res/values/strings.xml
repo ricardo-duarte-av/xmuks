@@ -92,4 +92,6 @@
     <string name="choice_call_auto">Automatic</string>
     <string name="choice_call_legacy">Legacy (state events)</string>
     <string name="choice_call_sticky">Matrix 2.0 (sticky events)</string>
+    <string name="pref_sync_contacts">People in my phone\'s Contacts</string>
+    <string name="pref_sync_contacts_desc">Everyone you have a direct chat with, with Message, Voice call and Video call actions, under an xmuks account. Turning this off removes them</string>
 </resources>

@@ -18,6 +18,7 @@ import pt.aguiarvieira.xmuks.core.call.IncomingCall
 import pt.aguiarvieira.xmuks.core.call.IncomingCalls
 import pt.aguiarvieira.xmuks.core.call.R
 import pt.aguiarvieira.xmuks.core.notify.Avatars
+import pt.aguiarvieira.xmuks.core.notify.PeopleUris
 import javax.inject.Inject
 
 /**
@@ -36,6 +37,7 @@ class Ringer(
                 .Builder()
                 .setName(call.callerName)
                 .setKey(call.callerId)
+                .setUri(PeopleUris.forUser(context, call.callerId))
                 .setIcon(Avatars.round(null, call.callerName, call.callerId))
                 .setImportant(true)
                 .build()

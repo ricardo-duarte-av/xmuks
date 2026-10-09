@@ -1,5 +1,8 @@
 package pt.aguiarvieira.xmuks.feature.settings
 
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,10 +34,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import pt.aguiarvieira.xmuks.core.data.prefs.Pref
 import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
 import pt.aguiarvieira.xmuks.core.data.prefs.PrefScope
@@ -53,8 +58,22 @@ internal fun PrefRow(
     val pref = entry.pref
     val setHere = layers.lookup(pref, scope) != null
     var editing by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    // Turning on a preference that needs permissions asks for them first; it's only set if granted.
+    val ask =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+            if (granted.values.all { it }) (pref as? Pref.Bool)?.let { edits.setBool(it, scope, true) }
+        }
+    val setBool: (Pref.Bool, Boolean) -> Unit = { bool, on ->
+        val missing =
+            entry.permissions.filter {
+                ContextCompat.checkSelfPermission(context, it) !=
+                    PackageManager.PERMISSION_GRANTED
+            }
+        if (on && missing.isNotEmpty()) ask.launch(missing.toTypedArray()) else edits.setBool(bool, scope, on)
+    }
     val toggle: (() -> Unit)? =
-        (pref as? Pref.Bool)?.let { bool -> { edits.setBool(bool, scope, !layers.get(bool)) } }
+        (pref as? Pref.Bool)?.let { bool -> { setBool(bool, !layers.get(bool)) } }
     ListItem(
         supportingContent = { Details(entry, layers, scope, setHere) },
         trailingContent = {
@@ -65,7 +84,7 @@ internal fun PrefRow(
                     }
                 }
                 when (pref) {
-                    is Pref.Bool -> Switch(layers.get(pref), onCheckedChange = { edits.setBool(pref, scope, it) })
+                    is Pref.Bool -> Switch(layers.get(pref), onCheckedChange = { setBool(pref, it) })
                     is Pref.Number -> Text(layers.get(pref).toString(), style = MaterialTheme.typography.labelLarge)
                     is Pref.Choice -> Text(choiceLabel(layers.get(pref)), style = MaterialTheme.typography.labelLarge)
                 }

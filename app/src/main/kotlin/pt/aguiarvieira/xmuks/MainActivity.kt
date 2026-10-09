@@ -3,6 +3,7 @@ package pt.aguiarvieira.xmuks
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
@@ -14,18 +15,24 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import pt.aguiarvieira.xmuks.core.call.CallManager
 import pt.aguiarvieira.xmuks.core.call.IncomingCalls
 import pt.aguiarvieira.xmuks.core.call.system.CallService
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
+import pt.aguiarvieira.xmuks.core.data.profile.Contacts
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
+import pt.aguiarvieira.xmuks.core.notify.PeopleUris
 import pt.aguiarvieira.xmuks.feature.login.LoginRoute
 import pt.aguiarvieira.xmuks.feature.share.ShareRequest
 import pt.aguiarvieira.xmuks.navigation.CallRequest
 import pt.aguiarvieira.xmuks.navigation.XmuksNavHost
 import javax.inject.Inject
+
+private val CONTACT_ROWS = setOf(PeopleUris.MIME_MESSAGE, PeopleUris.MIME_VOICE_CALL, PeopleUris.MIME_VIDEO_CALL)
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -35,6 +42,8 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var incoming: IncomingCalls
 
     @Inject lateinit var calls: CallManager
+
+    @Inject lateinit var contacts: Contacts
 
     /** A Matrix link we were opened with (another app, or one of our notifications), until handled. */
     private val link = MutableStateFlow<String?>(null)
@@ -94,9 +103,39 @@ class MainActivity : ComponentActivity() {
             call.value = CallRequest(roomId, intent.getBooleanExtra(CallService.EXTRA_VIDEO, false), answer)
             return
         }
+        if (intent.type in CONTACT_ROWS) {
+            openContactRow(intent)
+            return
+        }
         when (intent.action) {
             Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> share.value = shareOf(intent)
             else -> intent.data?.let { link.value = it.toString() }
+        }
+    }
+
+    /**
+     * A tap on one of our rows in the phone's Contacts: Message opens the DM, Voice / Video call
+     * calls in it. With no DM (any more), the person's profile.
+     */
+    private fun openContactRow(intent: Intent) {
+        val row = intent.data ?: return
+        val type = intent.type
+        lifecycleScope.launch {
+            val uri =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        contentResolver.query(row, arrayOf(ContactsContract.Data.DATA1), null, null, null)?.use { c ->
+                            if (c.moveToFirst()) c.getString(0) else null
+                        }
+                    }.getOrNull()
+                } ?: return@launch
+            val userId = PeopleUris.userOf(uri) ?: return@launch
+            val room = contacts.directRoom(userId)
+            when {
+                room == null -> link.value = uri
+                type == PeopleUris.MIME_MESSAGE -> link.value = "matrix:roomid/${room.removePrefix("!")}"
+                else -> call.value = CallRequest(room, video = type == PeopleUris.MIME_VIDEO_CALL, answer = false)
+            }
         }
     }
 

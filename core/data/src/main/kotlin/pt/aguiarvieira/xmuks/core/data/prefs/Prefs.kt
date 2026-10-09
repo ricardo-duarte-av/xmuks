@@ -73,6 +73,9 @@ object Prefs {
      */
     val callFormat = Pref.Choice("xmuks_call_format", "auto", listOf(Device), listOf("auto", "legacy", "sticky"))
 
+    /** xmuks' own: DM partners as phone contacts (Message, Voice call, Video call). */
+    val syncContacts = Pref.Bool("xmuks_sync_contacts", false, listOf(Device))
+
     /** Every preference, in gomuks' order (its settings screen's). */
     val all: List<Pref<*>> =
         listOf(

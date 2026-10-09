@@ -39,6 +39,7 @@ import pt.aguiarvieira.xmuks.core.call.CallSession
 import pt.aguiarvieira.xmuks.core.call.R
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.notify.Avatars
+import pt.aguiarvieira.xmuks.core.notify.PeopleUris
 import javax.inject.Inject
 
 /**
@@ -145,6 +146,7 @@ class CallService : Service() {
             Person
                 .Builder()
                 .setName(room.name)
+                .apply { room.dmUserId?.let { setKey(it).setUri(PeopleUris.forUser(this@CallService, it)) } }
                 .setIcon(Avatars.round(avatar, room.name, room.dmUserId ?: room.roomId))
                 .setImportant(true)
                 .build()

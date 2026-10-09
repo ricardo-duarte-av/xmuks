@@ -226,6 +226,7 @@ class RoomNotifier(
             .Builder()
             .setKey(user.id)
             .setName(user.name)
+            .setUri(PeopleUris.forUser(context, user.id))
             .setIcon(Avatars.round(loadBitmap(user.avatar, imageAuth), user.name, user.id))
             .build()
 

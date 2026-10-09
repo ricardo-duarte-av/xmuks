@@ -114,6 +114,7 @@ class RoomListRepository(
             avatarUrl = media.avatar(avatar),
             avatarMxc = avatar,
             isDirect = dmUserId != null,
+            dmUserId = dmUserId,
             encrypted = encrypted,
             // Without the sender's member state, `@alice:example.org` reads better as `alice`.
             previewSender = previewSenderName?.takeIf { it.isNotBlank() } ?: previewSender?.let(::localpart),

@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="60"
+    android:viewportHeight="60">
+    <!-- The app icon's mark (a chat bubble with an "x" cut through it), as the Contacts account icon:
+         the launcher's monochrome path, cropped from its 108 canvas to the bubble. -->
+    <group
+        android:translateX="-24"
+        android:translateY="-28">
+        <path
+            android:fillColor="#FF6750A4"
+            android:fillType="evenOdd"
+            android:pathData="M38,32h32a12,12 0,0 1,12 12v18a12,12 0,0 1,-12 12H52l-12,10v-10h-2a12,12 0,0 1,-12 -12V44a12,12 0,0 1,12 -12z M45.2,41.8l-4.4,4 6.3,8.2 -6.3,8.2 4.4,4 8.8,-8.4 8.8,8.4 4.4,-4 -6.3,-8.2 6.3,-8.2 -4.4,-4 -8.8,8.4z" />
+    </group>
+</vector>

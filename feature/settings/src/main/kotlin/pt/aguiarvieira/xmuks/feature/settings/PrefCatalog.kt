@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.settings
 
+import android.Manifest
 import pt.aguiarvieira.xmuks.core.data.prefs.Pref
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 
@@ -23,6 +24,8 @@ internal class PrefEntry(
     val section: Section,
     /** Kept in sync with gomuks web, but nothing in xmuks reads it yet. */
     val inXmuks: Boolean = true,
+    /** Runtime permissions turning it on needs (asked for then). */
+    val permissions: List<String> = emptyList(),
 )
 
 /** Labels for a choice's values (the rest show as they are, e.g. code themes and GIF services). */
@@ -201,4 +204,11 @@ internal val ENTRIES: List<PrefEntry> =
             Section.Calls
         ),
         PrefEntry(Prefs.callFormat, R.string.pref_call_format, R.string.pref_call_format_desc, Section.Calls),
+        PrefEntry(
+            Prefs.syncContacts,
+            R.string.pref_sync_contacts,
+            R.string.pref_sync_contacts_desc,
+            Section.Calls,
+            permissions = listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS),
+        ),
     )

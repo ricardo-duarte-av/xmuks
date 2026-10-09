@@ -39,6 +39,8 @@ import pt.aguiarvieira.xmuks.core.data.connection.LiveTasks
 import pt.aguiarvieira.xmuks.core.data.connection.StreamFrames
 import pt.aguiarvieira.xmuks.core.data.connection.StreamStatsTracker
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
+import pt.aguiarvieira.xmuks.core.data.contacts.ContactsSync
+import pt.aguiarvieira.xmuks.core.data.contacts.PhoneContacts
 import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
 import pt.aguiarvieira.xmuks.core.data.media.LinkPreviewFetcher
 import pt.aguiarvieira.xmuks.core.data.media.MediaDownloads
@@ -124,6 +126,16 @@ object DataModule {
 
     @Provides @Singleton
     fun streamFrames() = StreamFrames()
+
+    @Provides @Singleton
+    fun contactsSync(
+        @ApplicationContext context: Context,
+        rooms: RoomListRepository,
+        preferences: PreferenceStore,
+        database: XmuksDatabase,
+        images: ImageLoader,
+        scope: CoroutineScope,
+    ) = ContactsSync(context, PhoneContacts(context), rooms, preferences, database, images, scope)
 
     @Provides @Singleton
     fun roomCalls(

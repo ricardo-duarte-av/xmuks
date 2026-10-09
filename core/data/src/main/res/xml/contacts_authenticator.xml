@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<account-authenticator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accountType="pt.aguiarvieira.xmuks"
+    android:icon="@drawable/ic_contacts_account"
+    android:label="@string/contacts_account_label"
+    android:smallIcon="@drawable/ic_contacts_account" />
