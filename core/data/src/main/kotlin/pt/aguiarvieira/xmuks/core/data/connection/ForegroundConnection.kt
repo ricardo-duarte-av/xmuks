@@ -7,14 +7,17 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 import pt.aguiarvieira.xmuks.core.network.GomuksConnection
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Holds `/sse` open only while the app is in the foreground (and logged in). Leaving the
@@ -38,12 +41,18 @@ class ForegroundConnection(
     private val onForeground: () -> Unit = {},
     /** Closes pooled connections not in use, so the next requests open fresh ones. */
     private val dropIdleConnections: () -> Unit = {},
+    /**
+     * Where they're dropped. Never the main thread: closing a TLS connection writes to its socket,
+     * and network I/O on the main thread is fatal (NetworkOnMainThreadException).
+     */
+    private val io: CoroutineContext = Dispatchers.IO,
 ) : DefaultLifecycleObserver {
     val state: StateFlow<ConnectionState> = connection.state
 
     private var running: Job? = null
     private var stopping: Job? = null
-    private var inForeground = false
+
+    @Volatile private var inForeground = false
 
     fun install() {
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
@@ -51,8 +60,10 @@ class ForegroundConnection(
             object : ConnectivityManager.NetworkCallback() {
                 // A new network: connections made on the old one are no use.
                 override fun onAvailable(network: Network) {
-                    dropIdleConnections()
-                    connection.reconnectNow()
+                    scope.launch {
+                        withContext(io) { dropIdleConnections() }
+                        connection.reconnectNow()
+                    }
                 }
 
                 // Back in the foreground, Android gives the app its network back: stop waiting.
@@ -68,13 +79,16 @@ class ForegroundConnection(
     }
 
     override fun onStart(owner: LifecycleOwner) {
-        // Before anything asks gomuks for something: nothing may go out on a connection left from
-        // the background.
-        dropIdleConnections()
         inForeground = true
-        update()
-        wakeUp()
-        onForeground()
+        // Before anything asks gomuks for something: nothing may go out on a connection left from
+        // the background. Off the main thread, then the stream and the refresh, in that order.
+        scope.launch {
+            withContext(io) { dropIdleConnections() }
+            if (!inForeground) return@launch
+            update()
+            wakeUp()
+            onForeground()
+        }
     }
 
     /** A stream kept through a short background spell may have died silently: start over now if so. */

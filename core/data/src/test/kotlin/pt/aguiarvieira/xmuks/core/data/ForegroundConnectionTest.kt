@@ -6,11 +6,14 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -19,6 +22,9 @@ import pt.aguiarvieira.xmuks.core.network.GomuksConnection
 import pt.aguiarvieira.xmuks.core.network.ResumePoint
 import pt.aguiarvieira.xmuks.core.network.ResumeStore
 import pt.aguiarvieira.xmuks.core.network.SseClient
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 class ForegroundConnectionTest {
@@ -45,6 +51,7 @@ class ForegroundConnectionTest {
             scope = scope,
             onForeground = { calls += "foreground" },
             dropIdleConnections = { calls += "drop idle connections" },
+            io = Dispatchers.Unconfined,
         )
     private val owner =
         object : LifecycleOwner {
@@ -58,6 +65,29 @@ class ForegroundConnectionTest {
     fun `back in the foreground, connections from the background go before anything is asked`() {
         foreground.onStart(owner)
         assertEquals(listOf("drop idle connections", "foreground"), calls)
+    }
+
+    @Test
+    fun `connections are dropped off the calling (main) thread`() {
+        val dropped = CountDownLatch(1)
+        var thread: Thread? = null
+        val io = Executors.newSingleThreadExecutor()
+        val off =
+            ForegroundConnection(
+                ApplicationProvider.getApplicationContext(),
+                connection,
+                loggedIn = MutableStateFlow(false),
+                scope = scope,
+                dropIdleConnections = {
+                    thread = Thread.currentThread()
+                    dropped.countDown()
+                },
+                io = io.asCoroutineDispatcher(),
+            )
+        off.onStart(owner)
+        assertTrue(dropped.await(5, TimeUnit.SECONDS))
+        assertNotEquals(Thread.currentThread(), thread)
+        io.shutdown()
     }
 
     @Test
