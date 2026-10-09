@@ -121,6 +121,7 @@ fun UserInfoRoute(
     val mutualRooms by viewModel.mutualRooms.collectAsStateWithLifecycle()
     val directRoom by viewModel.directRoom.collectAsStateWithLifecycle()
     val roomProfile by viewModel.roomProfile.collectAsStateWithLifecycle()
+    val phoneContact by viewModel.phoneContact.state.collectAsStateWithLifecycle()
     val openRoom by rememberUpdatedState(onOpenRoom)
     LaunchedEffect(viewModel) { viewModel.openRoom.collect { openRoom(it) } }
     val media = remember(viewModel) { ProfileMedia(viewModel.media::avatar, viewModel.media::full) }
@@ -177,6 +178,8 @@ fun UserInfoRoute(
                         onMessage = viewModel::message,
                         onSetIgnored = viewModel::setIgnored,
                         onOpenRoom = onOpenRoom,
+                        phoneContact = phoneContact,
+                        onLinkPhoneContact = viewModel.phoneContact::link,
                     )
                 },
         )

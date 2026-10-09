@@ -49,6 +49,7 @@ class PhoneContacts(
             .filter { it != account }
             .forEach { remove(it) }
         val existing = existing(account)
+        val labelled = labelled()
         val wanted = people.associateBy { it.userId }
         val ops = ArrayList<ContentProviderOperation>()
         (existing.keys - wanted.keys).forEach { userId ->
@@ -61,7 +62,13 @@ class PhoneContacts(
         }
         for (person in people) {
             val rawId = existing[person.userId]
-            if (rawId == null) insert(ops, account, person) else update(ops, rawId, person)
+            if (rawId ==
+                null
+            ) {
+                insert(ops, account, person)
+            } else {
+                update(ops, rawId, person, rewriteActions = rawId !in labelled)
+            }
         }
         ops.chunked(BATCH).forEach { resolver.applyBatch(AUTHORITY, ArrayList(it)) }
     }
@@ -79,6 +86,18 @@ class PhoneContacts(
         )
         AccountManager.get(context).removeAccountExplicitly(account)
     }
+
+    /** Raw contacts whose Message row already carries today's label (theirs need no rewrite). */
+    private fun labelled(): Set<Long> =
+        resolver
+            .query(
+                Data.CONTENT_URI,
+                arrayOf(Data.RAW_CONTACT_ID),
+                "${Data.MIMETYPE} = ? AND ${Data.DATA3} = ?",
+                arrayOf(PeopleUris.MIME_MESSAGE, context.getString(R.string.contact_message)),
+                null,
+            )?.use { c -> buildSet { while (c.moveToNext()) add(c.getLong(0)) } }
+            .orEmpty()
 
     /** Our raw contacts by user, from their source id. */
     private fun existing(account: Account): Map<String, Long> =
@@ -128,22 +147,30 @@ class PhoneContacts(
                     ).withValue(CommonDataKinds.Photo.PHOTO, it)
                     .build()
         }
-        actions(person).forEach { (mime, summary) ->
-            ops +=
-                row()
-                    .withValue(Data.MIMETYPE, mime)
-                    .withValue(Data.DATA1, PeopleUris.matrix(person.userId))
-                    .withValue(Data.DATA2, summary)
-                    .withValue(Data.DATA3, person.userId)
-                    .build()
-        }
+        actions().forEach { (mime, label) -> ops += actionRow(row(), mime, label, person).build() }
     }
 
-    /** Name and photo follow the DM; the action rows never change. */
+    /**
+     * One action row: DATA3 is what Contacts shows for it ("Voice call"), DATA2 the line under it
+     * (the Matrix ID), DATA1 the `matrix:u/` URI every entry point reads.
+     */
+    private fun actionRow(
+        builder: ContentProviderOperation.Builder,
+        mime: String,
+        label: String,
+        person: ContactPerson,
+    ) = builder
+        .withValue(Data.MIMETYPE, mime)
+        .withValue(Data.DATA1, PeopleUris.matrix(person.userId))
+        .withValue(Data.DATA2, person.userId)
+        .withValue(Data.DATA3, label)
+
+    /** Name, photo and the action rows follow (rows are rewritten: older ones were labelled differently). */
     private fun update(
         ops: MutableList<ContentProviderOperation>,
         rawId: Long,
         person: ContactPerson,
+        rewriteActions: Boolean,
     ) {
         ops +=
             ContentProviderOperation
@@ -153,6 +180,7 @@ class PhoneContacts(
                     arrayOf(rawId.toString(), CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
                 ).withValue(CommonDataKinds.StructuredName.DISPLAY_NAME, person.name)
                 .build()
+        if (rewriteActions) rewriteActions(ops, rawId, person)
         val photo = person.photo ?: return
         ops +=
             ContentProviderOperation
@@ -170,12 +198,34 @@ class PhoneContacts(
                 .build()
     }
 
-    private fun actions(person: ContactPerson) =
+    private fun rewriteActions(
+        ops: MutableList<ContentProviderOperation>,
+        rawId: Long,
+        person: ContactPerson,
+    ) {
+        for ((mime, label) in actions()) {
+            ops +=
+                ContentProviderOperation
+                    .newDelete(syncUri(Data.CONTENT_URI))
+                    .withSelection(
+                        "${Data.RAW_CONTACT_ID} = ? AND ${Data.MIMETYPE} = ?",
+                        arrayOf(rawId.toString(), mime)
+                    ).build()
+            val insert =
+                ContentProviderOperation
+                    .newInsert(
+                        syncUri(Data.CONTENT_URI)
+                    ).withValue(Data.RAW_CONTACT_ID, rawId)
+            ops += actionRow(insert, mime, label, person).build()
+        }
+    }
+
+    private fun actions() =
         listOf(
             PeopleUris.MIME_MESSAGE to context.getString(R.string.contact_message),
             PeopleUris.MIME_VOICE_CALL to context.getString(R.string.contact_voice_call),
             PeopleUris.MIME_VIDEO_CALL to context.getString(R.string.contact_video_call),
-        ).map { (mime, label) -> mime to "$label (${person.userId})" }
+        )
 
     private fun syncUri(uri: android.net.Uri) =
         uri.buildUpon().appendQueryParameter(android.provider.ContactsContract.CALLER_IS_SYNCADAPTER, "true").build()

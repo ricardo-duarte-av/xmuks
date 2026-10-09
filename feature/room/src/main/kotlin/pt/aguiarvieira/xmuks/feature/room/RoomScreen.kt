@@ -514,7 +514,7 @@ private fun HeaderCard(
     var menu by remember { mutableStateOf(false) }
     var startSheet by remember { mutableStateOf(false) }
     if (startSheet && onCall != null) {
-        CallStartSheet(callNotifyRoom, onCallNotifyRoom, onCall = { video ->
+        CallStartSheet(room?.isDirect != true, callNotifyRoom, onCallNotifyRoom, onCall = { video ->
             startSheet = false
             onCall(video)
         }) { startSheet = false }
@@ -542,25 +542,12 @@ private fun HeaderCard(
                 bridge?.let { BridgeBadge(it, resolver, roomId, sharedScope) }
                 if (onCall != null && call != null) {
                     CallPill(call, onCall)
-                } else if (onCall != null && room?.isDirect == false) {
-                    // A group: one button, the choices (and whether to tell the room) in a sheet.
+                } else if (onCall != null) {
+                    // One button everywhere: voice or video (and, in a group, whether to tell the room) in a sheet.
                     IconButton(onClick = { startSheet = true }) {
                         Icon(
                             painterResource(R.drawable.ic_call),
                             contentDescription = stringResource(R.string.start_call)
-                        )
-                    }
-                } else if (onCall != null) {
-                    IconButton(onClick = { onCall(false) }) {
-                        Icon(
-                            painterResource(R.drawable.ic_call),
-                            contentDescription = stringResource(R.string.voice_call)
-                        )
-                    }
-                    IconButton(onClick = { onCall(true) }) {
-                        Icon(
-                            painterResource(R.drawable.ic_videocam),
-                            contentDescription = stringResource(R.string.video_call)
                         )
                     }
                 }

@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -167,16 +168,40 @@ fun CallScreen(
             onDismiss = { reacting = false },
         )
     }
+    val layout = remember { StageLayout() }
+    val views = callViews(ui)
+    // A shared screen takes the stage when it starts (unless something else is pinned).
+    val firstScreen = views.firstOrNull { it.screen }?.key
+    LaunchedEffect(firstScreen) { if (firstScreen != null && layout.pinned == null) layout.pinned = firstScreen }
+    // Pinned someone who's gone: back to the room's layout.
+    if (layout.pinned != null && views.none { it.key == layout.pinned }) layout.pinned = null
+    val full = layout.fullScreen && layout.pinned != null
+    BackHandler(enabled = full) { layout.fullScreen = false }
     Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
         Box(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = TOP_BAR_HEIGHT, bottom = CONTROLS_HEIGHT)) {
-                when {
-                    ui.isDirect && ui.anyVideo -> DirectVideo(ui)
-                    ui.isDirect -> DirectAudio(ui)
-                    else -> GroupGrid(ui)
-                }
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (full) {
+                            Modifier
+                        } else {
+                            Modifier.statusBarsPadding().padding(
+                                top = TOP_BAR_HEIGHT,
+                                bottom = CONTROLS_HEIGHT
+                            )
+                        }
+                    ),
+            ) {
+                Stage(ui, views, layout, full)
             }
-            CallTopBar(ui, onMinimise, Modifier.align(Alignment.TopCenter))
+            if (full) return@Box
+            CallTopBar(
+                ui,
+                onMinimise,
+                Modifier.align(Alignment.TopCenter),
+                layout.takeIf { offersLayouts(ui, views) },
+            )
             CallControls(
                 ui,
                 onMicrophone,
@@ -196,6 +221,8 @@ private fun CallTopBar(
     ui: CallUi,
     onMinimise: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Offers grid ↔ spotlight when there's more than one thing to look at. */
+    layout: StageLayout? = null,
 ) {
     Row(
         modifier
@@ -220,6 +247,21 @@ private fun CallTopBar(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        if (layout != null) {
+            val spotlight = layout.spotlight || layout.pinned != null
+            IconButton(onClick = {
+                layout.pinned = null
+                layout.spotlight = !spotlight
+            }) {
+                Icon(
+                    painterResource(if (spotlight) R.drawable.ic_grid else R.drawable.ic_spotlight),
+                    contentDescription =
+                        stringResource(
+                            if (spotlight) R.string.call_layout_grid else R.string.call_layout_spotlight
+                        ),
+                )
+            }
         }
     }
 }
@@ -279,7 +321,7 @@ internal fun formatDuration(ms: Long): String {
 
 /** A phone call: the other person, big, with a ring that lights up while they speak. */
 @Composable
-private fun DirectAudio(ui: CallUi) {
+internal fun DirectAudio(ui: CallUi) {
     val other = ui.remote.firstOrNull()
     Column(
         Modifier.fillMaxSize(),
@@ -310,7 +352,7 @@ private fun DirectAudio(ui: CallUi) {
 
 /** A video call with one person: them filling the screen, us in a corner. */
 @Composable
-private fun DirectVideo(ui: CallUi) {
+internal fun DirectVideo(ui: CallUi) {
     val other = ui.remote.firstOrNull()
     val me = ui.local
     Box(Modifier.fillMaxSize()) {
@@ -328,83 +370,96 @@ private fun DirectVideo(ui: CallUi) {
     }
 }
 
-/** Everyone as tiles: video where there is some, avatars otherwise. */
 @Composable
-private fun GroupGrid(ui: CallUi) {
-    BoxWithConstraints(Modifier.fillMaxSize().padding(8.dp)) {
-        val count = ui.tiles.size.coerceAtLeast(1)
-        val columns =
-            if (count <= 1) {
-                1
-            } else if (count <= 4 || maxWidth < 600.dp) {
-                2
-            } else {
-                3
-            }
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(columns),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(ui.tiles, key = { it.participant.key }) { tile ->
-                Tile(tile, Modifier.fillMaxWidth().aspectRatio(if (columns == 1) 0.75f else 1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun Tile(
+internal fun Tile(
     tile: CallTile,
     modifier: Modifier = Modifier,
     rounded: Boolean = true,
+    /** Their shared screen rather than their camera. */
+    screen: Boolean = false,
+    onClick: (() -> Unit)? = null,
 ) {
     val p = tile.participant
     val ring by animateColorAsState(
-        if (p.speaking) MaterialTheme.colorScheme.primary else Color.Transparent,
+        if (p.speaking && !screen) MaterialTheme.colorScheme.primary else Color.Transparent,
         label = "speaking"
     )
     val shape = if (rounded) RoundedCornerShape(24.dp) else RoundedCornerShape(0.dp)
     Box(
         modifier
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .border(3.dp, ring, shape),
+            .background(if (screen) Color.Black else MaterialTheme.colorScheme.surfaceContainerHigh)
+            .border(3.dp, ring, shape)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
-        val video = p.video
+        val video = if (screen) p.screen else p.video
         val room = p.videoRoom
         if (video != null && room != null) {
-            VideoView(video, room, mirror = p.isLocal, modifier = Modifier.fillMaxSize())
+            VideoView(video, room, mirror = p.isLocal && !screen, modifier = Modifier.fillMaxSize(), fit = screen)
         } else {
             RoomAvatar(tile.name, p.userId, tile.avatarUrl, Modifier.align(Alignment.Center), size = 88.dp)
         }
-        p.handRaisedAt?.let { HandBadge(it, Modifier.align(Alignment.TopStart).padding(8.dp)) }
-        p.reaction?.let { FloatingReaction(it, Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)) }
-        Row(
-            Modifier
-                .align(Alignment.BottomStart)
-                .padding(8.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (!p.microphoneOn) {
-                Icon(
-                    painterResource(R.drawable.ic_mic_off),
-                    contentDescription = stringResource(R.string.call_muted),
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp).padding(end = 2.dp),
-                )
-            }
-            Text(
-                if (p.isLocal) stringResource(R.string.call_you) else tile.name,
-                color = Color.White,
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        if (!screen) {
+            p.handRaisedAt?.let { HandBadge(it, Modifier.align(Alignment.TopStart).padding(8.dp)) }
+            p.reaction?.let { FloatingReaction(it, Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)) }
+        }
+        TileLabel(tile, screen, Modifier.align(Alignment.BottomStart))
+    }
+}
+
+/** Who a tile is (and whether they're muted, or it's their screen), in its corner. */
+@Composable
+private fun TileLabel(
+    tile: CallTile,
+    screen: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val p = tile.participant
+    Row(
+        modifier
+            .padding(8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (screen) {
+            Icon(
+                painterResource(R.drawable.ic_screen_share),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(16.dp).padding(end = 2.dp),
+            )
+        } else if (!p.microphoneOn) {
+            Icon(
+                painterResource(R.drawable.ic_mic_off),
+                contentDescription = stringResource(R.string.call_muted),
+                tint = Color.White,
+                modifier = Modifier.size(16.dp).padding(end = 2.dp),
             )
         }
+        Text(
+            when {
+                screen -> {
+                    stringResource(
+                        R.string.call_screen_of,
+                        if (p.isLocal) stringResource(R.string.call_you) else tile.name
+                    )
+                }
+
+                p.isLocal -> {
+                    stringResource(R.string.call_you)
+                }
+
+                else -> {
+                    tile.name
+                }
+            },
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

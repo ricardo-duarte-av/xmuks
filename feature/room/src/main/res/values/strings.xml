@@ -136,6 +136,7 @@
     <string name="voice_call">Voice call</string>
     <string name="video_call">Video call</string>
     <string name="call_return">Return to call</string>
+    <string name="call_elsewhere_on_device">You\'re in it from another app on this gomuks; joining here moves you</string>
     <string name="start_call">Start a call</string>
     <string name="call_start_title">Start a call</string>
     <string name="call_notify_room">Notify the room</string>

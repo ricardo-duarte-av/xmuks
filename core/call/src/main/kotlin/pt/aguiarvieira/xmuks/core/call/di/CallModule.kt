@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.core.call.di
 
 import android.content.Context
+import coil3.ImageLoader
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -19,6 +20,7 @@ import pt.aguiarvieira.xmuks.core.call.system.TelecomCall
 import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.connection.StreamFrames
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
+import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import javax.inject.Named
@@ -56,7 +58,10 @@ object CallModule {
     @Provides @Singleton
     fun ringer(
         @ApplicationContext context: Context,
-    ) = Ringer(context)
+        images: ImageLoader,
+        rooms: RoomListRepository,
+        scope: CoroutineScope,
+    ) = Ringer(context, images, rooms, scope)
 
     @Provides @Singleton
     fun incomingCalls(

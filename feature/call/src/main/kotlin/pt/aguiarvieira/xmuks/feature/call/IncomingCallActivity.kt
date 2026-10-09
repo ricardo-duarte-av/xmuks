@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -34,6 +35,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import pt.aguiarvieira.xmuks.core.call.IncomingCall
 import pt.aguiarvieira.xmuks.core.call.IncomingCalls
 import pt.aguiarvieira.xmuks.core.call.system.CallService
+import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 import javax.inject.Inject
@@ -45,6 +47,8 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class IncomingCallActivity : ComponentActivity() {
     @Inject lateinit var incoming: IncomingCalls
+
+    @Inject lateinit var rooms: RoomListRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         WindowCompat.enableEdgeToEdge(window)

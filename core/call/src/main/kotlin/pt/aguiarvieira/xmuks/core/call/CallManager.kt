@@ -90,11 +90,12 @@ class CallManager(
                     systemAudio = systemAudio,
                 )
             mutableActive.value = session
+            roomCalls.setInCall(roomId)
             session.start(video)
             CallService.start(context)
             // Forget the session once it has ended, unless another call replaced it meanwhile.
             session.phase.first { it is CallPhase.Ended }
-            mutableActive.compareAndSet(session, null)
+            if (mutableActive.compareAndSet(session, null)) roomCalls.setInCall(null)
         }
     }
 

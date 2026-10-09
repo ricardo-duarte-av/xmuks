@@ -1,6 +1,8 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -11,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import java.io.File
 import java.util.UUID
@@ -50,6 +53,31 @@ internal fun rememberAttachLauncher(
         rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { taken ->
             captureTo?.takeIf { taken }?.let { onPick(Uri.parse(it)) }
         }
+    // Calls declare CAMERA, and an app that declares it may only open the system camera once it's
+    // granted (else the capture intent throws): ask first, then carry on with what was asked for.
+    var afterGrant by rememberSaveable { mutableStateOf<Attachment?>(null) }
+    val capture: (Attachment) -> Unit = { attachment ->
+        val extension = if (attachment == Attachment.Video) "mp4" else "jpg"
+        val uri = captureUri(context, extension)
+        captureTo = uri.toString()
+        if (attachment == Attachment.Video) video.launch(uri) else photo.launch(uri)
+    }
+    val cameraPermission =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val pending = afterGrant
+            afterGrant = null
+            if (granted && pending != null) capture(pending)
+        }
+    val withCamera: (Attachment) -> Unit = { attachment ->
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            capture(attachment)
+        } else {
+            afterGrant = attachment
+            cameraPermission.launch(Manifest.permission.CAMERA)
+        }
+    }
     return { attachment ->
         when (attachment) {
             Attachment.Gallery -> {
@@ -64,16 +92,8 @@ internal fun rememberAttachLauncher(
                 document.launch(arrayOf("audio/*"))
             }
 
-            Attachment.Photo -> {
-                val uri = captureUri(context, "jpg")
-                captureTo = uri.toString()
-                photo.launch(uri)
-            }
-
-            Attachment.Video -> {
-                val uri = captureUri(context, "mp4")
-                captureTo = uri.toString()
-                video.launch(uri)
+            Attachment.Photo, Attachment.Video -> {
+                withCamera(attachment)
             }
 
             // These open their own sheets (a recorder, a map) rather than another app.

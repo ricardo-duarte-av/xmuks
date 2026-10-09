@@ -20,13 +20,15 @@ internal fun VideoView(
     room: Room,
     mirror: Boolean,
     modifier: Modifier = Modifier,
+    /** Whole picture, letterboxed (shared screens) rather than cropped to fill. */
+    fit: Boolean = false,
 ) {
     var view by remember(room) { mutableStateOf<TextureViewRenderer?>(null) }
     AndroidView(
         factory = { context ->
             TextureViewRenderer(context).also {
                 room.initVideoRenderer(it)
-                it.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+                it.setScalingType(if (fit) SCALE_FIT else SCALE_FILL)
                 view = it
             }
         },
@@ -40,3 +42,6 @@ internal fun VideoView(
         onDispose { if (target != null) track.removeRenderer(target) }
     }
 }
+
+private val SCALE_FIT = RendererCommon.ScalingType.SCALE_ASPECT_FIT
+private val SCALE_FILL = RendererCommon.ScalingType.SCALE_ASPECT_FILL

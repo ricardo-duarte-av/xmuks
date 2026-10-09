@@ -97,6 +97,8 @@ data class CallParticipant(
     val handRaisedAt: Long? = null,
     /** An emoji they just sent, while it shows. */
     val reaction: String? = null,
+    /** Their shared screen, while they share it. */
+    val screen: VideoTrack? = null,
 ) {
     val key: String get() = "$userId:$deviceId"
 }
@@ -487,6 +489,7 @@ class CallSession internal constructor(
                         }
                     val lk = found?.second
                     val camera = lk?.getTrackPublication(Track.Source.CAMERA)
+                    val share = lk?.getTrackPublication(Track.Source.SCREEN_SHARE)
                     CallParticipant(
                         userId = m.userId,
                         deviceId = m.deviceId,
@@ -499,6 +502,7 @@ class CallSession internal constructor(
                         video = (camera?.track as? VideoTrack)?.takeIf { !camera.muted },
                         videoRoom = found?.first?.room,
                         joinedAt = m.createdTs,
+                        screen = (share?.track as? VideoTrack)?.takeIf { !share.muted },
                     )
                 }
             }

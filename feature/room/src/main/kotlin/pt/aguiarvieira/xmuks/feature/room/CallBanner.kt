@@ -61,6 +61,8 @@ internal fun CallPill(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun CallStartSheet(
+    /** A group: offer to tell the room. A DM always rings the other person. */
+    group: Boolean,
     notifyRoom: Boolean,
     onNotifyRoom: (Boolean) -> Unit,
     onCall: (video: Boolean) -> Unit,
@@ -82,16 +84,18 @@ internal fun CallStartSheet(
                     Text(stringResource(R.string.video_call), Modifier.padding(start = 8.dp))
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.call_notify_room), style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        stringResource(R.string.call_notify_room_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            if (group) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.call_notify_room), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            stringResource(R.string.call_notify_room_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = notifyRoom, onCheckedChange = onNotifyRoom)
                 }
-                Switch(checked = notifyRoom, onCheckedChange = onNotifyRoom)
             }
         }
     }
@@ -142,8 +146,12 @@ internal fun CallBanner(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    pluralStringResource(R.plurals.call_people, call.people, call.people) + " · " +
-                        elapsed(now - call.startedAt),
+                    if (call.joinedElsewhereOnDevice) {
+                        stringResource(R.string.call_elsewhere_on_device)
+                    } else {
+                        pluralStringResource(R.plurals.call_people, call.people, call.people) + " · " +
+                            elapsed(now - call.startedAt)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

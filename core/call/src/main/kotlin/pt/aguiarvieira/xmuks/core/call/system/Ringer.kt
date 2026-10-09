@@ -8,15 +8,25 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
+import androidx.core.graphics.drawable.toBitmap
+import coil3.ImageLoader
+import coil3.asDrawable
+import coil3.request.ImageRequest
+import coil3.request.allowHardware
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.call.IncomingCall
 import pt.aguiarvieira.xmuks.core.call.IncomingCalls
 import pt.aguiarvieira.xmuks.core.call.R
+import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.notify.Avatars
 import pt.aguiarvieira.xmuks.core.notify.PeopleUris
 import javax.inject.Inject
@@ -28,9 +38,39 @@ import javax.inject.Inject
  */
 class Ringer(
     private val context: Context,
+    private val images: ImageLoader,
+    private val rooms: RoomListRepository,
+    private val scope: CoroutineScope,
 ) {
-    @SuppressLint("MissingPermission") // POST_NOTIFICATIONS is asked for at startup
+    @Volatile private var showing: String? = null
+
+    /** Rings at once; the avatar (a DM's is the caller's) follows when it has loaded. */
     fun show(call: IncomingCall) {
+        showing = call.eventId
+        post(call, null)
+        scope.launch {
+            val url = call.avatarUrl ?: rooms.room(call.roomId).first()?.avatarUrl ?: return@launch
+            val request =
+                ImageRequest
+                    .Builder(context)
+                    .data(url)
+                    .allowHardware(false)
+                    .build()
+            val bitmap =
+                images
+                    .execute(request)
+                    .image
+                    ?.asDrawable(context.resources)
+                    ?.toBitmap() ?: return@launch
+            if (showing == call.eventId) post(call, bitmap)
+        }
+    }
+
+    @SuppressLint("MissingPermission") // POST_NOTIFICATIONS is asked for at startup
+    private fun post(
+        call: IncomingCall,
+        avatar: Bitmap?,
+    ) {
         ensureChannel(context)
         val person =
             Person
@@ -38,7 +78,7 @@ class Ringer(
                 .setName(call.callerName)
                 .setKey(call.callerId)
                 .setUri(PeopleUris.forUser(context, call.callerId))
-                .setIcon(Avatars.round(null, call.callerName, call.callerId))
+                .setIcon(Avatars.round(avatar, call.callerName, call.callerId))
                 .setImportant(true)
                 .build()
         val ringScreen =
@@ -78,6 +118,8 @@ class Ringer(
                 .setContentIntent(ringScreen)
                 .setOngoing(true)
                 .setAutoCancel(false)
+                // The avatar arriving re-posts it: that mustn't start the ringtone over.
+                .setOnlyAlertOnce(true)
                 .setTimeoutAfter((call.expiresAt - System.currentTimeMillis()).coerceAtLeast(1))
                 .build()
         // Rings until answered, declined or timed out, as a phone does.
@@ -86,6 +128,7 @@ class Ringer(
     }
 
     fun cancel() {
+        showing = null
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }
 

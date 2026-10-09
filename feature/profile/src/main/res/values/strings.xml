@@ -189,4 +189,6 @@
         <item quantity="one">%1$d room</item>
         <item quantity="other">%1$d rooms</item>
     </plurals>
+    <string name="link_phone_contact">Link to a phone contact</string>
+    <string name="unlink_phone_contact">Unlink from the phone contact</string>
 </resources>

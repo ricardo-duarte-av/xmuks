@@ -1,5 +1,8 @@
 package pt.aguiarvieira.xmuks.feature.profile
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -46,6 +49,10 @@ class OtherProfile(
     val onMessage: () -> Unit,
     val onSetIgnored: (Boolean) -> Unit,
     val onOpenRoom: (roomId: String) -> Unit,
+    /** Their xmuks contact in the phone's Contacts, when there is one. */
+    val phoneContact: PhoneContactLink? = null,
+    /** Link their contact to a phone contact picked (a contact URI), or unlink it (null). */
+    val onLinkPhoneContact: (Uri?) -> Unit = {},
 )
 
 /** Go to (or start) our DM with them; ignore them (after asking) or stop ignoring them. */
@@ -55,29 +62,51 @@ internal fun ContactCard(
     modifier: Modifier = Modifier,
 ) {
     var confirming by rememberSaveable { mutableStateOf(false) }
-    ScreenCard(modifier) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            FilledTonalButton(onClick = other.onMessage, modifier = Modifier.weight(1f)) {
-                Icon(painterResource(R.drawable.ic_chat), null, Modifier.size(18.dp))
-                Text(
-                    stringResource(if (other.hasDirectRoom) R.string.go_to_dm else R.string.start_dm),
-                    Modifier.padding(start = 8.dp),
-                )
+    Column(modifier) {
+        ScreenCard {
+            Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FilledTonalButton(onClick = other.onMessage, modifier = Modifier.weight(1f)) {
+                    Icon(painterResource(R.drawable.ic_chat), null, Modifier.size(18.dp))
+                    Text(
+                        stringResource(if (other.hasDirectRoom) R.string.go_to_dm else R.string.start_dm),
+                        Modifier.padding(start = 8.dp),
+                    )
+                }
+                OutlinedButton(
+                    onClick = { if (other.ignored) other.onSetIgnored(false) else confirming = true },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(painterResource(R.drawable.ic_block), null, Modifier.size(18.dp))
+                    Text(
+                        stringResource(if (other.ignored) R.string.unignore else R.string.ignore),
+                        Modifier.padding(start = 8.dp),
+                    )
+                }
             }
-            OutlinedButton(
-                onClick = { if (other.ignored) other.onSetIgnored(false) else confirming = true },
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(painterResource(R.drawable.ic_block), null, Modifier.size(18.dp))
-                Text(
-                    stringResource(if (other.ignored) R.string.unignore else R.string.ignore),
-                    Modifier.padding(start = 8.dp),
-                )
+        }
+        other.phoneContact?.let { contact ->
+            val pick =
+                rememberLauncherForActivityResult(
+                    ActivityResultContracts.PickContact()
+                ) { it?.let(other.onLinkPhoneContact) }
+            ScreenCard(Modifier.padding(top = 8.dp)) {
+                TextButton(
+                    onClick = { if (contact.linked) other.onLinkPhoneContact(null) else pick.launch(null) },
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                ) {
+                    val label = if (contact.linked) R.string.unlink_phone_contact else R.string.link_phone_contact
+                    Text(stringResource(label))
+                }
             }
         }
     }
     if (confirming) {
-        ConfirmDialog(R.string.ignore, R.string.ignore_confirm, { other.onSetIgnored(true) }, { confirming = false })
+        ConfirmDialog(
+            R.string.ignore,
+            R.string.ignore_confirm,
+            { other.onSetIgnored(true) },
+            { confirming = false },
+        )
     }
 }
 

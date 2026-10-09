@@ -3,6 +3,9 @@ package pt.aguiarvieira.xmuks.core.data.calls
 import androidx.room3.withWriteTransaction
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
@@ -31,8 +34,13 @@ data class RoomCallMember(
 data class RoomCall(
     val roomId: String,
     val members: List<RoomCallMember>,
-    /** This device is in it. */
+    /** This app is in it. */
     val joinedHere: Boolean = false,
+    /**
+     * Our Matrix device is in it, but not through this app: another client of the same gomuks
+     * (gomuks web's Element Call, another xmuks). Joining here takes the device's place.
+     */
+    val joinedElsewhereOnDevice: Boolean = false,
 ) {
     val startedAt: Long get() = members.minOf { it.joinedAt }
 
@@ -58,6 +66,15 @@ class RoomCalls(
     private val exec: ExecClient,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
+    private val mutableInCall = MutableStateFlow<String?>(null)
+
+    /** The room whose call this app is in (set by the call manager), or null. */
+    val inCall: StateFlow<String?> = mutableInCall.asStateFlow()
+
+    fun setInCall(roomId: String?) {
+        mutableInCall.value = roomId
+    }
+
     private val dao = database.roomListDao()
 
     /** Rooms with a call, by room id. */
@@ -71,13 +88,14 @@ class RoomCalls(
 
     /** [roomId]'s call, or null when there is none. */
     fun of(roomId: String): Flow<RoomCall?> =
-        combine(dao.callMembers(roomId), dao.meta(), ticks()) { rows, meta, now ->
+        combine(dao.callMembers(roomId), dao.meta(), ticks(), inCall) { rows, meta, now, inCall ->
             rows
                 .filter { it.expiresAt > now }
                 .takeIf { it.isNotEmpty() }
                 ?.let { live ->
-                    val here = live.any { it.userId == meta?.userId && it.deviceId == meta.deviceId }
-                    RoomCall(roomId, live.map(::toMember), joinedHere = here)
+                    val here = inCall == roomId
+                    val device = live.any { it.userId == meta?.userId && it.deviceId == meta.deviceId }
+                    RoomCall(roomId, live.map(::toMember), joinedHere = here, joinedElsewhereOnDevice = device && !here)
                 }
         }.distinctUntilChanged()
 

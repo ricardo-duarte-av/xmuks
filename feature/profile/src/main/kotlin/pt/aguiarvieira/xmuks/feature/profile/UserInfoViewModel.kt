@@ -9,6 +9,8 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +29,7 @@ import kotlinx.serialization.json.buildJsonObject
 import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
+import pt.aguiarvieira.xmuks.core.data.contacts.ContactLinks
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.profile.Contacts
 import pt.aguiarvieira.xmuks.core.data.profile.PerMessageProfiles
@@ -66,6 +69,7 @@ class UserInfoViewModel
         sync: SyncController,
         store: CredentialStore,
         @ApplicationContext context: Context,
+        links: ContactLinks,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -111,6 +115,9 @@ class UserInfoViewModel
         private val _roomProfile = MutableStateFlow<RoomProfile?>(null)
         val roomProfile: StateFlow<RoomProfile?> = _roomProfile.asStateFlow()
 
+        /** Their xmuks contact in the phone's Contacts, and linking it to a phone contact. */
+        val phoneContact = PhoneContactActions(viewModelScope, links, userId)
+
         init {
             refresh()
             if (roomId != null) viewModelScope.launch { _roomProfile.value = roomProfiles.of(roomId, userId) }
@@ -139,6 +146,7 @@ class UserInfoViewModel
         fun setIgnored(ignore: Boolean) = tasks.run({ contacts.setIgnored(userId, ignore) })
 
         fun refresh() {
+            phoneContact.load()
             viewModelScope.launch { load() }
         }
 
@@ -218,3 +226,42 @@ class UserInfoViewModel
             val WHILE_VISIBLE = SharingStarted.WhileSubscribed(5_000)
         }
     }
+
+/** Someone's xmuks contact in the phone's Contacts: whether it's linked to a phone contact by hand. */
+data class PhoneContactLink(
+    val linked: Boolean,
+)
+
+/** Someone's xmuks contact (null: none, the option is off) and linking it to a phone contact. */
+class PhoneContactActions(
+    private val scope: CoroutineScope,
+    private val links: ContactLinks,
+    private val userId: String,
+) {
+    private val mutable = MutableStateFlow<PhoneContactLink?>(null)
+    val state: StateFlow<PhoneContactLink?> = mutable.asStateFlow()
+
+    fun load() {
+        scope.launch(Dispatchers.IO) {
+            mutable.value =
+                runCatching {
+                    if (links.has(
+                            userId
+                        )
+                    ) {
+                        PhoneContactLink(links.linkedTo(userId) != null)
+                    } else {
+                        null
+                    }
+                }.getOrNull()
+        }
+    }
+
+    /** Joins their contact to the phone contact picked (or, with null, undoes that). */
+    fun link(picked: Uri?) {
+        scope.launch(Dispatchers.IO) {
+            runCatching { if (picked != null) links.link(userId, picked) else links.unlink(userId) }
+            load()
+        }
+    }
+}

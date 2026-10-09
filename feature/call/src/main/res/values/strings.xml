@@ -29,4 +29,8 @@
     <string name="call_reactions">Reactions and raise hand</string>
     <string name="call_raise_hand">Raise hand</string>
     <string name="call_lower_hand">Lower hand</string>
+    <string name="call_screen_of">%1$s\'s screen</string>
+    <string name="call_layout_grid">Show everyone</string>
+    <string name="call_layout_spotlight">Spotlight</string>
+    <string name="call_full_screen_hint">Tap to leave full screen</string>
 </resources>
