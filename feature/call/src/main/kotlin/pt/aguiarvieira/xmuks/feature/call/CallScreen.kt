@@ -125,7 +125,8 @@ fun CallRoute(
     BackHandler(onBack = onBack)
     if (ui.phase == CallPhase.Connected) FullScreenRingPrompt()
     CallScreen(
-        ui = ui,
+        // Leaving after the call is forgotten: keep saying it ended, not "Connecting…", while the screen goes.
+        ui = if (ui.phase == null && shown) ui.copy(phase = CallPhase.Ended()) else ui,
         onMinimise = onBack,
         onMicrophone = viewModel::setMicrophone,
         onCamera = viewModel::setCamera,
