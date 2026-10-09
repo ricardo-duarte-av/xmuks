@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -136,9 +137,13 @@ fun CallRoute(
         onRoute = viewModel::selectRoute,
         onHand = viewModel::raiseHand,
         onReact = viewModel::react,
-        modifier = modifier,
+        modifier = modifier.awakeDuring(ui.phase),
     )
 }
+
+/** In the call, the screen stays on; it may sleep again once the call is over. */
+private fun Modifier.awakeDuring(phase: CallPhase?): Modifier =
+    if (phase != null && phase !is CallPhase.Ended) keepScreenOn() else this
 
 @Composable
 fun CallScreen(
