@@ -35,7 +35,25 @@ data class PushMessage(
     val reply: Boolean = false,
     /** The push rules asked for a sound. */
     val sound: Boolean = false,
+    /** A call notification (MSC4075), from xmuks' gomuks fork: ring, or say a call started. */
+    val rtc: PushRtc? = null,
 )
+
+/** Call details of an `org.matrix.msc4075.rtc.notification` push. */
+@Serializable
+data class PushRtc(
+    /** `ring` (ring the phone) or `notification` (just say a call started). */
+    val type: String,
+    /** `audio` or `video`. */
+    val intent: String? = null,
+    /** The caller's membership event the notification belongs to. */
+    @SerialName("call_id") val callId: String? = null,
+    /** When it stops ringing (the sender's clock). */
+    @SerialName("expires_at") val expiresAt: Long? = null,
+) {
+    val ring: Boolean get() = type == "ring"
+    val video: Boolean get() = intent == "video"
+}
 
 @Serializable
 data class PushUser(

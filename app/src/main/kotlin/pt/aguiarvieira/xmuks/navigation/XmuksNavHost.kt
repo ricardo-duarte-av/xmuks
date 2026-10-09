@@ -151,7 +151,16 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
 @Serializable data class CallKey(
     val roomId: String,
     val video: Boolean = false,
+    /** Answering a ring (the system then shows it as an incoming call that was picked up). */
+    val answer: Boolean = false,
 ) : NavKey
+
+/** A call screen asked for from outside navigation (a notification). */
+data class CallRequest(
+    val roomId: String,
+    val video: Boolean,
+    val answer: Boolean,
+)
 
 /** Full-screen media, over whatever opened it (never a list-detail pane). */
 @Serializable data class MediaKey(
@@ -171,8 +180,8 @@ fun XmuksNavHost(
     onLinkConsume: () -> Unit = {},
     share: ShareRequest? = null,
     onShareConsume: () -> Unit = {},
-    /** A room whose call screen to open (from the ongoing call's notification). */
-    openCall: String? = null,
+    /** A call screen to open (from a call notification, or an answered ring). */
+    openCall: CallRequest? = null,
     onOpenCallConsume: () -> Unit = {},
     links: LinkViewModel = hiltViewModel(),
 ) {
@@ -212,7 +221,9 @@ fun XmuksNavHost(
     val callConsumed by rememberUpdatedState(onOpenCallConsume)
     LaunchedEffect(openCall) {
         if (openCall != null) {
-            if ((backStack.lastOrNull() as? CallKey)?.roomId != openCall) backStack.add(CallKey(openCall))
+            if ((backStack.lastOrNull() as? CallKey)?.roomId != openCall.roomId) {
+                backStack.add(CallKey(openCall.roomId, openCall.video, openCall.answer))
+            }
             callConsumed()
         }
     }

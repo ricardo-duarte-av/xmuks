@@ -270,6 +270,12 @@ class CallService : Service() {
         /** The extra on the app's launch intent that opens a room's call screen. */
         const val EXTRA_OPEN_CALL = "pt.aguiarvieira.xmuks.OPEN_CALL"
 
+        /** With [EXTRA_OPEN_CALL]: join with the camera on. */
+        const val EXTRA_VIDEO = "pt.aguiarvieira.xmuks.CALL_VIDEO"
+
+        /** With [EXTRA_OPEN_CALL]: this is answering a ring. */
+        const val EXTRA_ANSWER = "pt.aguiarvieira.xmuks.CALL_ANSWER"
+
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, CallService::class.java))
         }
@@ -278,14 +284,18 @@ class CallService : Service() {
         fun openCall(
             context: Context,
             roomId: String,
+            video: Boolean = false,
+            answer: Boolean = false,
         ): PendingIntent {
             val launch =
                 (context.packageManager.getLaunchIntentForPackage(context.packageName) ?: Intent())
                     .putExtra(EXTRA_OPEN_CALL, roomId)
+                    .putExtra(EXTRA_VIDEO, video)
+                    .putExtra(EXTRA_ANSWER, answer)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             return PendingIntent.getActivity(
                 context,
-                roomId.hashCode(),
+                (roomId + answer).hashCode(),
                 launch,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )

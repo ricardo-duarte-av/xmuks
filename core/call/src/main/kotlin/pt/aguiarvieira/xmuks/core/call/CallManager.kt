@@ -75,7 +75,8 @@ class CallManager(
                     context,
                     roomCalls,
                     format,
-                    systemAudio,
+                    notifyRoom = true,
+                    systemAudio = systemAudio,
                 )
             mutableActive.value = session
             session.start(video)

@@ -21,7 +21,7 @@ class SfuConnection(
     context: Context,
     val access: SfuAccess,
     val publishing: Boolean,
-    val keys: MatrixKeyProvider?,
+    encrypted: Boolean,
     audioHandler: AudioHandler?,
 ) {
     val room: Room =
@@ -30,7 +30,6 @@ class SfuConnection(
             RoomOptions(
                 adaptiveStream = true,
                 dynacast = publishing,
-                e2eeOptions = keys?.let { E2EEOptions(keyProvider = it) },
                 // As Element Call: RED off (it breaks with E2EE), DTX on, VP8 with simulcast.
                 audioTrackPublishDefaults = AudioTrackPublishDefaults(red = false, dtx = true),
                 videoTrackPublishDefaults =
@@ -42,6 +41,14 @@ class SfuConnection(
             ),
             LiveKitOverrides(audioOptions = audioHandler?.let { AudioOptions(audioHandler = it) }),
         )
+
+    /**
+     * The room's frame keys (encrypted rooms). Made only once the room exists: creating the room is
+     * what loads webrtc's native library, and the key provider is native (on a cold start — answering
+     * from a push — making it first fails with "No implementation found").
+     */
+    val keys: MatrixKeyProvider? =
+        if (encrypted) MatrixKeyProvider().also { room.e2eeOptions = E2EEOptions(keyProvider = it) } else null
 
     suspend fun connect() {
         room.connect(access.url, access.jwt, ConnectOptions(autoSubscribe = true))

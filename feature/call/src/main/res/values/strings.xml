@@ -15,4 +15,15 @@
     <string name="call_flip_camera">Switch camera</string>
     <string name="call_hang_up">Hang up</string>
     <string name="call_audio_route">Audio output</string>
+    <string name="call_incoming_voice_title">Incoming voice call</string>
+    <string name="call_incoming_video_title">Incoming video call</string>
+    <string name="call_answer">Answer</string>
+    <string name="call_decline">Decline</string>
+    <string name="call_declined">Call declined</string>
+    <string name="call_no_answer">No answer</string>
+    <string name="call_failed">The call couldn\'t connect</string>
+    <string name="call_full_screen_title">Ring over the lock screen?</string>
+    <string name="call_full_screen_text">Android only lets xmuks show incoming calls full screen if you allow it. Without that, calls still ring, as a notification at the top of the screen.</string>
+    <string name="call_full_screen_allow">Open settings</string>
+    <string name="call_full_screen_later">Not now</string>
 </resources>

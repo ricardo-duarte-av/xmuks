@@ -25,7 +25,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import pt.aguiarvieira.xmuks.core.call.media.KeySink
-import pt.aguiarvieira.xmuks.core.call.media.MatrixKeyProvider
 import pt.aguiarvieira.xmuks.core.call.media.MediaKeyManager
 import pt.aguiarvieira.xmuks.core.call.media.SfuConnection
 import pt.aguiarvieira.xmuks.core.call.media.SfuTokens
@@ -39,6 +38,7 @@ import pt.aguiarvieira.xmuks.core.protocol.GomuksFrame
 import pt.aguiarvieira.xmuks.core.protocol.rtc.CallMembership
 import pt.aguiarvieira.xmuks.core.protocol.rtc.CallMemberships
 import pt.aguiarvieira.xmuks.core.protocol.rtc.MembershipFormat
+import pt.aguiarvieira.xmuks.core.protocol.rtc.RtcSignals
 import pt.aguiarvieira.xmuks.core.protocol.rtc.RtcTransport
 import pt.aguiarvieira.xmuks.core.protocol.rtc.RtcTypes
 import java.util.UUID
@@ -62,6 +62,9 @@ data class CallRoom(
 /** Which membership encoding to send: follow the call (Auto), or force one. */
 enum class FormatPreference { Auto, Legacy, Sticky }
 
+/** Why a call ended, for the screen to say so. */
+enum class EndReason { HungUp, Declined, NoAnswer, Failed }
+
 sealed interface CallPhase {
     data object Connecting : CallPhase
 
@@ -71,6 +74,7 @@ sealed interface CallPhase {
 
     data class Ended(
         val error: String? = null,
+        val reason: EndReason = if (error == null) EndReason.HungUp else EndReason.Failed,
     ) : CallPhase
 }
 
@@ -107,6 +111,8 @@ class CallSession internal constructor(
     private val context: Context,
     private val roomCalls: RoomCalls,
     private val formatPreference: FormatPreference,
+    /** Tell a group room when we start a call in it. */
+    private val notifyRoom: Boolean,
     /** Telecom owns the audio (mode and route): LiveKit must leave it alone. */
     private val systemAudio: Boolean,
     private val clock: () -> Long = System::currentTimeMillis,
@@ -191,10 +197,43 @@ class CallSession internal constructor(
                 clock = clock,
             )
         membership = manager
-        manager.join(if (video) RtcTypes.INTENT_VIDEO else RtcTypes.INTENT_AUDIO).getOrThrow()
+        val membershipEvent = manager.join(if (video) RtcTypes.INTENT_VIDEO else RtcTypes.INTENT_AUDIO).getOrThrow()
         mutablePhase.value = CallPhase.Connected
+        // We started it: let the others know — a DM rings, a group is told a call started.
+        if (present.isEmpty() && (room.isDirect || notifyRoom)) announce(membershipEvent, video)
         membersChanged()
         scope.launch { tickParticipants() }
+    }
+
+    /** The ring (or "call started") we sent, while the other side of a DM hasn't joined yet. */
+    @Volatile var ringEventId: String? = null
+        private set
+
+    private suspend fun announce(
+        membershipEvent: String,
+        video: Boolean,
+    ) {
+        val ring = room.isDirect
+        val content =
+            RtcSignals.notificationContent(
+                ring = ring,
+                intent = if (video) RtcTypes.INTENT_VIDEO else RtcTypes.INTENT_AUDIO,
+                membershipEventId = membershipEvent,
+                senderTs = clock(),
+            )
+        val sticky = RtcSignals.RING_LIFETIME_MS + RtcSignals.NOTIFICATION_STICKY_EXTRA_MS
+        val sent =
+            api
+                .sendSticky(room.roomId, RtcTypes.NOTIFICATION, content, sticky)
+                .recoverCatching { api.sendEvent(room.roomId, RtcTypes.NOTIFICATION, content).getOrThrow() }
+                .getOrNull() ?: return
+        if (!ring) return
+        ringEventId = sent
+        // Nobody picked up: like a phone, give up after the ring's lifetime.
+        scope.launch {
+            delay(RtcSignals.RING_LIFETIME_MS)
+            if (ringEventId == sent && !hadOthers) endBecause(EndReason.NoAnswer)
+        }
     }
 
     /** The SFU the homeserver offers us to publish on. */
@@ -220,13 +259,12 @@ class CallSession internal constructor(
                     TokenSubject(me.userId, me.deviceId, memberId),
                     legacy = format == MembershipFormat.Legacy,
                 ).getOrThrow()
-        val keyProvider = if (room.encrypted) MatrixKeyProvider() else null
         val connection =
             SfuConnection(
                 context,
                 access,
                 publishing = true,
-                keys = keyProvider,
+                encrypted = room.encrypted,
                 audioHandler = if (systemAudio) NoAudioHandler() else null
             )
         primary = connection
@@ -307,6 +345,12 @@ class CallSession internal constructor(
         val sync = (frame.event as? GomuksEvent.Sync)?.sync ?: return
         val roomSync = sync.rooms[room.roomId]
         val changed = roomSync != null && lock.withLock { members.apply(roomSync) }
+        // The person we're ringing declined.
+        val ring = ringEventId
+        if (ring != null && !hadOthers && roomSync != null) {
+            val declined = roomSync.events.any { it.sender != me.userId && RtcSignals.declinedNotification(it) == ring }
+            if (declined) endBecause(EndReason.Declined)
+        }
         sync.toDevice
             .filter { it.type == RtcTypes.ENCRYPTION_KEYS && it.encrypted }
             .forEach { keys?.onKeyEvent(it.sender, it.content) }
@@ -317,7 +361,10 @@ class CallSession internal constructor(
         val active = lock.withLock { members.active(clock()) }
         keys?.onMembers(active)
         val othersNow = active.filterNot { it.isOwn() }
-        if (othersNow.isNotEmpty()) hadOthers = true
+        if (othersNow.isNotEmpty()) {
+            hadOthers = true
+            ringEventId = null
+        }
         connectOtherSfus(othersNow)
         refreshParticipants()
         // A DM call is over when the other person hangs up.
@@ -352,7 +399,7 @@ class CallSession internal constructor(
                 context,
                 access,
                 publishing = false,
-                keys = if (room.encrypted) MatrixKeyProvider() else null,
+                encrypted = room.encrypted,
                 audioHandler = NoAudioHandler(),
             )
         others[transportKey(transport)] = connection
@@ -482,6 +529,11 @@ class CallSession internal constructor(
             }
             scope.cancel()
         }
+    }
+
+    private fun endBecause(reason: EndReason) {
+        if (mutablePhase.value !is CallPhase.Ended) mutablePhase.value = CallPhase.Ended(reason = reason)
+        hangUp()
     }
 
     private suspend fun end(error: String) {

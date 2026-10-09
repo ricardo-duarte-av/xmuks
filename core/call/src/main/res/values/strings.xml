@@ -6,4 +6,10 @@
     <string name="call_connecting_notification">Connecting…</string>
     <string name="call_mute_action">Mute</string>
     <string name="call_unmute_action">Unmute</string>
+    <string name="channel_calls_incoming">Incoming calls</string>
+    <string name="channel_calls_incoming_description">Calls ringing for you</string>
+    <string name="call_incoming_voice">Incoming voice call</string>
+    <string name="call_incoming_video">Incoming video call</string>
+    <string name="call_incoming_voice_in">Voice call in %1$s</string>
+    <string name="call_incoming_video_in">Video call in %1$s</string>
 </resources>

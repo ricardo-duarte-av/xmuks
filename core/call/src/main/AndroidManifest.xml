@@ -11,6 +11,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <!-- A ringing call takes over the lock screen (Android 14+: calling apps only). -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- The screen goes dark at your ear in a voice call. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -21,5 +24,8 @@
             android:name=".system.CallService"
             android:exported="false"
             android:foregroundServiceType="microphone|camera" />
+        <receiver
+            android:name=".system.DeclineReceiver"
+            android:exported="false" />
     </application>
 </manifest>

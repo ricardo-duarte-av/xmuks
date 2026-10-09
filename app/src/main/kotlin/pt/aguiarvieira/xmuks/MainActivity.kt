@@ -12,13 +12,18 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import pt.aguiarvieira.xmuks.core.call.CallManager
+import pt.aguiarvieira.xmuks.core.call.IncomingCalls
 import pt.aguiarvieira.xmuks.core.call.system.CallService
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 import pt.aguiarvieira.xmuks.feature.login.LoginRoute
 import pt.aguiarvieira.xmuks.feature.share.ShareRequest
+import pt.aguiarvieira.xmuks.navigation.CallRequest
 import pt.aguiarvieira.xmuks.navigation.XmuksNavHost
 import javax.inject.Inject
 
@@ -26,11 +31,16 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     @Inject lateinit var session: SessionRepository
 
+    /** Created with the app, so rings arriving over the stream ring while it runs. */
+    @Inject lateinit var incoming: IncomingCalls
+
+    @Inject lateinit var calls: CallManager
+
     /** A Matrix link we were opened with (another app, or one of our notifications), until handled. */
     private val link = MutableStateFlow<String?>(null)
 
-    /** A room whose call screen to show (the ongoing call's notification was tapped), until handled. */
-    private val call = MutableStateFlow<String?>(null)
+    /** A call screen to show (a call notification was tapped, or a ring answered), until handled. */
+    private val call = MutableStateFlow<CallRequest?>(null)
 
     /** Something shared to us from another app, until handled. */
     private val share = MutableStateFlow<ShareRequest?>(null)
@@ -40,6 +50,13 @@ class MainActivity : ComponentActivity() {
         WindowCompat.enableEdgeToEdge(window)
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) intent?.let(::take)
+        // While in a call, the app (the call screen) may show over the lock screen, as a phone's does.
+        lifecycleScope.launch {
+            calls.active.collect { active ->
+                setShowWhenLocked(active != null)
+                setTurnScreenOn(active != null)
+            }
+        }
         setContent {
             XmuksTheme {
                 val loggedIn by session.loggedIn.collectAsStateWithLifecycle()
@@ -71,8 +88,10 @@ class MainActivity : ComponentActivity() {
 
     /** A Matrix link to open, or something shared to send. */
     private fun take(intent: Intent) {
-        intent.getStringExtra(CallService.EXTRA_OPEN_CALL)?.let {
-            call.value = it
+        intent.getStringExtra(CallService.EXTRA_OPEN_CALL)?.let { roomId ->
+            val answer = intent.getBooleanExtra(CallService.EXTRA_ANSWER, false)
+            if (answer) incoming.answer(roomId)
+            call.value = CallRequest(roomId, intent.getBooleanExtra(CallService.EXTRA_VIDEO, false), answer)
             return
         }
         when (intent.action) {

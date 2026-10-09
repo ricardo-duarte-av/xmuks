@@ -2,6 +2,7 @@ package pt.aguiarvieira.xmuks.feature.call
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -60,6 +61,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import pt.aguiarvieira.xmuks.core.call.CallPhase
+import pt.aguiarvieira.xmuks.core.call.EndReason
 import pt.aguiarvieira.xmuks.core.call.system.AudioRoute
 import pt.aguiarvieira.xmuks.core.call.system.RouteKind
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
@@ -74,6 +76,7 @@ fun CallRoute(
     video: Boolean,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    answer: Boolean = false,
     viewModel: CallViewModel =
         hiltViewModel<CallViewModel, CallViewModel.Factory>(key = "call:$roomId") { it.create(roomId) },
 ) {
@@ -83,7 +86,7 @@ fun CallRoute(
     val permissions =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
             if (granted[Manifest.permission.RECORD_AUDIO] == true) {
-                viewModel.join(video && granted[Manifest.permission.CAMERA] == true)
+                viewModel.join(video && granted[Manifest.permission.CAMERA] == true, answer)
             } else {
                 onBack()
             }
@@ -97,19 +100,29 @@ fun CallRoute(
                 ContextCompat.checkSelfPermission(context, it) !=
                     PackageManager.PERMISSION_GRANTED
             }
-        if (missing.isEmpty()) viewModel.join(video) else permissions.launch(missing.toTypedArray())
+        if (missing.isEmpty()) viewModel.join(video, answer) else permissions.launch(missing.toTypedArray())
     }
     // Close once the call this screen showed is over: ended, or already forgotten by the manager.
     val leave by rememberUpdatedState(onBack)
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(ui.phase) {
-        when (ui.phase) {
-            null -> if (shown) leave()
-            is CallPhase.Ended -> leave()
-            else -> shown = true
+        when (val phase = ui.phase) {
+            null -> {
+                if (shown) leave()
+            }
+
+            is CallPhase.Ended -> {
+                endedMessage(phase)?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                leave()
+            }
+
+            else -> {
+                shown = true
+            }
         }
     }
     BackHandler(onBack = onBack)
+    if (ui.phase == CallPhase.Connected) FullScreenRingPrompt()
     CallScreen(
         ui = ui,
         onMinimise = onBack,
@@ -224,6 +237,15 @@ private fun callStatus(ui: CallUi): String {
         }
     }
 }
+
+/** What to tell someone whose call ended other than by hanging up. */
+private fun endedMessage(phase: CallPhase.Ended): Int? =
+    when (phase.reason) {
+        EndReason.HungUp -> null
+        EndReason.Declined -> R.string.call_declined
+        EndReason.NoAnswer -> R.string.call_no_answer
+        EndReason.Failed -> R.string.call_failed
+    }
 
 internal fun formatDuration(ms: Long): String {
     val total = (ms / MS_PER_SECOND).coerceAtLeast(0)

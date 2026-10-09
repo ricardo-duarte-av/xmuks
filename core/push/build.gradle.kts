@@ -12,6 +12,7 @@ android {
 dependencies {
     api(projects.core.notify)
     implementation(projects.core.data)
+    implementation(projects.core.call)
     implementation(projects.core.designsystem)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)

@@ -144,7 +144,10 @@ class CallViewModel
         }
 
         /** Joins this room's call unless we're already in it. */
-        fun join(video: Boolean) = manager.join(roomId, video)
+        fun join(
+            video: Boolean,
+            answer: Boolean = false,
+        ) = manager.join(roomId, video, answer = answer)
 
         fun setMicrophone(on: Boolean) = session.value?.setMicrophone(on)
 

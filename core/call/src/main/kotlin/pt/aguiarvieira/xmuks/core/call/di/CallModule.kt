@@ -10,9 +10,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import okhttp3.OkHttpClient
 import pt.aguiarvieira.xmuks.core.call.CallManager
+import pt.aguiarvieira.xmuks.core.call.IncomingCalls
 import pt.aguiarvieira.xmuks.core.call.media.SfuTokens
 import pt.aguiarvieira.xmuks.core.call.signalling.RtcApi
 import pt.aguiarvieira.xmuks.core.call.system.CallAudio
+import pt.aguiarvieira.xmuks.core.call.system.Ringer
 import pt.aguiarvieira.xmuks.core.call.system.TelecomCall
 import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.connection.StreamFrames
@@ -48,6 +50,22 @@ object CallModule {
 
     @Provides @Singleton
     fun callAudio() = CallAudio()
+
+    @Provides @Singleton
+    fun ringer(
+        @ApplicationContext context: Context,
+    ) = Ringer(context)
+
+    @Provides @Singleton
+    fun incomingCalls(
+        api: RtcApi,
+        roomCalls: RoomCalls,
+        manager: CallManager,
+        database: XmuksDatabase,
+        ringer: Ringer,
+        frames: StreamFrames,
+        scope: CoroutineScope,
+    ) = IncomingCalls(api, roomCalls, manager, database, ringer, frames, scope)
 
     @Provides @Singleton
     fun telecomCall(
