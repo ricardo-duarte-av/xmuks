@@ -2,4 +2,6 @@
 <!-- Where the system camera writes photos and videos for us to send. -->
 <paths>
     <cache-path name="camera" path="camera/" />
+    <!-- GIFs and stickers from the keyboard, copied in while we may read them. -->
+    <cache-path name="keyboard" path="keyboard/" />
 </paths>

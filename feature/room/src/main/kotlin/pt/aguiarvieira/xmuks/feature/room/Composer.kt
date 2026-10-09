@@ -1,5 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.content.contentReceiver
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +48,7 @@ import pt.aguiarvieira.xmuks.core.richtext.HtmlSnippet
  * The room's third card: where messages are written. Grows to a few lines, then scrolls; rides
  * up with the keyboard. Sending hands the text (markdown) to the outbox and clears the field.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ComposerCard(
     state: TextFieldState,
@@ -66,8 +69,11 @@ internal fun ComposerCard(
     mentions: MentionHintsUi = MentionHintsUi(),
     /** The network a bridged room is on: the hint says the message goes there. */
     network: String? = null,
+    /** GIFs and stickers from the keyboard, images pasted in: sent as they are. */
+    onSendMedia: (android.net.Uri) -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
+    val mediaReceiver = rememberMediaReceiver(onSendMedia)
     ScreenCard(
         modifier.padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap),
     ) {
@@ -111,6 +117,7 @@ internal fun ComposerCard(
                             .weight(
                                 1f
                             ).padding(vertical = 12.dp)
+                            .contentReceiver(mediaReceiver)
                             .onFocusChanged { if (it.isFocused) onFocus() },
                     decorator = { field ->
                         Box {

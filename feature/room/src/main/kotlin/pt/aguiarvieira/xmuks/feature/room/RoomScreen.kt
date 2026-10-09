@@ -242,6 +242,7 @@ fun RoomRoute(
                     mediaDraft = mediaDraft,
                     onPickMedia = viewModel.attach::pick,
                     onPickMany = { uris -> onSendFiles(uris.map { it.toString() }) },
+                    onSendNow = viewModel.attach::sendNow,
                     onChooseSize = viewModel.attach::choose,
                     onSendMedia = viewModel.attach::send,
                     onCancelMedia = viewModel.attach::cancel,
@@ -289,6 +290,8 @@ class ComposerActions(
     val onPickMedia: (android.net.Uri) -> Unit = {},
     /** Several picked together: on to the share screen, one caption each. */
     val onPickMany: (List<android.net.Uri>) -> Unit = {},
+    /** From the keyboard: straight to the timeline, no preview. */
+    val onSendNow: (android.net.Uri) -> Unit = {},
     val onChooseSize: (ImageSize) -> Unit = {},
     val onSendMedia: (caption: String, spoiler: Boolean) -> Unit = { _, _ -> },
     val onCancelMedia: () -> Unit = {},
@@ -487,6 +490,7 @@ fun RoomScreen(
                     previews = composer.linkPreviews,
                     network = bridge?.protocol,
                     mentions = composer.mentions,
+                    onSendMedia = composer.onSendNow,
                 )
             }
         },

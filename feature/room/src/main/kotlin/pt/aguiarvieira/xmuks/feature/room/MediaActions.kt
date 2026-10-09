@@ -131,6 +131,11 @@ class MediaActions(
         }
     }
 
+    /** From the keyboard (a GIF, a sticker): a quick action, so no preview step whatever the setting. */
+    fun sendNow(uri: Uri) {
+        scope.launch { sendAsPicked(preparer.inspect(uri)) }
+    }
+
     /** No preview step: the file as it is, no caption. */
     private suspend fun sendAsPicked(file: PickedFile) {
         runCatching { preparer.prepare(file, null) }.onSuccess { prepared ->
