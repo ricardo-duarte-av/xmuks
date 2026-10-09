@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ContactsAccountType xmlns:android="http://schemas.android.com/apk/res/android">
     <ContactsDataKind
-        android:detailColumn="data2"
+        android:detailColumn="data3"
         android:icon="@drawable/ic_contacts_account"
         android:mimeType="vnd.android.cursor.item/vnd.pt.aguiarvieira.xmuks.message"
-        android:summaryColumn="data3" />
+        android:summaryColumn="data2" />
     <ContactsDataKind
-        android:detailColumn="data2"
+        android:detailColumn="data3"
         android:icon="@drawable/ic_contacts_account"
         android:mimeType="vnd.android.cursor.item/vnd.pt.aguiarvieira.xmuks.call"
-        android:summaryColumn="data3" />
+        android:summaryColumn="data2" />
     <ContactsDataKind
-        android:detailColumn="data2"
+        android:detailColumn="data3"
         android:icon="@drawable/ic_contacts_account"
         android:mimeType="vnd.android.cursor.item/vnd.pt.aguiarvieira.xmuks.videocall"
-        android:summaryColumn="data3" />
+        android:summaryColumn="data2" />
 </ContactsAccountType>

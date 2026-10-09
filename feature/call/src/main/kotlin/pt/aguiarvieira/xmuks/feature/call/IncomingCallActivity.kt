@@ -61,8 +61,10 @@ class IncomingCallActivity : ComponentActivity() {
                 val call = ringing
                 LaunchedEffect(call) { if (call == null) finish() }
                 if (call != null) {
+                    // A DM's avatar is the caller's; a group's is the room's (the caller shows by name).
+                    val room by remember(call.roomId) { rooms.room(call.roomId) }.collectAsStateWithLifecycle(null)
                     IncomingCallScreen(
-                        call,
+                        call.copy(avatarUrl = call.avatarUrl ?: room?.avatarUrl),
                         onAnswer = { answer(call) },
                         onDecline = { incoming.decline(call.eventId) }
                     )
