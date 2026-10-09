@@ -136,6 +136,16 @@
     <string name="voice_call">Voice call</string>
     <string name="video_call">Video call</string>
     <string name="call_return">Return to call</string>
+    <string name="start_call">Start a call</string>
+    <string name="call_start_title">Start a call</string>
+    <string name="call_notify_room">Notify the room</string>
+    <string name="call_notify_room_desc">Everyone here is told a call started</string>
+    <string name="call_card_voice">%1$s started a voice call</string>
+    <string name="call_card_video">%1$s started a video call</string>
+    <string name="call_card_ongoing">%1$s · going on · %2$s</string>
+    <string name="call_card_ended">%1$s · %2$s · %3$s</string>
+    <string name="call_card_started">%1$s · %2$s</string>
+    <string name="call_card_join">Join</string>
     <string name="call_join_count">Join · %1$d</string>
     <string name="call_voice_ongoing">Voice call in progress</string>
     <string name="call_video_ongoing">Video call in progress</string>

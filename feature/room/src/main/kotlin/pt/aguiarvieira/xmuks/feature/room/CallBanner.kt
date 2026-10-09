@@ -7,11 +7,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +54,46 @@ internal fun CallPill(
                     stringResource(R.string.call_join_count, call.people)
                 },
         )
+    }
+}
+
+/** Starting a call in a group: voice or video, and whether the room is told. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun CallStartSheet(
+    notifyRoom: Boolean,
+    onNotifyRoom: (Boolean) -> Unit,
+    onCall: (video: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(stringResource(R.string.call_start_title), style = MaterialTheme.typography.titleLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FilledTonalButton(onClick = { onCall(false) }, modifier = Modifier.weight(1f)) {
+                    Icon(painterResource(R.drawable.ic_call), null, Modifier.size(18.dp))
+                    Text(stringResource(R.string.voice_call), Modifier.padding(start = 8.dp))
+                }
+                Button(onClick = { onCall(true) }, modifier = Modifier.weight(1f)) {
+                    Icon(painterResource(R.drawable.ic_videocam), null, Modifier.size(18.dp))
+                    Text(stringResource(R.string.video_call), Modifier.padding(start = 8.dp))
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.call_notify_room), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(R.string.call_notify_room_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = notifyRoom, onCheckedChange = onNotifyRoom)
+            }
+        }
     }
 }
 

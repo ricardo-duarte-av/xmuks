@@ -84,4 +84,12 @@
     <string name="choice_default">Default</string>
     <string name="choice_compact">Compact</string>
     <string name="choice_spacious">Spacious</string>
+    <string name="section_calls">Calls</string>
+    <string name="pref_call_notify_room">Tell the room when I start a call</string>
+    <string name="pref_call_notify_room_desc">Starting a call in a group sends a \"call started\" notification (direct messages always ring)</string>
+    <string name="pref_call_format">Call signalling</string>
+    <string name="pref_call_format_desc">How this device announces itself in calls. Automatic follows the call; for new calls it uses Matrix 2.0 sticky events where the server supports them</string>
+    <string name="choice_call_auto">Automatic</string>
+    <string name="choice_call_legacy">Legacy (state events)</string>
+    <string name="choice_call_sticky">Matrix 2.0 (sticky events)</string>
 </resources>

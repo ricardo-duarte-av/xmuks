@@ -64,6 +64,15 @@ object Prefs {
      */
     val roomAvatarColors = Pref.Bool("xmuks_room_avatar_colors", true, listOf(RoomDevice, Device))
 
+    /** xmuks' own: starting a group call tells the room (a "call started" notification). */
+    val callNotifyRoom = Pref.Bool("xmuks_call_notify_room", true, listOf(RoomDevice, Device))
+
+    /**
+     * xmuks' own: how our call membership is sent. "auto" follows the call (whatever its members
+     * use; a new call uses sticky events where the server has them), or force one.
+     */
+    val callFormat = Pref.Choice("xmuks_call_format", "auto", listOf(Device), listOf("auto", "legacy", "sticky"))
+
     /** Every preference, in gomuks' order (its settings screen's). */
     val all: List<Pref<*>> =
         listOf(

@@ -72,6 +72,10 @@ class TimelineActions(
     val compactThreads: Boolean = true,
     /** Answering a poll: our picks become these. */
     val onVote: (TimelineItem.Message, List<String>) -> Unit = { _, _ -> },
+    /** Joins the room's call; null where calls aren't offered. */
+    val joinCall: ((video: Boolean) -> Unit)? = null,
+    /** The room has a call going on now (the newest call card may offer to join). */
+    val callOngoing: Boolean = false,
 )
 
 /** Briefly tints the row a jump landed on, so the eye finds it. */

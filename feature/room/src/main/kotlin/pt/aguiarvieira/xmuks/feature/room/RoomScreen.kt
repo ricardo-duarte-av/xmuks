@@ -179,6 +179,8 @@ fun RoomRoute(
             onSearch = onSearch,
             onCall = onCall.takeIf { threadRoot == null },
             call = call,
+            callNotifyRoom = prefs.get(Prefs.callNotifyRoom),
+            onCallNotifyRoom = viewModel.setCallNotifyRoom,
             player = viewModel.player,
             onSaveMedia = rememberMediaSaver(),
             onOpenThread = if (threadRoot == null) onOpenThread else null,
@@ -337,6 +339,8 @@ fun RoomScreen(
     onCall: ((video: Boolean) -> Unit)? = null,
     /** The room's call, while there is one. */
     call: RoomCall? = null,
+    callNotifyRoom: Boolean = true,
+    onCallNotifyRoom: (Boolean) -> Unit = {},
     player: InlinePlayer? = null,
     onSaveMedia: (Media) -> Unit = {},
     /** Opening threads; null when this is one. */
@@ -363,8 +367,10 @@ fun RoomScreen(
     val list by rememberUpdatedState(if (context != null) contextList else liveList)
     val showContext by rememberUpdatedState(onShowContext)
     val actions =
-        remember(onOpenMedia, onOpenUser, player, onSaveMedia, onOpenThread, compactThreads) {
+        remember(onOpenMedia, onOpenUser, player, onSaveMedia, onOpenThread, compactThreads, onCall, call != null) {
             TimelineActions(
+                joinCall = onCall,
+                callOngoing = call != null,
                 saveMedia = onSaveMedia,
                 openThread = onOpenThread,
                 compactThreads = compactThreads,
@@ -435,6 +441,8 @@ fun RoomScreen(
                     bridge,
                     onCall,
                     call,
+                    callNotifyRoom,
+                    onCallNotifyRoom,
                 )
                 UnderHeader(call, onCall, pinned = if (inThread) 0 else pins.pins.eventIds.size) {
                     overlays.pinsShown =
@@ -500,8 +508,17 @@ private fun HeaderCard(
     bridge: BridgeInfo? = null,
     onCall: ((video: Boolean) -> Unit)? = null,
     call: RoomCall? = null,
+    callNotifyRoom: Boolean = true,
+    onCallNotifyRoom: (Boolean) -> Unit = {},
 ) {
     var menu by remember { mutableStateOf(false) }
+    var startSheet by remember { mutableStateOf(false) }
+    if (startSheet && onCall != null) {
+        CallStartSheet(callNotifyRoom, onCallNotifyRoom, onCall = { video ->
+            startSheet = false
+            onCall(video)
+        }) { startSheet = false }
+    }
     ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
         TopAppBar(
             windowInsets = WindowInsets(0),
@@ -525,6 +542,14 @@ private fun HeaderCard(
                 bridge?.let { BridgeBadge(it, resolver, roomId, sharedScope) }
                 if (onCall != null && call != null) {
                     CallPill(call, onCall)
+                } else if (onCall != null && room?.isDirect == false) {
+                    // A group: one button, the choices (and whether to tell the room) in a sheet.
+                    IconButton(onClick = { startSheet = true }) {
+                        Icon(
+                            painterResource(R.drawable.ic_call),
+                            contentDescription = stringResource(R.string.start_call)
+                        )
+                    }
                 } else if (onCall != null) {
                     IconButton(onClick = { onCall(false) }) {
                         Icon(
@@ -658,6 +683,7 @@ private fun Timeline(
                 is TimelineItem.StateChange -> StateChangeRow(item, resolver, actions, Modifier.animateItem(), lit)
                 is TimelineItem.Hidden -> HiddenRow(item, Modifier.animateItem())
                 is TimelineItem.DaySeparator -> DayRow(item.day, Modifier.animateItem())
+                is TimelineItem.Call -> CallRow(item, actions, Modifier.animateItem(), lit)
                 TimelineItem.UnreadSeparator -> UnreadRow(Modifier.animateItem())
             }
         }
@@ -782,6 +808,7 @@ private val TimelineItem.eventId: String?
             is TimelineItem.Message -> eventId
             is TimelineItem.StateChange -> eventId
             is TimelineItem.Hidden -> eventId
+            is TimelineItem.Call -> eventId
             is TimelineItem.DaySeparator -> null
             TimelineItem.UnreadSeparator -> null
         }

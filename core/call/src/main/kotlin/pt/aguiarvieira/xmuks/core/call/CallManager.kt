@@ -14,6 +14,8 @@ import pt.aguiarvieira.xmuks.core.call.system.CallService
 import pt.aguiarvieira.xmuks.core.call.system.TelecomCall
 import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.connection.StreamFrames
+import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
+import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 
 /** The one call we can be in at a time, and the way into it. */
@@ -25,6 +27,7 @@ class CallManager(
     private val database: XmuksDatabase,
     private val roomCalls: RoomCalls,
     private val telecom: TelecomCall,
+    private val preferences: PreferenceStore,
     private val scope: CoroutineScope,
 ) {
     /** The current call's audio goes through Telecom (else LiveKit routes it itself). */
@@ -44,7 +47,8 @@ class CallManager(
     fun join(
         roomId: String,
         video: Boolean,
-        format: FormatPreference = FormatPreference.Auto,
+        /** Tell a group room we started a call; null: as the room's preference says. */
+        notifyRoom: Boolean? = null,
         answer: Boolean = false,
     ) {
         val current = mutableActive.value
@@ -63,6 +67,13 @@ class CallManager(
                     encrypted = entity.encrypted,
                     dmUserId = entity.dmUserId,
                 )
+            val format =
+                when (preferences.value(Prefs.callFormat).first()) {
+                    "legacy" -> FormatPreference.Legacy
+                    "sticky" -> FormatPreference.Sticky
+                    else -> FormatPreference.Auto
+                }
+            val notify = notifyRoom ?: preferences.value(Prefs.callNotifyRoom, roomId).first()
             systemAudio = telecom.available()
             answering = answer
             val session =
@@ -75,7 +86,7 @@ class CallManager(
                     context,
                     roomCalls,
                     format,
-                    notifyRoom = true,
+                    notifyRoom = notify,
                     systemAudio = systemAudio,
                 )
             mutableActive.value = session

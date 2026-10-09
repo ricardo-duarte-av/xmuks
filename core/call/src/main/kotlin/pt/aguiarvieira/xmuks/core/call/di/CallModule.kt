@@ -18,6 +18,7 @@ import pt.aguiarvieira.xmuks.core.call.system.Ringer
 import pt.aguiarvieira.xmuks.core.call.system.TelecomCall
 import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.connection.StreamFrames
+import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import javax.inject.Named
@@ -45,8 +46,9 @@ object CallModule {
         database: XmuksDatabase,
         roomCalls: RoomCalls,
         telecom: TelecomCall,
+        preferences: PreferenceStore,
         scope: CoroutineScope,
-    ) = CallManager(context, api, tokens, frames, database, roomCalls, telecom, scope)
+    ) = CallManager(context, api, tokens, frames, database, roomCalls, telecom, preferences, scope)
 
     @Provides @Singleton
     fun callAudio() = CallAudio()

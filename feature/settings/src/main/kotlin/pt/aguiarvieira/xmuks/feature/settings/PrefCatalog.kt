@@ -12,6 +12,7 @@ internal enum class Section(
     Media(R.string.section_media),
     RoomList(R.string.section_room_list),
     Appearance(R.string.section_appearance),
+    Calls(R.string.section_calls),
 }
 
 /** A preference as the settings screen shows it. */
@@ -30,6 +31,9 @@ internal val CHOICE_LABELS: Map<String?, Int> =
         "default" to R.string.choice_default,
         "compact" to R.string.choice_compact,
         "spacious" to R.string.choice_spacious,
+        "auto" to R.string.choice_call_auto,
+        "legacy" to R.string.choice_call_legacy,
+        "sticky" to R.string.choice_call_sticky,
     )
 
 /** Every preference xmuks lists, in order, grouped by [Section]. */
@@ -190,4 +194,11 @@ internal val ENTRIES: List<PrefEntry> =
             R.string.pref_room_avatar_colors_desc,
             Section.Appearance,
         ),
+        PrefEntry(
+            Prefs.callNotifyRoom,
+            R.string.pref_call_notify_room,
+            R.string.pref_call_notify_room_desc,
+            Section.Calls
+        ),
+        PrefEntry(Prefs.callFormat, R.string.pref_call_format, R.string.pref_call_format_desc, Section.Calls),
     )

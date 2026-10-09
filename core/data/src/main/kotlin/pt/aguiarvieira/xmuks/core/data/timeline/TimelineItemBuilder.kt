@@ -7,6 +7,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.Receipt
+import pt.aguiarvieira.xmuks.core.protocol.rtc.RtcTypes
 import java.time.Instant
 import java.time.ZoneId
 
@@ -31,6 +32,9 @@ class TimelineItemBuilder(
     /** Our messages confirmed received, by a later delivery report or read receipt (see deliveredThrough). */
     private var delivered: Set<String> = emptySet()
 
+    /** The calls in the snapshot, by the event their card sits on. */
+    private var calls: Map<String, CallSessionInfo> = emptyMap()
+
     /** What we hold that references each event (poll votes and ends among them), by that event. */
     private var references: Map<String?, List<Event>> = emptyMap()
 
@@ -52,6 +56,7 @@ class TimelineItemBuilder(
                 .filter { it.relationType == REFERENCE }
                 .groupBy { it.relatesTo }
         delivered = deliveredThrough(snapshot.events, references, snapshot.receiptsByEventId, me)
+        calls = callSessions(snapshot.events)
 
         val out = ArrayList<TimelineItem>(snapshot.events.size + DAY_SEPARATOR_SLACK)
         var previous: Event? = null
@@ -90,6 +95,7 @@ class TimelineItemBuilder(
     ): TimelineItem? {
         val shown =
             when {
+                event.effectiveType in RtcTypes.SIGNALLING -> calls[event.eventId]?.let { callItem(it, members) }
                 !event.isShown() -> null
                 event.stateKey != null -> stateChange(event, members, myReactions, readers)
                 else -> message(event, snapshot, byEventId, members, myReactions, readers)
@@ -109,6 +115,20 @@ class TimelineItemBuilder(
         senderName = members[event.sender]?.displayName ?: localpart(event.sender),
         type = event.effectiveType,
         timestamp = event.timestamp,
+    )
+
+    private fun callItem(
+        call: CallSessionInfo,
+        members: Map<String, MemberProfile>,
+    ) = TimelineItem.Call(
+        key = "call:${call.anchorEventId}",
+        eventId = call.anchorEventId,
+        starter = call.starter,
+        starterName = members[call.starter]?.displayName ?: localpart(call.starter),
+        startedAt = call.startedAt,
+        endedAt = call.endedAt,
+        video = call.video,
+        participants = call.participants.size,
     )
 
     // --- visibility ---------------------------------------------------------------------------

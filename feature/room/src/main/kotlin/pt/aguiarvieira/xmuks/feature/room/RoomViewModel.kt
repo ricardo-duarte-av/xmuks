@@ -37,6 +37,8 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.media.UPLOAD_PREFIX
 import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
+import pt.aguiarvieira.xmuks.core.data.prefs.PrefScope
+import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
@@ -73,6 +75,7 @@ class RoomViewModel
         linkPreviews: LinkPreviewFetcher,
         mentionTargets: MentionTargets,
         private val roomCalls: RoomCalls,
+        private val preferences: PreferenceStore,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -105,6 +108,11 @@ class RoomViewModel
             combine(thread?.let { session.itemsOf(it.snapshot) } ?: session.items, unread) { items, u ->
                 items.asReversed().withUnreadSeparator(u?.timestamp)
             }.stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        /** Starting a call here tells the room (groups; this room's own setting, on this device). */
+        val setCallNotifyRoom: (Boolean) -> Unit = { on ->
+            viewModelScope.launch { preferences.set(Prefs.callNotifyRoom, PrefScope.RoomDevice, on, roomId) }
+        }
 
         /** The room's call, while there is one. */
         val call: StateFlow<RoomCall?> = roomCalls.of(roomId).stateIn(viewModelScope, WHILE_VISIBLE, null)

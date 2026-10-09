@@ -90,6 +90,19 @@ sealed interface TimelineItem {
         val day: LocalDate,
     ) : TimelineItem
 
+    /** A call: who started it, when, how long it lasted (or that it's still going), who was in it. */
+    data class Call(
+        override val key: String,
+        val eventId: String,
+        val starter: String,
+        val starterName: String,
+        val startedAt: Long,
+        /** Null when the loaded timeline hasn't seen it end. */
+        val endedAt: Long?,
+        val video: Boolean,
+        val participants: Int,
+    ) : TimelineItem
+
     /** "New messages": what came after our read marker when the room was opened. */
     data object UnreadSeparator : TimelineItem {
         override val key: String = "unread-separator"
