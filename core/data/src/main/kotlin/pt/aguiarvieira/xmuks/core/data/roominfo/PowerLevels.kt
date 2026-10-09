@@ -34,6 +34,20 @@ data class PowerLevels(
         type: String,
     ) = of(userId) >= forState(type)
 
+    /** The level needed to send (non-state) events of [type]. */
+    fun forEvent(type: String): Long = events[type] ?: eventsDefault
+
+    fun canSend(
+        userId: String,
+        type: String,
+    ) = of(userId) >= forEvent(type)
+
+    /**
+     * Whether [userId] may be in a call here: a call membership is either state (legacy) or a
+     * sticky event (Matrix 2.0), and either will do.
+     */
+    fun canCall(userId: String) = canSetState(userId, CALL_MEMBER_STATE) || canSend(userId, CALL_MEMBER_STICKY)
+
     fun canInvite(userId: String) = of(userId) >= invite
 
     fun canKick(
@@ -75,6 +89,8 @@ data class PowerLevels(
 
     companion object {
         const val TYPE = "m.room.power_levels"
+        const val CALL_MEMBER_STATE = "org.matrix.msc3401.call.member"
+        const val CALL_MEMBER_STICKY = "org.matrix.msc4143.rtc.member"
         const val CREATOR = Long.MAX_VALUE
         const val ADMIN = 100L
         const val MODERATOR = 50L

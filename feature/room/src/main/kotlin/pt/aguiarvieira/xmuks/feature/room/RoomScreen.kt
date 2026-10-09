@@ -48,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -120,6 +121,7 @@ fun RoomRoute(
     val linkPreviews by viewModel.linkPreviews.previews.collectAsStateWithLifecycle()
     val bridge by viewModel.bridge.collectAsStateWithLifecycle()
     val call by viewModel.call.collectAsStateWithLifecycle()
+    val canCall by viewModel.canCall.collectAsStateWithLifecycle()
     val newestEvent by viewModel.newestEvent.collectAsStateWithLifecycle()
     val mentionHints by viewModel.mentions.suggestions.collectAsStateWithLifecycle()
     val loadedEvents by viewModel.loadedEvents.collectAsStateWithLifecycle()
@@ -177,7 +179,18 @@ fun RoomRoute(
             onOpenUser = onOpenUser,
             onOpenRoomInfo = onOpenRoomInfo,
             onSearch = onSearch,
-            onCall = onCall.takeIf { threadRoot == null },
+            // Bridged rooms (DM or group) get no calls: the bridges don't carry Matrix calls.
+            onCall =
+                onCall.takeIf { threadRoot == null && bridge == null }?.let { start ->
+                    { video: Boolean ->
+                        if (canCall) {
+                            start(video)
+                        } else {
+                            Toast.makeText(androidContext, R.string.call_not_allowed, Toast.LENGTH_LONG).show()
+                        }
+                    }
+                },
+            callAllowed = canCall,
             call = call,
             callNotifyRoom = prefs.get(Prefs.callNotifyRoom),
             onCallNotifyRoom = viewModel.setCallNotifyRoom,
@@ -339,6 +352,8 @@ fun RoomScreen(
     onCall: ((video: Boolean) -> Unit)? = null,
     /** The room's call, while there is one. */
     call: RoomCall? = null,
+    /** Our power level lets us be in a call (else the call button shows, dimmed, and says why). */
+    callAllowed: Boolean = true,
     callNotifyRoom: Boolean = true,
     onCallNotifyRoom: (Boolean) -> Unit = {},
     player: InlinePlayer? = null,
@@ -443,6 +458,7 @@ fun RoomScreen(
                     call,
                     callNotifyRoom,
                     onCallNotifyRoom,
+                    callAllowed,
                 )
                 UnderHeader(call, onCall, pinned = if (inThread) 0 else pins.pins.eventIds.size) {
                     overlays.pinsShown =
@@ -510,6 +526,7 @@ private fun HeaderCard(
     call: RoomCall? = null,
     callNotifyRoom: Boolean = true,
     onCallNotifyRoom: (Boolean) -> Unit = {},
+    callAllowed: Boolean = true,
 ) {
     var menu by remember { mutableStateOf(false) }
     var startSheet by remember { mutableStateOf(false) }
@@ -544,10 +561,12 @@ private fun HeaderCard(
                     CallPill(call, onCall)
                 } else if (onCall != null) {
                     // One button everywhere: voice or video (and, in a group, whether to tell the room) in a sheet.
-                    IconButton(onClick = { startSheet = true }) {
+                    // Not allowed: still there (dimmed), so tapping it can say why.
+                    IconButton(onClick = { if (callAllowed) startSheet = true else onCall(false) }) {
                         Icon(
                             painterResource(R.drawable.ic_call),
-                            contentDescription = stringResource(R.string.start_call)
+                            contentDescription = stringResource(R.string.start_call),
+                            modifier = Modifier.alpha(if (callAllowed) 1f else DISABLED_ALPHA),
                         )
                     }
                 }
@@ -836,3 +855,5 @@ private fun typingText(typing: List<String>): String? =
 private const val PREFETCH_DISTANCE = 10
 private const val HIGHLIGHT_MS = 1_600L
 private const val FOCUS_FRACTION = 3
+
+private const val DISABLED_ALPHA = 0.38f

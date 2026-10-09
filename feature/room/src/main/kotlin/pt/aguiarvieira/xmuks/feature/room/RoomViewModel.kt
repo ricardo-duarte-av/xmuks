@@ -114,6 +114,9 @@ class RoomViewModel
             viewModelScope.launch { preferences.set(Prefs.callNotifyRoom, PrefScope.RoomDevice, on, roomId) }
         }
 
+        /** Whether we may be in a call here (the room's power levels). */
+        val canCall: StateFlow<Boolean> = session.canCall.stateIn(viewModelScope, WHILE_VISIBLE, true)
+
         /** The room's call, while there is one. */
         val call: StateFlow<RoomCall?> = roomCalls.of(roomId).stateIn(viewModelScope, WHILE_VISIBLE, null)
 

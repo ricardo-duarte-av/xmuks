@@ -230,6 +230,12 @@ class RoomSession(
             Pins(ids, me != null && levels.canSetState(me, Pins.TYPE))
         }.distinctUntilChanged()
 
+    /** Whether we may be in a call here (true until the room's state says otherwise). */
+    val canCall: Flow<Boolean> =
+        combine(state, dao.meta().map { it?.userId }.distinctUntilChanged()) { events, me ->
+            me == null || events.isEmpty() || RoomInfo.parse(roomId, events).powerLevels.canCall(me)
+        }.distinctUntilChanged()
+
     /** Pinning and unpinning, and the pinned messages themselves. */
     val pinning = RoomPinning(roomId, exec, pins, { getEvent(it, unredact = false) }, { itemsOf(flowOf(it)).first() })
 

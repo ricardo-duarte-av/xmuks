@@ -33,6 +33,8 @@ import pt.aguiarvieira.xmuks.core.call.signalling.CallMembers
 import pt.aguiarvieira.xmuks.core.call.signalling.MembershipManager
 import pt.aguiarvieira.xmuks.core.call.signalling.RtcApi
 import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
+import pt.aguiarvieira.xmuks.core.data.roominfo.PowerLevels
+import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
 import pt.aguiarvieira.xmuks.core.protocol.GomuksEvent
 import pt.aguiarvieira.xmuks.core.protocol.GomuksFrame
 import pt.aguiarvieira.xmuks.core.protocol.rtc.CallMembership
@@ -179,7 +181,8 @@ class CallSession internal constructor(
         roomCalls.refresh(room.roomId, state + sticky)
 
         val present = lock.withLock { members.active(clock()) }.filterNot { it.isOwn() }
-        val format = chooseFormat(present)
+        val levels = RoomInfo.parse(room.roomId, state).powerLevels
+        val format = permitted(chooseFormat(present), levels)
         val transport = ownTransport()
         val memberId =
             when (format) {
@@ -284,6 +287,23 @@ class CallSession internal constructor(
         watchConnection(connection.room)
         connection.room.localParticipant.setMicrophoneEnabled(mutableMicrophone.value)
         if (video) setCamera(true)
+    }
+
+    /**
+     * The membership kind the room's power levels allow: the wanted one if we may send it, else the
+     * other (Element Call and matrix-js-sdk read both), else the wanted one (and the server says no).
+     */
+    private fun permitted(
+        wanted: MembershipFormat,
+        levels: PowerLevels,
+    ): MembershipFormat {
+        val legacy = levels.canSetState(me.userId, RtcTypes.LEGACY_MEMBER)
+        val sticky = levels.canSend(me.userId, RtcTypes.STICKY_MEMBER)
+        return when {
+            wanted == MembershipFormat.Legacy && !legacy && sticky -> MembershipFormat.Sticky
+            wanted == MembershipFormat.Sticky && !sticky && legacy -> MembershipFormat.Legacy
+            else -> wanted
+        }
     }
 
     /** Follow the call: whatever its first member uses; a new call uses sticky events if the server can. */
