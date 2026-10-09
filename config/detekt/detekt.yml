@@ -51,4 +51,4 @@ Compose:
   CompositionLocalAllowlist:
     active: true
     # Navigation hands shared-element scopes to destinations; see component/SharedElements.kt.
-    allowedCompositionLocals: ['LocalSharedTransitionScope', 'LocalAnimatedVisibilityScope', 'LocalSenderColors', 'LocalRichTextOptions', 'LocalMediaDisplay', 'LocalRoomListDisplay', 'LocalMessageHold']
+    allowedCompositionLocals: ['LocalSharedTransitionScope', 'LocalAnimatedVisibilityScope', 'LocalSenderColors', 'LocalRichTextOptions', 'LocalMediaDisplay', 'LocalRoomListDisplay', 'LocalMessageHold', 'LocalCallClock']

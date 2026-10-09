@@ -61,6 +61,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import pt.aguiarvieira.xmuks.core.call.CallPhase
+import pt.aguiarvieira.xmuks.core.call.CallReaction
 import pt.aguiarvieira.xmuks.core.call.EndReason
 import pt.aguiarvieira.xmuks.core.call.system.AudioRoute
 import pt.aguiarvieira.xmuks.core.call.system.RouteKind
@@ -131,6 +132,8 @@ fun CallRoute(
         onFlipCamera = viewModel::flipCamera,
         onHangUp = viewModel::hangUp,
         onRoute = viewModel::selectRoute,
+        onHand = viewModel::raiseHand,
+        onReact = viewModel::react,
         modifier = modifier,
     )
 }
@@ -145,7 +148,24 @@ fun CallScreen(
     onHangUp: () -> Unit,
     modifier: Modifier = Modifier,
     onRoute: (AudioRoute) -> Unit = {},
+    onHand: (Boolean) -> Unit = {},
+    onReact: (CallReaction) -> Unit = {},
 ) {
+    var reacting by remember { mutableStateOf(false) }
+    if (reacting) {
+        ReactionSheet(
+            ui.handRaised,
+            onHand = {
+                reacting = false
+                onHand(it)
+            },
+            onReact = {
+                reacting = false
+                onReact(it)
+            },
+            onDismiss = { reacting = false },
+        )
+    }
     Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
         Box(Modifier.fillMaxSize()) {
             Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = TOP_BAR_HEIGHT, bottom = CONTROLS_HEIGHT)) {
@@ -163,7 +183,8 @@ fun CallScreen(
                 onFlipCamera,
                 onHangUp,
                 onRoute,
-                Modifier.align(Alignment.BottomCenter)
+                onReactions = { reacting = true },
+                modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
     }
@@ -271,8 +292,10 @@ private fun DirectAudio(ui: CallUi) {
             speaking = other?.participant?.speaking == true,
             size = 160.dp,
         )
+        other?.participant?.reaction?.let { FloatingReaction(it) }
         Spacer(Modifier.height(24.dp))
         Text(other?.name ?: ui.roomName, style = MaterialTheme.typography.headlineMedium)
+        other?.participant?.handRaisedAt?.let { HandBadge(it, Modifier.padding(top = 8.dp)) }
         if (other != null && !other.participant.microphoneOn && other.participant.connected) {
             Icon(
                 painterResource(R.drawable.ic_mic_off),
@@ -354,6 +377,8 @@ private fun Tile(
         } else {
             RoomAvatar(tile.name, p.userId, tile.avatarUrl, Modifier.align(Alignment.Center), size = 88.dp)
         }
+        p.handRaisedAt?.let { HandBadge(it, Modifier.align(Alignment.TopStart).padding(8.dp)) }
+        p.reaction?.let { FloatingReaction(it, Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)) }
         Row(
             Modifier
                 .align(Alignment.BottomStart)
@@ -407,17 +432,18 @@ private fun CallControls(
     onFlipCamera: () -> Unit,
     onHangUp: () -> Unit,
     onRoute: (AudioRoute) -> Unit,
+    onReactions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier.fillMaxWidth().navigationBarsPadding().height(CONTROLS_HEIGHT),
-        horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FilledTonalIconToggleButton(
             checked = !ui.microphoneOn,
             onCheckedChange = { onMicrophone(!ui.microphoneOn) },
-            modifier = Modifier.size(56.dp),
+            modifier = Modifier.size(CONTROL_SIZE),
         ) {
             Icon(
                 painterResource(if (ui.microphoneOn) R.drawable.ic_mic else R.drawable.ic_mic_off),
@@ -427,7 +453,7 @@ private fun CallControls(
         FilledTonalIconToggleButton(
             checked = ui.cameraOn,
             onCheckedChange = onCamera,
-            modifier = Modifier.size(56.dp),
+            modifier = Modifier.size(CONTROL_SIZE),
         ) {
             Icon(
                 painterResource(if (ui.cameraOn) R.drawable.ic_videocam else R.drawable.ic_videocam_off),
@@ -438,11 +464,16 @@ private fun CallControls(
             )
         }
         if (ui.routes.size > 1) RouteButton(ui, onRoute)
+        FilledTonalIconToggleButton(checked = ui.handRaised, onCheckedChange = {
+            onReactions()
+        }, modifier = Modifier.size(CONTROL_SIZE)) {
+            Icon(painterResource(R.drawable.ic_mood), contentDescription = stringResource(R.string.call_reactions))
+        }
         if (ui.cameraOn) {
             FilledTonalIconToggleButton(
                 checked = false,
                 onCheckedChange = { onFlipCamera() },
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(CONTROL_SIZE)
             ) {
                 Icon(
                     painterResource(R.drawable.ic_cameraswitch),
@@ -457,7 +488,7 @@ private fun CallControls(
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError,
                 ),
-            modifier = Modifier.width(80.dp).height(56.dp),
+            modifier = Modifier.width(72.dp).height(CONTROL_SIZE),
         ) {
             Icon(painterResource(R.drawable.ic_call_end), contentDescription = stringResource(R.string.call_hang_up))
         }
@@ -484,7 +515,7 @@ private fun RouteButton(
                     menu = true
                 }
             },
-            modifier = Modifier.size(56.dp),
+            modifier = Modifier.size(CONTROL_SIZE),
         ) {
             Icon(
                 painterResource(routeIcon(ui.route?.kind)),
@@ -515,6 +546,7 @@ private fun routeIcon(kind: RouteKind?) =
     }
 
 private val TOP_BAR_HEIGHT = 64.dp
+private val CONTROL_SIZE = 52.dp
 private val CONTROLS_HEIGHT = 96.dp
 private const val SELF_VIEW_RATIO = 0.75f
 private const val TICK_MS = 1_000L

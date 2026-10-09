@@ -26,4 +26,7 @@
     <string name="call_full_screen_text">Android only lets xmuks show incoming calls full screen if you allow it. Without that, calls still ring, as a notification at the top of the screen.</string>
     <string name="call_full_screen_allow">Open settings</string>
     <string name="call_full_screen_later">Not now</string>
+    <string name="call_reactions">Reactions and raise hand</string>
+    <string name="call_raise_hand">Raise hand</string>
+    <string name="call_lower_hand">Lower hand</string>
 </resources>

@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.call
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -16,6 +17,10 @@ import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class CallScreenshotTest {
+    private companion object {
+        const val NOW = 1_800_000_000_000L
+    }
+
     @get:Rule val compose = createComposeRule()
 
     private fun tile(
@@ -24,6 +29,7 @@ class CallScreenshotTest {
         local: Boolean = false,
         speaking: Boolean = false,
         mic: Boolean = true,
+        hand: Long? = null,
     ) = CallTile(
         CallParticipant(
             userId = user,
@@ -37,6 +43,7 @@ class CallScreenshotTest {
             video = null,
             videoRoom = null,
             joinedAt = 0,
+            handRaisedAt = hand,
         ),
         name = name,
         avatarUrl = null,
@@ -48,7 +55,9 @@ class CallScreenshotTest {
     ) {
         compose.setContent {
             XmuksTheme(darkTheme = true, dynamicColor = false) {
-                CallScreen(ui, onMinimise = {}, onMicrophone = {}, onCamera = {}, onFlipCamera = {}, onHangUp = {})
+                CompositionLocalProvider(LocalCallClock provides { NOW }) {
+                    CallScreen(ui, onMinimise = {}, onMicrophone = {}, onCamera = {}, onFlipCamera = {}, onHangUp = {})
+                }
             }
         }
         compose.onRoot().captureRoboImage("src/test/screenshots/$file.png")
@@ -77,7 +86,7 @@ class CallScreenshotTest {
                     listOf(
                         tile("@me:hs", "Me", local = true),
                         tile("@alice:hs", "Alice", speaking = true),
-                        tile("@bob:hs", "Bob", mic = false),
+                        tile("@bob:hs", "Bob", mic = false, hand = NOW - 42_000),
                         tile("@carol:hs", "Carol"),
                     ),
             ),

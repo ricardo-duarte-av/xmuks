@@ -93,6 +93,10 @@ data class CallParticipant(
     /** The LiveKit room whose EGL context renders [video]. */
     val videoRoom: Room?,
     val joinedAt: Long,
+    /** Their hand is up, since then. */
+    val handRaisedAt: Long? = null,
+    /** An emoji they just sent, while it shows. */
+    val reaction: String? = null,
 ) {
     val key: String get() = "$userId:$deviceId"
 }
@@ -120,6 +124,10 @@ class CallSession internal constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val lock = Mutex()
     private val members = CallMembers(room.roomId)
+    private val reactions = CallReactions(api, room.roomId, scope, clock)
+
+    /** The participant behind each current membership event (ours included), for hands and reactions. */
+    @Volatile private var membershipEvents: Map<String, String> = emptyMap()
 
     private val mutablePhase = MutableStateFlow<CallPhase>(CallPhase.Connecting)
     val phase: StateFlow<CallPhase> = mutablePhase.asStateFlow()
@@ -345,6 +353,8 @@ class CallSession internal constructor(
         val sync = (frame.event as? GomuksEvent.Sync)?.sync ?: return
         val roomSync = sync.rooms[room.roomId]
         val changed = roomSync != null && lock.withLock { members.apply(roomSync) }
+        if (changed) indexMemberships()
+        roomSync?.events?.forEach { event -> reactions.onEvent(event) { membershipEvents[it] } }
         // The person we're ringing declined.
         val ring = ringEventId
         if (ring != null && !hadOthers && roomSync != null) {
@@ -357,7 +367,35 @@ class CallSession internal constructor(
         if (changed && mutablePhase.value !is CallPhase.Ended) membersChanged()
     }
 
+    private suspend fun indexMemberships() {
+        val active = lock.withLock { members.active(clock()) }
+        val index = active.filterNot { it.isOwn() }.associate { it.eventId to "${it.userId}:${it.deviceId}" }
+        val own = membership?.membershipEventId?.let { mapOf(it to ownKey) }.orEmpty()
+        membershipEvents = index + own
+        reactions.membersChanged(membershipEvents.entries.associate { (event, key) -> key to event })
+    }
+
+    private val ownKey get() = "${me.userId}:${me.deviceId}"
+
+    /** Raises (or lowers) our hand: everyone in the call sees it, Element Call included. */
+    fun raiseHand(up: Boolean) {
+        scope.launch {
+            if (up) {
+                indexMemberships()
+                membership?.membershipEventId?.let { reactions.raiseHand(ownKey, it) }
+            } else {
+                reactions.lowerHand(ownKey)
+            }
+        }
+    }
+
+    /** Sends an in-call reaction (shown on our tile, and everyone else's screens, for a moment). */
+    fun react(reaction: CallReaction) {
+        scope.launch { membership?.membershipEventId?.let { reactions.react(ownKey, it, reaction) } }
+    }
+
     private suspend fun membersChanged() {
+        indexMemberships()
         val active = lock.withLock { members.active(clock()) }
         keys?.onMembers(active)
         val othersNow = active.filterNot { it.isOwn() }
@@ -465,7 +503,10 @@ class CallSession internal constructor(
                 }
             }
         val withSelf = if (list.none { it.isLocal }) list + local(null) else list
-        mutableParticipants.value = withSelf
+        val hands = reactions.hands.value
+        val emoji = reactions.reactions.value
+        mutableParticipants.value =
+            withSelf.map { p -> p.copy(handRaisedAt = hands[p.key]?.raisedAt, reaction = emoji[p.key]) }
     }
 
     private fun local(m: CallMembership?): CallParticipant {

@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.call.CallManager
 import pt.aguiarvieira.xmuks.core.call.CallParticipant
 import pt.aguiarvieira.xmuks.core.call.CallPhase
+import pt.aguiarvieira.xmuks.core.call.CallReaction
 import pt.aguiarvieira.xmuks.core.call.CallSession
 import pt.aguiarvieira.xmuks.core.call.system.AudioRoute
 import pt.aguiarvieira.xmuks.core.call.system.CallAudio
@@ -51,6 +52,9 @@ data class CallUi(
     val route: AudioRoute? = null,
 ) {
     val local: CallTile? get() = tiles.firstOrNull { it.participant.isLocal }
+
+    /** Our hand is up. */
+    val handRaised: Boolean get() = local?.participant?.handRaisedAt != null
     val remote: List<CallTile> get() = tiles.filterNot { it.participant.isLocal }
 
     /** Anyone's camera is on: the video layouts take over from the avatar ones. */
@@ -99,10 +103,13 @@ class CallViewModel
                     base.copy(
                         phase = live.phase,
                         tiles =
-                            live.participants.map { p ->
-                                val (name, avatar) = known[p.userId] ?: (p.userId to null)
-                                CallTile(p, name, avatar)
-                            },
+                            live.participants
+                                .map { p ->
+                                    val (name, avatar) = known[p.userId] ?: (p.userId to null)
+                                    CallTile(p, name, avatar)
+                                }
+                                // Raised hands first, longest-waiting first; everyone else as they joined.
+                                .sortedBy { it.participant.handRaisedAt ?: Long.MAX_VALUE },
                         microphoneOn = live.microphoneOn,
                         cameraOn = live.cameraOn,
                         connectedAt = live.connectedAt,
@@ -158,6 +165,10 @@ class CallViewModel
         fun hangUp() = manager.hangUp()
 
         fun selectRoute(route: AudioRoute) = audio.select(route)
+
+        fun raiseHand(up: Boolean) = session.value?.raiseHand(up)
+
+        fun react(reaction: CallReaction) = session.value?.react(reaction)
 
         private companion object {
             const val STOP_MS = 5_000L
