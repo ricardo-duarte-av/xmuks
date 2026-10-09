@@ -90,6 +90,7 @@ dependencies {
     implementation(projects.feature.settings)
     implementation(projects.feature.share)
     implementation(projects.feature.call)
+    implementation(projects.core.call)
     implementation(projects.core.push)
 
     implementation(libs.androidx.core.ktx)

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channel_calls_ongoing">Ongoing calls</string>
+    <string name="channel_calls_ongoing_description">The call you\'re in, while you use other apps</string>
+    <string name="call_ongoing">Ongoing call</string>
+    <string name="call_connecting_notification">Connecting…</string>
+    <string name="call_mute_action">Mute</string>
+    <string name="call_unmute_action">Unmute</string>
+</resources>

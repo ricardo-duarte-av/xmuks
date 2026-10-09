@@ -28,6 +28,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
@@ -58,6 +60,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import pt.aguiarvieira.xmuks.core.call.CallPhase
+import pt.aguiarvieira.xmuks.core.call.system.AudioRoute
+import pt.aguiarvieira.xmuks.core.call.system.RouteKind
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 
 /**
@@ -113,6 +117,7 @@ fun CallRoute(
         onCamera = viewModel::setCamera,
         onFlipCamera = viewModel::flipCamera,
         onHangUp = viewModel::hangUp,
+        onRoute = viewModel::selectRoute,
         modifier = modifier,
     )
 }
@@ -126,6 +131,7 @@ fun CallScreen(
     onFlipCamera: () -> Unit,
     onHangUp: () -> Unit,
     modifier: Modifier = Modifier,
+    onRoute: (AudioRoute) -> Unit = {},
 ) {
     Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
         Box(Modifier.fillMaxSize()) {
@@ -137,7 +143,15 @@ fun CallScreen(
                 }
             }
             CallTopBar(ui, onMinimise, Modifier.align(Alignment.TopCenter))
-            CallControls(ui, onMicrophone, onCamera, onFlipCamera, onHangUp, Modifier.align(Alignment.BottomCenter))
+            CallControls(
+                ui,
+                onMicrophone,
+                onCamera,
+                onFlipCamera,
+                onHangUp,
+                onRoute,
+                Modifier.align(Alignment.BottomCenter)
+            )
         }
     }
 }
@@ -370,6 +384,7 @@ private fun CallControls(
     onCamera: (Boolean) -> Unit,
     onFlipCamera: () -> Unit,
     onHangUp: () -> Unit,
+    onRoute: (AudioRoute) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -400,6 +415,7 @@ private fun CallControls(
                     ),
             )
         }
+        if (ui.routes.size > 1) RouteButton(ui, onRoute)
         if (ui.cameraOn) {
             FilledTonalIconToggleButton(
                 checked = false,
@@ -425,6 +441,56 @@ private fun CallControls(
         }
     }
 }
+
+/**
+ * Where the call's audio goes. Two choices (earpiece and speaker) swap with a tap; with a headset or
+ * a car in the mix, a menu lists them all.
+ */
+@Composable
+private fun RouteButton(
+    ui: CallUi,
+    onRoute: (AudioRoute) -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        FilledTonalIconToggleButton(
+            checked = ui.route?.kind == RouteKind.Speaker,
+            onCheckedChange = {
+                if (ui.routes.size == 2) {
+                    ui.routes.firstOrNull { it != ui.route }?.let(onRoute)
+                } else {
+                    menu = true
+                }
+            },
+            modifier = Modifier.size(56.dp),
+        ) {
+            Icon(
+                painterResource(routeIcon(ui.route?.kind)),
+                contentDescription = stringResource(R.string.call_audio_route)
+            )
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            ui.routes.forEach { route ->
+                DropdownMenuItem(
+                    text = { Text(route.name) },
+                    leadingIcon = { Icon(painterResource(routeIcon(route.kind)), null) },
+                    onClick = {
+                        menu = false
+                        onRoute(route)
+                    },
+                )
+            }
+        }
+    }
+}
+
+private fun routeIcon(kind: RouteKind?) =
+    when (kind) {
+        RouteKind.Speaker -> R.drawable.ic_speaker
+        RouteKind.Bluetooth -> R.drawable.ic_bluetooth
+        RouteKind.WiredHeadset -> R.drawable.ic_headset
+        else -> R.drawable.ic_call
+    }
 
 private val TOP_BAR_HEIGHT = 64.dp
 private val CONTROLS_HEIGHT = 96.dp

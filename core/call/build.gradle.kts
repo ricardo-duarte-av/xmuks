@@ -14,6 +14,8 @@ android {
 // service registered with Telecom.
 dependencies {
     api(projects.core.data)
+    implementation(projects.core.notify)
+    implementation(libs.androidx.core.ktx)
     api(libs.livekit.android)
     implementation(libs.androidx.core.telecom)
     implementation(libs.kotlinx.coroutines.android)

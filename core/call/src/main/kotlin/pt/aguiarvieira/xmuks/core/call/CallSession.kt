@@ -107,6 +107,8 @@ class CallSession internal constructor(
     private val context: Context,
     private val roomCalls: RoomCalls,
     private val formatPreference: FormatPreference,
+    /** Telecom owns the audio (mode and route): LiveKit must leave it alone. */
+    private val systemAudio: Boolean,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -139,8 +141,13 @@ class CallSession internal constructor(
     private var hadOthers = false
     private var ended = false
 
+    /** We joined meaning a video call (camera on at join). */
+    @Volatile var startedWithVideo: Boolean = false
+        private set
+
     /** Joins the room's call (starting it if nobody's there), with camera on for [video]. */
     fun start(video: Boolean) {
+        startedWithVideo = video
         scope.launch {
             runCatching { join(video) }.onFailure { e ->
                 end(e.message ?: e.javaClass.simpleName)
@@ -157,12 +164,7 @@ class CallSession internal constructor(
 
         val present = lock.withLock { members.active(clock()) }.filterNot { it.isOwn() }
         val format = chooseFormat(present)
-        val transport =
-            api
-                .transports()
-                .getOrThrow()
-                .firstOrNull { it.type == RtcTypes.TRANSPORT_LIVEKIT || it.type == "m.livekit" }
-                ?: error("The homeserver offers no call service")
+        val transport = ownTransport()
         val memberId =
             when (format) {
                 MembershipFormat.Legacy -> CallMemberships.legacyIdentity(me.userId, me.deviceId)
@@ -174,23 +176,7 @@ class CallSession internal constructor(
                 MembershipFormat.Sticky -> CallMemberships.stickyIdentity(me.userId, me.deviceId, memberId)
             }
 
-        val access =
-            tokens
-                .access(
-                    transport,
-                    room.roomId,
-                    TokenSubject(me.userId, me.deviceId, memberId),
-                    legacy = format == MembershipFormat.Legacy,
-                ).getOrThrow()
-        val keyProvider = if (room.encrypted) MatrixKeyProvider() else null
-        val connection = SfuConnection(context, access, publishing = true, keys = keyProvider, audioHandler = null)
-        primary = connection
-        if (room.encrypted) startKeys(memberId)
-        connection.connect()
-        connectedAt = clock()
-        watchConnection(connection.room)
-        connection.room.localParticipant.setMicrophoneEnabled(mutableMicrophone.value)
-        if (video) setCamera(true)
+        connectMedia(transport, format, memberId, video)
 
         val manager =
             MembershipManager(
@@ -209,6 +195,47 @@ class CallSession internal constructor(
         mutablePhase.value = CallPhase.Connected
         membersChanged()
         scope.launch { tickParticipants() }
+    }
+
+    /** The SFU the homeserver offers us to publish on. */
+    private suspend fun ownTransport(): RtcTransport =
+        api
+            .transports()
+            .getOrThrow()
+            .firstOrNull { it.type == RtcTypes.TRANSPORT_LIVEKIT || it.type == "m.livekit" }
+            ?: error("The homeserver offers no call service")
+
+    /** Connects to our SFU, keys first in an encrypted room, and starts publishing. */
+    private suspend fun connectMedia(
+        transport: RtcTransport,
+        format: MembershipFormat,
+        memberId: String,
+        video: Boolean,
+    ) {
+        val access =
+            tokens
+                .access(
+                    transport,
+                    room.roomId,
+                    TokenSubject(me.userId, me.deviceId, memberId),
+                    legacy = format == MembershipFormat.Legacy,
+                ).getOrThrow()
+        val keyProvider = if (room.encrypted) MatrixKeyProvider() else null
+        val connection =
+            SfuConnection(
+                context,
+                access,
+                publishing = true,
+                keys = keyProvider,
+                audioHandler = if (systemAudio) NoAudioHandler() else null
+            )
+        primary = connection
+        if (room.encrypted) startKeys(memberId)
+        connection.connect()
+        connectedAt = clock()
+        watchConnection(connection.room)
+        connection.room.localParticipant.setMicrophoneEnabled(mutableMicrophone.value)
+        if (video) setCamera(true)
     }
 
     /** Follow the call: whatever its first member uses; a new call uses sticky events if the server can. */

@@ -171,6 +171,9 @@ fun XmuksNavHost(
     onLinkConsume: () -> Unit = {},
     share: ShareRequest? = null,
     onShareConsume: () -> Unit = {},
+    /** A room whose call screen to open (from the ongoing call's notification). */
+    openCall: String? = null,
+    onOpenCallConsume: () -> Unit = {},
     links: LinkViewModel = hiltViewModel(),
 ) {
     val backStack = rememberNavBackStack(HomeKey)
@@ -204,6 +207,13 @@ fun XmuksNavHost(
         if (link != null) {
             openLink(link)
             consumed()
+        }
+    }
+    val callConsumed by rememberUpdatedState(onOpenCallConsume)
+    LaunchedEffect(openCall) {
+        if (openCall != null) {
+            if ((backStack.lastOrNull() as? CallKey)?.roomId != openCall) backStack.add(CallKey(openCall))
+            callConsumed()
         }
     }
     val shareConsumed by rememberUpdatedState(onShareConsume)

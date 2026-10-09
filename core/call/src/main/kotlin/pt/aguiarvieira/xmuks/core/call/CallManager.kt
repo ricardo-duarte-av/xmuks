@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.call.media.SfuTokens
 import pt.aguiarvieira.xmuks.core.call.signalling.RtcApi
+import pt.aguiarvieira.xmuks.core.call.system.CallService
+import pt.aguiarvieira.xmuks.core.call.system.TelecomCall
 import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.connection.StreamFrames
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
@@ -22,8 +24,17 @@ class CallManager(
     private val frames: StreamFrames,
     private val database: XmuksDatabase,
     private val roomCalls: RoomCalls,
+    private val telecom: TelecomCall,
     private val scope: CoroutineScope,
 ) {
+    /** The current call's audio goes through Telecom (else LiveKit routes it itself). */
+    @Volatile var systemAudio: Boolean = false
+        private set
+
+    /** The current call was answered (an incoming ring), rather than started or joined by us. */
+    @Volatile var answering: Boolean = false
+        private set
+
     private val mutableActive = MutableStateFlow<CallSession?>(null)
 
     /** The call we're in (or joining, or just left — until it reports [CallPhase.Ended]). */
@@ -34,6 +45,7 @@ class CallManager(
         roomId: String,
         video: Boolean,
         format: FormatPreference = FormatPreference.Auto,
+        answer: Boolean = false,
     ) {
         val current = mutableActive.value
         if (current != null && current.room.roomId == roomId && current.phase.value !is CallPhase.Ended) return
@@ -51,6 +63,8 @@ class CallManager(
                     encrypted = entity.encrypted,
                     dmUserId = entity.dmUserId,
                 )
+            systemAudio = telecom.available()
+            answering = answer
             val session =
                 CallSession(
                     room,
@@ -60,10 +74,12 @@ class CallManager(
                     frames.frames,
                     context,
                     roomCalls,
-                    format
+                    format,
+                    systemAudio,
                 )
             mutableActive.value = session
             session.start(video)
+            CallService.start(context)
             // Forget the session once it has ended, unless another call replaced it meanwhile.
             session.phase.first { it is CallPhase.Ended }
             mutableActive.compareAndSet(session, null)

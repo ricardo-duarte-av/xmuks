@@ -14,6 +14,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableStateFlow
+import pt.aguiarvieira.xmuks.core.call.system.CallService
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 import pt.aguiarvieira.xmuks.feature.login.LoginRoute
@@ -27,6 +28,9 @@ class MainActivity : ComponentActivity() {
 
     /** A Matrix link we were opened with (another app, or one of our notifications), until handled. */
     private val link = MutableStateFlow<String?>(null)
+
+    /** A room whose call screen to show (the ongoing call's notification was tapped), until handled. */
+    private val call = MutableStateFlow<String?>(null)
 
     /** Something shared to us from another app, until handled. */
     private val share = MutableStateFlow<ShareRequest?>(null)
@@ -42,12 +46,15 @@ class MainActivity : ComponentActivity() {
                 AnimatedContent(targetState = loggedIn, label = "session") { signedIn ->
                     val pending by link.collectAsStateWithLifecycle()
                     val shared by share.collectAsStateWithLifecycle()
+                    val callRoom by call.collectAsStateWithLifecycle()
                     if (signedIn) {
                         XmuksNavHost(
                             link = pending,
                             onLinkConsume = { link.value = null },
                             share = shared,
                             onShareConsume = { share.value = null },
+                            openCall = callRoom,
+                            onOpenCallConsume = { call.value = null },
                         )
                     } else {
                         LoginRoute()
@@ -64,6 +71,10 @@ class MainActivity : ComponentActivity() {
 
     /** A Matrix link to open, or something shared to send. */
     private fun take(intent: Intent) {
+        intent.getStringExtra(CallService.EXTRA_OPEN_CALL)?.let {
+            call.value = it
+            return
+        }
         when (intent.action) {
             Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> share.value = shareOf(intent)
             else -> intent.data?.let { link.value = it.toString() }

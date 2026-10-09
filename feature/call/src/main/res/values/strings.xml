@@ -14,4 +14,5 @@
     <string name="call_camera_off">Turn camera off</string>
     <string name="call_flip_camera">Switch camera</string>
     <string name="call_hang_up">Hang up</string>
+    <string name="call_audio_route">Audio output</string>
 </resources>

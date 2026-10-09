@@ -21,6 +21,8 @@ import pt.aguiarvieira.xmuks.core.call.CallManager
 import pt.aguiarvieira.xmuks.core.call.CallParticipant
 import pt.aguiarvieira.xmuks.core.call.CallPhase
 import pt.aguiarvieira.xmuks.core.call.CallSession
+import pt.aguiarvieira.xmuks.core.call.system.AudioRoute
+import pt.aguiarvieira.xmuks.core.call.system.CallAudio
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.profile.RoomProfiles
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
@@ -44,6 +46,9 @@ data class CallUi(
     val microphoneOn: Boolean = true,
     val cameraOn: Boolean = false,
     val connectedAt: Long? = null,
+    /** Where audio can go (empty when the system isn't routing this call). */
+    val routes: List<AudioRoute> = emptyList(),
+    val route: AudioRoute? = null,
 ) {
     val local: CallTile? get() = tiles.firstOrNull { it.participant.isLocal }
     val remote: List<CallTile> get() = tiles.filterNot { it.participant.isLocal }
@@ -59,6 +64,7 @@ class CallViewModel
     constructor(
         @Assisted val roomId: String,
         private val manager: CallManager,
+        private val audio: CallAudio,
         private val profiles: RoomProfiles,
         private val media: MediaUrls,
         rooms: RoomListRepository,
@@ -79,7 +85,8 @@ class CallViewModel
                 rooms.room(roomId),
                 session.flatMapLatest { s -> s?.takeIf { it.room.roomId == roomId }?.let(::sessionUi) ?: flowOf(null) },
                 names,
-            ) { room, live, known ->
+                combine(audio.routes, audio.current) { routes, current -> routes to current },
+            ) { room, live, known, (routes, current) ->
                 val base =
                     CallUi(
                         roomName = room?.name.orEmpty(),
@@ -99,6 +106,8 @@ class CallViewModel
                         microphoneOn = live.microphoneOn,
                         cameraOn = live.cameraOn,
                         connectedAt = live.connectedAt,
+                        routes = routes,
+                        route = current,
                     )
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_MS), CallUi())
@@ -144,6 +153,8 @@ class CallViewModel
         fun flipCamera() = session.value?.flipCamera()
 
         fun hangUp() = manager.hangUp()
+
+        fun selectRoute(route: AudioRoute) = audio.select(route)
 
         private companion object {
             const val STOP_MS = 5_000L

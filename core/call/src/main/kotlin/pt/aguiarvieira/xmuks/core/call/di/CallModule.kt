@@ -12,6 +12,8 @@ import okhttp3.OkHttpClient
 import pt.aguiarvieira.xmuks.core.call.CallManager
 import pt.aguiarvieira.xmuks.core.call.media.SfuTokens
 import pt.aguiarvieira.xmuks.core.call.signalling.RtcApi
+import pt.aguiarvieira.xmuks.core.call.system.CallAudio
+import pt.aguiarvieira.xmuks.core.call.system.TelecomCall
 import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.connection.StreamFrames
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
@@ -40,6 +42,16 @@ object CallModule {
         frames: StreamFrames,
         database: XmuksDatabase,
         roomCalls: RoomCalls,
+        telecom: TelecomCall,
         scope: CoroutineScope,
-    ) = CallManager(context, api, tokens, frames, database, roomCalls, scope)
+    ) = CallManager(context, api, tokens, frames, database, roomCalls, telecom, scope)
+
+    @Provides @Singleton
+    fun callAudio() = CallAudio()
+
+    @Provides @Singleton
+    fun telecomCall(
+        @ApplicationContext context: Context,
+        audio: CallAudio,
+    ) = TelecomCall(context, audio)
 }
