@@ -84,6 +84,7 @@ internal fun RoomOverlays(
     state: OverlayState,
     composer: ComposerActions,
     resolver: MediaResolver,
+    actions: TimelineActions,
     onSaveMedia: (Media) -> Unit = {},
     onOpenThread: ((String) -> Unit)? = null,
     pins: PinsUi = PinsUi(),
@@ -128,7 +129,8 @@ internal fun RoomOverlays(
             onDismiss = { state.deleting = null },
         )
     }
-    composer.history?.let { MessageHistorySheet(it, resolver, composer.onHideHistory) }
+    composer.history?.let { MessageHistorySheet(it, resolver, actions, composer.onHideHistory) }
+    composer.reactions?.let { ReactionsSheet(it, resolver, actions.openUser, composer.onHideReactions) }
     ComposerOverlays(state, composer, resolver)
     state.unsent?.let { message ->
         val id = message.localId ?: return@let
@@ -399,6 +401,10 @@ private fun MessageMenuFor(
         },
         onHistory = {
             composer.onShowHistory(message)
+            state.menuFor = null
+        },
+        onReactions = {
+            composer.onShowReactions(message.eventId, null)
             state.menuFor = null
         },
         onDelete = {

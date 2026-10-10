@@ -20,14 +20,34 @@ internal class HistoryLoader(
         val deleted = message.content == MessageContent.Redacted
         _shown.value = HistoryView(deleted, versions = null)
         scope.launch {
-            val versions =
-                if (deleted) {
-                    listOfNotNull(session.deletedContent(message.eventId))
-                } else {
-                    session.editHistory(message.eventId).orEmpty()
-                }
+            val versions = session.history.versions(message.eventId, deleted).orEmpty()
             // Still wanted (not dismissed while loading)?
             if (_shown.value != null) _shown.value = HistoryView(deleted, versions)
+        }
+    }
+
+    fun hide() {
+        _shown.value = null
+    }
+}
+
+/** Loads who reacted to a message with what, for the reactions sheet. */
+class ReactionsLoader internal constructor(
+    private val scope: CoroutineScope,
+    private val session: RoomSession,
+) {
+    private val _shown = MutableStateFlow<ReactionsView?>(null)
+    val shown: StateFlow<ReactionsView?> = _shown
+
+    /** Opens on [eventId]'s reactions, [first] (the one held, if any) at the top. */
+    fun show(
+        eventId: String,
+        first: String?,
+    ) {
+        _shown.value = ReactionsView(eventId, first, groups = null)
+        scope.launch {
+            val groups = session.reactions(eventId).orEmpty()
+            if (_shown.value?.eventId == eventId) _shown.value = ReactionsView(eventId, first, groups)
         }
     }
 

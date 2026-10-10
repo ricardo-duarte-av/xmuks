@@ -130,6 +130,7 @@ fun RoomRoute(
     val context by viewModel.context.collectAsStateWithLifecycle()
     val mode by viewModel.modes.current.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
+    val reactions by viewModel.reactions.shown.collectAsStateWithLifecycle()
     val commands by viewModel.commands.collectAsStateWithLifecycle()
     val packs by viewModel.emoji.packs.collectAsStateWithLifecycle()
     val recent by viewModel.emoji.recent.collectAsStateWithLifecycle()
@@ -216,6 +217,9 @@ fun RoomRoute(
                     history = history,
                     onShowHistory = viewModel::showHistory,
                     onHideHistory = viewModel::hideHistory,
+                    reactions = reactions,
+                    onShowReactions = viewModel.reactions::show,
+                    onHideReactions = viewModel.reactions::hide,
                     onDelete = viewModel::delete,
                     commands = commands,
                     emoji =
@@ -277,6 +281,10 @@ class ComposerActions(
     val history: HistoryView? = null,
     val onShowHistory: (TimelineItem.Message) -> Unit = {},
     val onHideHistory: () -> Unit = {},
+    /** Who reacted to a message with what, being shown. */
+    val reactions: ReactionsView? = null,
+    val onShowReactions: (eventId: String, key: String?) -> Unit = { _, _ -> },
+    val onHideReactions: () -> Unit = {},
     val onDelete: (TimelineItem.Message) -> Unit = {},
     val commands: List<BotCommand> = emptyList(),
     val emoji: EmojiState = EmojiState(),
@@ -398,6 +406,7 @@ fun RoomScreen(
                 onUnsent = { overlays.unsent = it },
                 onMessageMenu = { overlays.menuFor = it },
                 onReaction = composer.emoji.onToggle,
+                showReactions = composer.onShowReactions,
                 onVote = composer.polls.onVote,
                 jumpTo = { eventId ->
                     val index = shown?.indexOfEvent(eventId) ?: -1
@@ -425,7 +434,7 @@ fun RoomScreen(
         if (context != null) onLeaveContext()
         overlays.pinsShown = true
     }
-    RoomOverlays(overlays, composer, resolver, onSaveMedia, onOpenThread, pins)
+    RoomOverlays(overlays, composer, resolver, actions, onSaveMedia, onOpenThread, pins)
     if (overlays.pinsShown) {
         PinnedSheet(pins, resolver, onShow = { eventId ->
             overlays.pinsShown = false

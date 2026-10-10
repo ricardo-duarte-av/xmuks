@@ -69,6 +69,13 @@
     <string name="subscribe_pack">Subscribe</string>
     <string name="unsubscribe_pack">Unsubscribe</string>
     <string name="add_reaction">Add reaction</string>
+    <string name="view_reactions">View reactions</string>
+    <string name="reactions_title">Reactions</string>
+    <string name="reactions_unavailable">Who reacted isn\'t available.</string>
+    <plurals name="reactions_count">
+        <item quantity="one">%1$d person</item>
+        <item quantity="other">%1$d people</item>
+    </plurals>
     <string name="emoji">Emoji</string>
     <string name="sticker_button">Stickers</string>
     <string name="react_with">React with “%1$s”</string>

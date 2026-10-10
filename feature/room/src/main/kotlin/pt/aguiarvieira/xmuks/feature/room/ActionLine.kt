@@ -61,6 +61,8 @@ private fun ActionLine(
     footer: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     onReaction: ((String) -> Unit)? = null,
+    /** The event the reactions are on: holding one shows who reacted. */
+    eventId: String? = null,
     text: @Composable (LastLine) -> Unit,
 ) {
     Column(
@@ -102,7 +104,8 @@ private fun ActionLine(
                 reactions,
                 resolver,
                 Modifier.padding(start = AVATAR + GAP, top = 4.dp),
-                onReaction
+                onReaction,
+                onHold = eventId?.let { id -> { key -> actions.showReactions(id, key) } },
             )
         }
     }
@@ -134,6 +137,7 @@ internal fun EmoteRow(
         highlighted = highlighted,
         footer = { Footer(message, MaterialTheme.colorScheme.onSurfaceVariant) },
         onReaction = { actions.onReaction(message, it) },
+        eventId = message.eventId,
         modifier =
             modifier.combinedClickable(
                 interactionSource = null,
@@ -190,6 +194,7 @@ internal fun StateChangeRow(
         highlighted = highlighted,
         footer = { Text(time, color = muted, style = MaterialTheme.typography.labelSmall) },
         modifier = modifier,
+        eventId = item.eventId,
     ) { lastLine ->
         val template = changeTemplate(item.change, item.actor)
         val actorColor = senderColor(item.actor)

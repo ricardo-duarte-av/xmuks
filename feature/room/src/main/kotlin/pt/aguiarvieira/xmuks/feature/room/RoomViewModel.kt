@@ -314,6 +314,9 @@ class RoomViewModel
 
         fun hideHistory() = historyLoader.hide()
 
+        /** Who reacted to a message with what, being shown. */
+        val reactions = ReactionsLoader(viewModelScope, session)
+
         fun delete(message: TimelineItem.Message) {
             viewModelScope.launch { session.writer.redact(message.eventId) }
         }

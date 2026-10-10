@@ -117,9 +117,13 @@ fun MessageRow(
             ThreadDecorations(message, actions) { BubbleRow(message, resolver, actions, open) }
         }
         if (message.reactions.isNotEmpty()) {
-            Reactions(message.reactions, resolver, Modifier.maxWidthFraction(BUBBLE_FRACTION).padding(top = 4.dp)) {
-                actions.onReaction(message, it)
-            }
+            Reactions(
+                message.reactions,
+                resolver,
+                Modifier.maxWidthFraction(BUBBLE_FRACTION).padding(top = 4.dp),
+                onToggle = { actions.onReaction(message, it) },
+                onHold = { actions.showReactions(message.eventId, it) },
+            )
         }
     }
 }

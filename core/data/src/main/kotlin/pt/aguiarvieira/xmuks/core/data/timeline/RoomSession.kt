@@ -130,31 +130,33 @@ class RoomSession(
             preferences.map { it.get(Prefs.showRoomEmojiPacks) }.distinctUntilChanged()
         )
 
+    /** A message's versions, or a deleted one's content, as the timeline would show them. */
+    val history =
+        MessageHistory(roomId, ::getEvent, ::relatedEvents, snapshot) { itemsOf(flowOf(it)).first() }
+
     /**
-     * Every version of [eventId], oldest first: the original, then each edit gomuks has
-     * (`get_related_events`, m.replace). Null when gomuks can't answer.
+     * Who reacted to [eventId] with what (gomuks' m.annotation relations), by reaction. Names are
+     * this room's; anyone not known yet is looked up first. Null when gomuks can't answer.
      */
-    suspend fun editHistory(eventId: String): List<MessageVersion>? {
-        val original = getEvent(eventId, unredact = false) ?: return null
+    suspend fun reactions(eventId: String): List<ReactionGroup>? {
+        val events = relatedEvents(eventId, "m.annotation") ?: return null
+        val unknown = events.map { it.sender }.toSet() - profiles.value.keys
+        if (unknown.isNotEmpty()) fetchMembers(unknown)
+        return reactionGroups(events, profiles.value)
+    }
+
+    private suspend fun relatedEvents(
+        eventId: String,
+        relationType: String,
+    ): List<Event>? {
         val params =
             buildJsonObject {
                 put("room_id", JsonPrimitive(roomId))
                 put("event_id", JsonPrimitive(eventId))
-                put("relation_type", JsonPrimitive("m.replace"))
+                put("relation_type", JsonPrimitive(relationType))
             }
         val result = exec.exec("get_related_events", params, ExecMode.Read) as? ExecResult.Ok ?: return null
-        // Only edits by the original's sender count (anyone can send an m.replace; it's ignored).
-        val edits = decodeEvents(result).orEmpty().filter { it.sender == original.sender }.sortedBy { it.timestamp }
-        return listOf(original.toVersion(edit = false)) + edits.map { it.toVersion(edit = true) }
-    }
-
-    /**
-     * What a deleted message said: gomuks asks the homeserver for the unredacted event (allowed for
-     * room moderators). Null when it isn't available.
-     */
-    suspend fun deletedContent(eventId: String): MessageVersion? {
-        val event = getEvent(eventId, unredact = true) ?: return null
-        return event.toVersion(edit = false).takeIf { !it.body.isNullOrBlank() || it.html != null }
+        return decodeEvents(result)
     }
 
     private suspend fun getEvent(
@@ -347,23 +349,6 @@ class RoomSession(
         const val CONTEXT_LIMIT = 30
         val BUILT_IN_COMMANDS by lazy { BotCommand.builtIns() + BotCommand.textPrefixes }
     }
-}
-
-/** One version of a message: when it was written and what it said. */
-data class MessageVersion(
-    val timestamp: Long,
-    val body: String?,
-    val html: String?,
-    val edit: Boolean,
-)
-
-private fun Event.toVersion(edit: Boolean): MessageVersion {
-    val content = effectiveContent
-    // An edit's text is its m.new_content; its body carries the "* " fallback.
-    val shown = if (edit) (content["m.new_content"] as? JsonObject) ?: content else content
-    val body = (shown["body"] as? JsonPrimitive)?.contentOrNull
-    val html = localContent?.sanitizedHtml?.takeIf { it.isNotBlank() && localContent?.wasPlaintext != true }
-    return MessageVersion(timestamp, body, html, edit)
 }
 
 /** What a reply points at: the original's event ID and who wrote it (they get mentioned). */

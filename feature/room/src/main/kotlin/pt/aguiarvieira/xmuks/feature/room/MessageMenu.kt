@@ -47,6 +47,8 @@ internal fun MessageMenu(
     onHistory: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
+    /** Who reacted with what. */
+    onReactions: () -> Unit = {},
     quickReactions: List<String> = emptyList(),
     onReact: (String) -> Unit = {},
     onMoreReactions: () -> Unit = {},
@@ -63,7 +65,7 @@ internal fun MessageMenu(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
             if (sent) QuickReactions(quickReactions, onReact, onMoreReactions)
-            if (sent) SentItems(message, onReply, onEdit, onHistory)
+            if (sent) SentItems(message, onReply, onEdit, onHistory, onReactions)
             if (sent) ThreadAndPin(onThread, pinned, onPin)
             if (sent && onEndPoll != null) Item(R.drawable.ic_poll, R.string.poll_end, onEndPoll)
             if (onSave != null && message.uploadProgress == null) Item(R.drawable.ic_download, R.string.save, onSave)
@@ -97,18 +99,20 @@ private fun ThreadAndPin(
     }
 }
 
-/** What only a sent message offers: reply, edit (ours), its edits, what a deletion removed. */
+/** What only a sent message offers: reply, edit (ours), its edits, what a deletion removed, who reacted. */
 @Composable
 private fun SentItems(
     message: TimelineItem.Message,
     onReply: () -> Unit,
     onEdit: () -> Unit,
     onHistory: () -> Unit,
+    onReactions: () -> Unit,
 ) {
     Item(R.drawable.ic_reply, R.string.reply) { onReply() }
     if (message.editSource != null) Item(R.drawable.ic_edit, R.string.edit) { onEdit() }
     if (message.edited) Item(R.drawable.ic_history, R.string.view_edits) { onHistory() }
     if (message.content == MessageContent.Redacted) Item(R.drawable.ic_history, R.string.view_deleted) { onHistory() }
+    if (message.reactions.isNotEmpty()) Item(R.drawable.ic_add_reaction, R.string.view_reactions, onReactions)
 }
 
 @Composable

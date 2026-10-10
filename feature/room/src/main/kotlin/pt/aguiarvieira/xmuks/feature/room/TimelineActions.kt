@@ -64,6 +64,8 @@ class TimelineActions(
     val onMessageMenu: (TimelineItem.Message) -> Unit = {},
     /** Tapping a reaction under a message. */
     val onReaction: (TimelineItem.Message, String) -> Unit = { _, _ -> },
+    /** Who reacted to this event with what; [key] is the reaction held, if one was. */
+    val showReactions: (eventId: String, key: String?) -> Unit = { _, _ -> },
     /** Saving a message's file where the user picks. */
     val saveMedia: (Media) -> Unit = {},
     /** Opens a thread from its root; null inside a thread (nothing to open from there). */
