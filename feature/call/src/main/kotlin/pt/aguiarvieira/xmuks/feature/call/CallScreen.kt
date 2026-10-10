@@ -126,6 +126,7 @@ fun CallRoute(
     }
     BackHandler(onBack = onBack)
     if (ui.phase == CallPhase.Connected) FullScreenRingPrompt()
+    EarProximity(ui, onRoute = viewModel::selectRoute, onCamera = viewModel::setCamera)
     CallScreen(
         // Leaving after the call is forgotten: keep saying it ended, not "Connecting…", while the screen goes.
         ui = if (ui.phase == null && shown) ui.copy(phase = CallPhase.Ended()) else ui,
@@ -141,9 +142,11 @@ fun CallRoute(
     )
 }
 
-/** In the call, the screen stays on; it may sleep again once the call is over. */
-private fun Modifier.awakeDuring(phase: CallPhase?): Modifier =
-    if (phase != null && phase !is CallPhase.Ended) keepScreenOn() else this
+/** Joining, in or rejoining the call: not before it, nor once it's over. */
+internal val CallPhase?.live: Boolean get() = this != null && this !is CallPhase.Ended
+
+/** In the call, the screen stays on (but for [EarProximity]); it may sleep again once the call is over. */
+private fun Modifier.awakeDuring(phase: CallPhase?): Modifier = if (phase.live) keepScreenOn() else this
 
 @Composable
 fun CallScreen(
