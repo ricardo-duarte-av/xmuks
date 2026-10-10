@@ -4,6 +4,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import pt.aguiarvieira.xmuks.core.data.timeline.galleryPreview
 import pt.aguiarvieira.xmuks.core.data.timeline.str
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.protocol.Event
@@ -47,7 +48,10 @@ class FoundEvents(
                 sender = event.sender,
                 senderName = member?.str("displayname")?.takeIf { it.isNotBlank() } ?: localpart(event.sender),
                 senderAvatarMxc = member?.str("avatar_url"),
-                text = event.localContent?.previewText ?: event.effectiveContent.str("body").orEmpty(),
+                text =
+                    (event.localContent?.previewText ?: event.effectiveContent.str("body"))
+                        ?.takeIf { it.isNotBlank() }
+                        ?: galleryPreview(event.effectiveContent).orEmpty(),
                 timestamp = event.timestamp,
             )
         }

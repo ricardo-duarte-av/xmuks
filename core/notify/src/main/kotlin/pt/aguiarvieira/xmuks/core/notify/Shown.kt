@@ -43,7 +43,7 @@ internal fun shownOf(
     if (event.redactedBy != null || (event.type == "m.room.encrypted" && event.decrypted == null)) return fallback
     // Spoilers stay hidden, as gomuks' own preview hides them.
     if (content.text("formatted_body")?.contains("data-mx-spoiler") == true) return fallback
-    return byType(event, push, content, body, caption) ?: fallback
+    return gallery(content, body) ?: byType(event, push, content, body, caption) ?: fallback
 }
 
 /** What each kind of message shows; null for kinds with nothing better than the push's text. */
@@ -116,7 +116,7 @@ private fun pictured(
 ): Shown = if (spoiler(content)) Shown("$what · $SPOILER", null, caption) else Shown(what, picture, caption)
 
 /** Its sender marked it a spoiler (MSC4193, unstable key or stable). */
-private fun spoiler(content: JsonObject) =
+internal fun spoiler(content: JsonObject) =
     listOf("page.codeberg.everypizza.msc4193.spoiler", "m.spoiler").any {
         (content[it] as? JsonPrimitive)?.booleanOrNull == true
     }
@@ -184,11 +184,11 @@ private fun size(content: JsonObject): String? {
 }
 
 /** The media itself (a picture or sticker): its gomuks path, encrypted or not. */
-private fun media(content: JsonObject): String? =
+internal fun media(content: JsonObject): String? =
     path(content.text("url"), false) ?: path((content["file"] as? JsonObject)?.text("url"), true)
 
 /** A video's thumbnail, if its sender attached one. */
-private fun thumbnail(content: JsonObject): String? {
+internal fun thumbnail(content: JsonObject): String? {
     val info = content["info"] as? JsonObject ?: return null
     return path(info.text("thumbnail_url"), false) ?: path((info["thumbnail_file"] as? JsonObject)?.text("url"), true)
 }
@@ -202,7 +202,7 @@ private fun path(
     return "_gomuks/media/$server/$id?encrypted=$encrypted"
 }
 
-private fun JsonObject.text(key: String) = (get(key) as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
+internal fun JsonObject.text(key: String) = (get(key) as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
 private const val MS = 1000
 private const val SECONDS = 60

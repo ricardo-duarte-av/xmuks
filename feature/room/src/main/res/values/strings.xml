@@ -132,6 +132,7 @@
     <string name="summary_image">Image</string>
     <string name="summary_video">Video</string>
     <string name="summary_audio">Audio</string>
+    <string name="summary_gallery">Gallery (%1$d)</string>
     <string name="pin">Pin</string>
     <string name="unpin">Unpin</string>
     <string name="pinned_messages">Pinned messages</string>

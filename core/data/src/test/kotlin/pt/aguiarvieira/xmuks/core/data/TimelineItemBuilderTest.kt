@@ -201,6 +201,29 @@ class TimelineItemBuilderTest {
     }
 
     @Test
+    fun `galleries, stable and unstable, keep their items in order and their caption`() {
+        val items =
+            """[{"itemtype":"m.image","body":"a.jpg","url":"mxc://x/a","info":{"w":1500,"h":2000,"thumbnail_url":"mxc://x/at"}},
+            {"itemtype":"m.video","body":"b.mp4","file":{"url":"mxc://x/b"}},
+            {"itemtype":"m.unknown","body":"?"},
+            {"itemtype":"m.file","body":"c.pdf","url":"mxc://x/c"}]"""
+        val unstable = ev(content = """{"msgtype":"dm.filament.gallery","body":"","itemtypes":$items}""")
+        val stable = ev(content = """{"msgtype":"m.gallery","body":"holiday","itemtypes":$items}""")
+        val empty = ev(content = """{"msgtype":"m.gallery","body":"","itemtypes":[]}""")
+        val reply = ev(content = """{"msgtype":"m.text","body":"nice","m.relates_to":{"m.in_reply_to":{"event_id":"${unstable.eventId}"}}}""")
+        val msgs = build(unstable, stable, empty, reply).messages()
+        val gallery = msgs[0].content as MessageContent.Gallery
+        assertEquals(3, gallery.items.size)
+        assertEquals("mxc://x/at", (gallery.items[0] as MessageContent.Image).media.thumbnailMxc)
+        assertTrue((gallery.items[1] as MessageContent.Video).media.encrypted)
+        assertEquals("c.pdf", (gallery.items[2] as MessageContent.File).name)
+        assertNull(gallery.caption)
+        assertEquals("holiday", (msgs[1].content as MessageContent.Gallery).caption)
+        assertTrue(msgs[2].content is MessageContent.Unsupported)
+        assertEquals("🖼️ 3 items", msgs[3].reply?.text)
+    }
+
+    @Test
     fun `membership changes`() {
         val items =
             build(

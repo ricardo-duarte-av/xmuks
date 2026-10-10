@@ -241,7 +241,7 @@ private fun GalleryGrid(
                     columns = (columns + if (fewer) -1 else 1).coerceIn(MIN_COLUMNS, MAX_COLUMNS)
                 },
     ) {
-        items(shown, key = { it.eventId }) { item -> GalleryTile(item, resolver) { onOpen(item) } }
+        items(shown, key = { it.key }) { item -> GalleryTile(item, resolver) { onOpen(item) } }
         if (state.loading) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {

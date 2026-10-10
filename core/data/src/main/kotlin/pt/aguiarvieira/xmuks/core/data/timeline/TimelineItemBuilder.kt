@@ -6,6 +6,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 import pt.aguiarvieira.xmuks.core.protocol.Event
+import pt.aguiarvieira.xmuks.core.protocol.Galleries
 import pt.aguiarvieira.xmuks.core.protocol.Receipt
 import pt.aguiarvieira.xmuks.core.protocol.rtc.RtcTypes
 import java.time.Instant
@@ -221,7 +222,10 @@ class TimelineItemBuilder(
         val originalProfile =
             original.effectiveContent.obj(PER_MESSAGE_PROFILE)
                 ?: original.effectiveContent.obj(PER_MESSAGE_PROFILE_STABLE)
-        val text = original.localContent?.previewText ?: original.effectiveContent.str("body")
+        val text =
+            (original.localContent?.previewText ?: original.effectiveContent.str("body"))
+                ?.takeIf { it.isNotBlank() }
+                ?: galleryPreview(original.effectiveContent)
         val html = htmlOf(original.localContent?.sanitizedHtml, original.effectiveContent)
         return ReplyPreview(
             eventId = eventId,
@@ -280,6 +284,10 @@ class TimelineItemBuilder(
 
             "m.image", "m.video", "m.audio", "m.file" -> {
                 mediaMessage(msgtype, content, body)
+            }
+
+            in Galleries.msgtypes -> {
+                galleryMessage(content, body, html)
             }
 
             "m.location" -> {

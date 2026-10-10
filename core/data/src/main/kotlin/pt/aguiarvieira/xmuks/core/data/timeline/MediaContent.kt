@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
+import pt.aguiarvieira.xmuks.core.protocol.Galleries
 
 internal fun mediaMessage(
     msgtype: String,
@@ -18,6 +19,30 @@ internal fun mediaMessage(
         else -> MessageContent.File(media, content.str("filename") ?: body)
     }
 }
+
+/** An MSC4274 gallery; null when none of its items can be shown (then it's unsupported). */
+internal fun galleryMessage(
+    content: JsonObject,
+    body: String,
+    html: String?,
+): MessageContent.Gallery? {
+    val items =
+        Galleries.items(content).mapNotNull { item ->
+            mediaMessage(item.str("msgtype").orEmpty(), item, item.str("body").orEmpty())
+        }
+    if (items.isEmpty()) return null
+    val caption = body.takeIf { it.isNotBlank() }
+    // gomuks' HTML for a plain caption is only linkified text: the caption reads as well without it.
+    return MessageContent.Gallery(
+        items,
+        caption,
+        html.takeIf { caption != null && content.str("formatted_body") != null }
+    )
+}
+
+/** A gallery's one-line preview ("🖼️ 6 photos"); null when [content] isn't a gallery. */
+internal fun galleryPreview(content: JsonObject): String? =
+    if (content.str("msgtype") in Galleries.msgtypes) Galleries.summary(content) else null
 
 /** Unencrypted media has `url`; encrypted media has `file.url` (gomuks decrypts on download). */
 internal fun media(content: JsonObject): Media? {

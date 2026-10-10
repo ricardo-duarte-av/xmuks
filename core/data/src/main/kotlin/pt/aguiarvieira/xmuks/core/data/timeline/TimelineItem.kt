@@ -194,6 +194,14 @@ sealed interface MessageContent {
         val body: String,
     ) : MessageContent
 
+    /** An MSC4274 gallery: its [items] ([Image], [Video], [Audio] or [File]) in order, and its caption. */
+    data class Gallery(
+        val items: List<MessageContent>,
+        val caption: String?,
+        /** The caption's sanitised HTML, null for plain text. */
+        val html: String?,
+    ) : MessageContent
+
     data class Location(
         val body: String,
         val geoUri: String?,

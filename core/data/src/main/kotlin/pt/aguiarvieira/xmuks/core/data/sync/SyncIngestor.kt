@@ -10,6 +10,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import pt.aguiarvieira.xmuks.core.account.AccountScoped
+import pt.aguiarvieira.xmuks.core.data.timeline.galleryPreview
 import pt.aguiarvieira.xmuks.core.database.AccountDataEntity
 import pt.aguiarvieira.xmuks.core.database.CallMemberEntity
 import pt.aguiarvieira.xmuks.core.database.EventEntity
@@ -374,7 +375,7 @@ private fun Event.toEntity() =
         timestamp = timestamp,
         content = effectiveContent.toString(),
         unsigned = unsigned?.toString(),
-        previewText = localContent?.previewText,
+        previewText = localContent?.previewText?.takeIf { it.isNotBlank() } ?: galleryPreview(effectiveContent),
         sanitizedHtml = localContent?.sanitizedHtml,
         relatesTo = relatesTo,
         relationType = relationType,

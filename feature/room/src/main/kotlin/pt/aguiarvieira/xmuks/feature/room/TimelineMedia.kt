@@ -15,6 +15,8 @@ internal fun viewerMedia(
     media: Media,
     kind: ViewerMedia.Kind,
     resolver: MediaResolver,
+    /** The shared-element key's ID: the event's, or one gallery item's (see [galleryKey]). */
+    key: String = message.eventId,
 ) = ViewerMedia(
     kind = kind,
     url = resolver.media(media.mxc, media.encrypted).orEmpty(),
@@ -24,7 +26,7 @@ internal fun viewerMedia(
     height = media.height,
     title = message.senderName,
     subtitle = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(message.timestamp)),
-    sharedKey = SharedKeys.media(message.eventId),
+    sharedKey = SharedKeys.media(key),
 )
 
 /**

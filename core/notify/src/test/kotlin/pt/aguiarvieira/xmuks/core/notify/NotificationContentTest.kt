@@ -52,4 +52,17 @@ class NotificationContentTest {
         val push = PushMessage(0, "\$e", "!r:s", "Room", sender = user, self = user, text = "see [the docs](https://the-url.com)")
         assertEquals("see the docs", shownOf(push).text.toString())
     }
+
+    @Test
+    fun galleryShowsItsCountFirstPictureAndCaption() {
+        val content =
+            pt.aguiarvieira.xmuks.core.protocol.GomuksJson.parseToJsonElement(
+                """{"msgtype":"dm.filament.gallery","body":"trip","itemtypes":[
+                {"itemtype":"m.image","body":"a.jpg","url":"mxc://s/a"},{"itemtype":"m.image","body":"b.jpg","url":"mxc://s/b"}]}""",
+            ) as kotlinx.serialization.json.JsonObject
+        val shown = gallery(content, "trip")!!
+        assertEquals("🖼️ 2 photos", shown.text)
+        assertEquals("_gomuks/media/s/a?encrypted=false", shown.picture)
+        assertEquals("trip", shown.caption)
+    }
 }

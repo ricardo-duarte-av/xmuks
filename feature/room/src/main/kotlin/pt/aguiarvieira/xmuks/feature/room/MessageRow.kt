@@ -275,6 +275,10 @@ private fun Content(
             PlayableAudio(message, c, color, resolver, actions)
         }
 
+        is MessageContent.Gallery -> {
+            GalleryContent(message, c, resolver, color, actions, lastLine)
+        }
+
         is MessageContent.File, is MessageContent.Location, is MessageContent.Poll -> {
             CardContent(message, c, color, actions)
         }

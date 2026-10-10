@@ -8,12 +8,15 @@ import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
 import pt.aguiarvieira.xmuks.core.protocol.Event
+import pt.aguiarvieira.xmuks.core.protocol.Galleries
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 import pt.aguiarvieira.xmuks.core.protocol.PaginationResponse
 
 /** One piece of a room's media: an image, video, audio or file message, who sent it and when. */
 data class GalleryItem(
     val eventId: String,
+    /** Unique per item: the event ID, plus the position for one of an MSC4274 gallery's items. */
+    val key: String,
     val senderName: String,
     val timestamp: Long,
     /** [MessageContent.Image], [MessageContent.Video], [MessageContent.Audio] or [MessageContent.File]. */
@@ -56,23 +59,30 @@ class RoomGallery(
                 items =
                     page.events
                         .sortedByDescending { it.timestamp }
-                        .mapNotNull { event -> itemOf(event, names) },
+                        .flatMap { event -> itemsOf(event, names) },
                 before = oldest?.takeIf { page.hasMore && page.events.isNotEmpty() },
             )
         }
     }
 
-    private fun itemOf(
+    /** A media message's file, or each of a gallery's (MSC4274); none for anything else. */
+    private fun itemsOf(
         event: Event,
         names: Map<String, String>,
-    ): GalleryItem? {
-        if (event.redactedBy != null || event.relationType == "m.replace") return null
-        if (event.effectiveType != "m.room.message") return null
+    ): List<GalleryItem> {
+        if (event.redactedBy != null || event.relationType == "m.replace") return emptyList()
+        if (event.effectiveType != "m.room.message") return emptyList()
         val content = event.effectiveContent
-        val msgtype = content.str("msgtype") ?: return null
-        if (msgtype !in MEDIA) return null
-        val media = mediaMessage(msgtype, content, content.str("body").orEmpty()) ?: return null
-        return GalleryItem(event.eventId, names[event.sender] ?: localpart(event.sender), event.timestamp, media)
+        val msgtype = content.str("msgtype") ?: return emptyList()
+        val sender = names[event.sender] ?: localpart(event.sender)
+        if (msgtype in Galleries.msgtypes) {
+            return galleryMessage(content, "", null)?.items.orEmpty().mapIndexed { i, media ->
+                GalleryItem(event.eventId, "${event.eventId}#$i", sender, event.timestamp, media)
+            }
+        }
+        if (msgtype !in MEDIA) return emptyList()
+        val media = mediaMessage(msgtype, content, content.str("body").orEmpty()) ?: return emptyList()
+        return listOf(GalleryItem(event.eventId, event.eventId, sender, event.timestamp, media))
     }
 
     /** Senders' names in the room, from the member events we hold. */
