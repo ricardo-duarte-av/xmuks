@@ -343,7 +343,7 @@ class CallSession internal constructor(
                             key: ByteArray,
                         ) {
                             val identity = ownIdentity ?: return
-                            primary?.keys?.setRawKey(identity, index, key)
+                            primary?.setOwnKey(identity, index, key)
                         }
 
                         override fun setRemoteKey(
