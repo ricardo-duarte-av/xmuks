@@ -161,7 +161,7 @@ class RoomScreenshotTest {
         timeline = TimelineState(items),
         context = null,
         typing = typing,
-        resolver = MediaResolver({ null }, { _, _ -> null }),
+        resolver = MediaResolver({ null }, { _, _, _ -> null }),
         onBack = {},
         onLoadOlder = {},
         onOpenMedia = {},

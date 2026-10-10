@@ -52,7 +52,7 @@ internal fun PlayableAudio(
         color,
         mine,
         Modifier.tapOrHold {
-            val url = resolver.media(audio.media.mxc, audio.media.encrypted)
+            val url = resolver.file(audio.media)
             if (player != null && url != null) player.toggle(message.eventId, url)
         },
     )

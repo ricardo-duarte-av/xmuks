@@ -1,6 +1,8 @@
 package pt.aguiarvieira.xmuks.core.data.media
 
 import okhttp3.HttpUrl
+import pt.aguiarvieira.xmuks.core.data.timeline.FileKeys
+import pt.aguiarvieira.xmuks.core.data.timeline.Media
 
 /**
  * Turns `mxc://server/id` into gomuks' `/_gomuks/media/{server}/{id}` URL. The request carries the
@@ -14,11 +16,27 @@ class MediaUrls(
 
     fun full(mxc: String?): String? = build(mxc) {}
 
-    /** Timeline media; gomuks decrypts `encrypted` files itself (it holds the keys from the event). */
+    /**
+     * Timeline media; gomuks decrypts `encrypted` files itself with the keys it kept from the event,
+     * or with [keys] when it kept none (it doesn't for MSC4274 gallery items).
+     */
     fun media(
         mxc: String?,
         encrypted: Boolean,
-    ): String? = build(mxc) { if (encrypted) addQueryParameter("encrypted", "true") }
+        keys: FileKeys? = null,
+    ): String? =
+        build(mxc) {
+            if (encrypted) addQueryParameter("encrypted", "true")
+            if (encrypted && keys != null) {
+                addQueryParameter("crypto_version", "v2")
+                addQueryParameter("crypto_key", keys.key)
+                addQueryParameter("crypto_iv", keys.iv)
+                addQueryParameter("crypto_hash", keys.sha256)
+            }
+        }
+
+    /** A message's file. */
+    fun file(media: Media): String? = media(media.mxc, media.encrypted, media.keys)
 
     private fun build(
         mxc: String?,

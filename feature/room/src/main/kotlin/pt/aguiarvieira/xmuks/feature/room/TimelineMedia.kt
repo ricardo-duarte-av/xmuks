@@ -19,7 +19,7 @@ internal fun viewerMedia(
     key: String = message.eventId,
 ) = ViewerMedia(
     kind = kind,
-    url = resolver.media(media.mxc, media.encrypted).orEmpty(),
+    url = resolver.file(media).orEmpty(),
     previewUrl = timelineSource(media, kind, resolver),
     blurhash = media.blurhash,
     width = media.width,
@@ -41,8 +41,8 @@ internal fun timelineSource(
     resolver: MediaResolver,
     animate: Boolean = false,
 ): String? {
-    val original = resolver.media(media.mxc, media.encrypted)
+    val original = resolver.file(media)
     if (media.animated && animate) return original
-    return media.thumbnailMxc?.let { resolver.media(it, media.thumbnailEncrypted) }
+    return resolver.thumbnail(media)
         ?: original.takeIf { kind == ViewerMedia.Kind.Image && !media.animated }
 }

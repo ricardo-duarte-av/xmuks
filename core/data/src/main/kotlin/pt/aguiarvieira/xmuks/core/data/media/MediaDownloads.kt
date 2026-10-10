@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import java.io.IOException
 
 /** How a download ended, for the screen to say. */
@@ -42,15 +43,17 @@ class MediaDownloads(
     private val _results = MutableSharedFlow<DownloadResult>(extraBufferCapacity = RESULTS)
     val results: SharedFlow<DownloadResult> = _results.asSharedFlow()
 
+    /** Where [media] downloads from: what [save] takes. */
+    fun urlOf(media: Media): String? = urls.file(media)
+
     fun save(
-        mxc: String,
-        encrypted: Boolean,
+        url: String,
         name: String,
         target: Uri,
     ) {
         scope.launch {
             val result =
-                runCatching { download(mxc, encrypted, target) }
+                runCatching { download(url, target) }
                     .fold(
                         onSuccess = { DownloadResult.Saved(name) },
                         onFailure = { DownloadResult.Failed(name, it.message ?: it.javaClass.simpleName) },
@@ -60,11 +63,9 @@ class MediaDownloads(
     }
 
     private suspend fun download(
-        mxc: String,
-        encrypted: Boolean,
+        url: String,
         target: Uri,
     ) = withContext(io) {
-        val url = urls.media(mxc, encrypted) ?: throw IOException("Not a media link")
         try {
             http.newCall(Request.Builder().url(url).build()).execute().use { response ->
                 if (!response.isSuccessful) throw IOException("HTTP ${response.code}")

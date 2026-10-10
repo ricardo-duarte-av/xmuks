@@ -130,7 +130,7 @@ private fun galleryViewer(
     resolver: MediaResolver,
 ) = ViewerMedia(
     kind = kind,
-    url = resolver.media(media.mxc, media.encrypted).orEmpty(),
+    url = resolver.file(media).orEmpty(),
     previewUrl = timelineSource(media, kind, resolver),
     blurhash = media.blurhash,
     width = media.width,

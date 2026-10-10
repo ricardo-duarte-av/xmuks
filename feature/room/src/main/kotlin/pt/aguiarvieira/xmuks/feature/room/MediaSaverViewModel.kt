@@ -37,13 +37,13 @@ internal fun rememberMediaSaver(viewModel: MediaSaverViewModel = hiltViewModel()
     val context = LocalContext.current
     val resources = LocalResources.current
     // What's being saved, while the "save as" screen is up (kept across its round trip).
-    var pending by rememberSaveable { mutableStateOf<Triple<String, Boolean, String>?>(null) }
+    var pending by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
     val create =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-            val (mxc, encrypted, name) = pending ?: return@rememberLauncherForActivityResult
+            val (url, name) = pending ?: return@rememberLauncherForActivityResult
             pending = null
             if (uri != null) {
-                viewModel.downloads.save(mxc, encrypted, name, uri)
+                viewModel.downloads.save(url, name, uri)
                 Toast.makeText(context, resources.getString(R.string.saving, name), Toast.LENGTH_SHORT).show()
             }
         }
@@ -60,8 +60,10 @@ internal fun rememberMediaSaver(viewModel: MediaSaverViewModel = hiltViewModel()
     return remember(create) {
         { media ->
             val name = fileName(media)
-            pending = Triple(media.mxc, media.encrypted, name)
-            create.launch(name)
+            viewModel.downloads.urlOf(media)?.let { url ->
+                pending = url to name
+                create.launch(name)
+            }
         }
     }
 }

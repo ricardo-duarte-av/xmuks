@@ -32,5 +32,18 @@ class MediaUrlsTest {
         )
 
     @Test
+    fun `encrypted files carry their keys when there are any`() {
+        val keys =
+            pt.aguiarvieira.xmuks.core.data.timeline
+                .FileKeys("k-_", "iv+/", "h=")
+        assertEquals(
+            "https://gomuks.example.org/prefix/_gomuks/media/s/id?encrypted=true&crypto_version=v2" +
+                "&crypto_key=k-_&crypto_iv=iv%2B%2F&crypto_hash=h%3D",
+            urls.media("mxc://s/id", encrypted = true, keys = keys),
+        )
+        assertEquals("https://gomuks.example.org/prefix/_gomuks/media/s/id?encrypted=true", urls.media("mxc://s/id", true))
+    }
+
+    @Test
     fun `no server, no URL`() = assertNull(MediaUrls { null }.avatar("mxc://a/b"))
 }

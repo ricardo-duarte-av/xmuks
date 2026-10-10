@@ -10,8 +10,10 @@ internal fun mediaMessage(
     msgtype: String,
     content: JsonObject,
     body: String,
+    /** Keep the files' keys: gomuks doesn't store them for gallery items. */
+    withKeys: Boolean = false,
 ): MessageContent? {
-    val media = media(content) ?: return null
+    val media = media(content, withKeys) ?: return null
     return when (msgtype) {
         "m.image" -> MessageContent.Image(media, caption(content))
         "m.video" -> MessageContent.Video(media, caption(content))
@@ -28,7 +30,7 @@ internal fun galleryMessage(
 ): MessageContent.Gallery? {
     val items =
         Galleries.items(content).mapNotNull { item ->
-            mediaMessage(item.str("msgtype").orEmpty(), item, item.str("body").orEmpty())
+            mediaMessage(item.str("msgtype").orEmpty(), item, item.str("body").orEmpty(), withKeys = true)
         }
     if (items.isEmpty()) return null
     val caption = body.takeIf { it.isNotBlank() }
@@ -45,7 +47,10 @@ internal fun galleryPreview(content: JsonObject): String? =
     if (content.str("msgtype") in Galleries.msgtypes) Galleries.summary(content) else null
 
 /** Unencrypted media has `url`; encrypted media has `file.url` (gomuks decrypts on download). */
-internal fun media(content: JsonObject): Media? {
+internal fun media(
+    content: JsonObject,
+    withKeys: Boolean = false,
+): Media? {
     val file = content.obj("file")
     val mxc = content.str("url") ?: file?.str("url") ?: return null
     val info = content.obj("info")
@@ -68,7 +73,17 @@ internal fun media(content: JsonObject): Media? {
                     "$SPOILER.reason"
                 ) ?: content.str("$STABLE_SPOILER.reason")
             )?.takeIf { it.isNotBlank() },
+        keys = if (withKeys) file?.let(::keysOf) else null,
+        thumbnailKeys = if (withKeys) thumbFile?.let(::keysOf) else null,
     )
+}
+
+/** An `EncryptedFile`'s key, IV and hash; null when any is missing. */
+private fun keysOf(file: JsonObject): FileKeys? {
+    val key = file.obj("key")?.str("k") ?: return null
+    val iv = file.str("iv") ?: return null
+    val sha256 = file.obj("hashes")?.str("sha256") ?: return null
+    return FileKeys(key, iv, sha256)
 }
 
 /** MSC4193's media spoiler: its unstable key (what clients send today) and the stable one. */

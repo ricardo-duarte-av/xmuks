@@ -8,6 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import pt.aguiarvieira.xmuks.core.data.timeline.Change
+import pt.aguiarvieira.xmuks.core.data.timeline.FileKeys
 import pt.aguiarvieira.xmuks.core.data.timeline.MemberProfile
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyKind
@@ -204,7 +205,7 @@ class TimelineItemBuilderTest {
     fun `galleries, stable and unstable, keep their items in order and their caption`() {
         val items =
             """[{"itemtype":"m.image","body":"a.jpg","url":"mxc://x/a","info":{"w":1500,"h":2000,"thumbnail_url":"mxc://x/at"}},
-            {"itemtype":"m.video","body":"b.mp4","file":{"url":"mxc://x/b"}},
+            {"itemtype":"m.video","body":"b.mp4","file":{"url":"mxc://x/b","key":{"k":"K"},"iv":"IV","hashes":{"sha256":"H"}}},
             {"itemtype":"m.unknown","body":"?"},
             {"itemtype":"m.file","body":"c.pdf","url":"mxc://x/c"}]"""
         val unstable = ev(content = """{"msgtype":"dm.filament.gallery","body":"","itemtypes":$items}""")
@@ -215,7 +216,9 @@ class TimelineItemBuilderTest {
         val gallery = msgs[0].content as MessageContent.Gallery
         assertEquals(3, gallery.items.size)
         assertEquals("mxc://x/at", (gallery.items[0] as MessageContent.Image).media.thumbnailMxc)
-        assertTrue((gallery.items[1] as MessageContent.Video).media.encrypted)
+        val video = (gallery.items[1] as MessageContent.Video).media
+        assertTrue(video.encrypted)
+        assertEquals(FileKeys("K", "IV", "H"), video.keys)
         assertEquals("c.pdf", (gallery.items[2] as MessageContent.File).name)
         assertNull(gallery.caption)
         assertEquals("holiday", (msgs[1].content as MessageContent.Gallery).caption)

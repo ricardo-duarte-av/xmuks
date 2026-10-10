@@ -243,10 +243,20 @@ data class Media(
     /** Hidden until tapped (MSC4193), whatever the preview setting; [spoilerReason] says why. */
     val spoiler: Boolean = false,
     val spoilerReason: String? = null,
+    /** The file's and thumbnail's keys, for gomuks to decrypt with when it holds none (MSC4274 items). */
+    val keys: FileKeys? = null,
+    val thumbnailKeys: FileKeys? = null,
 ) {
     /** An animated image (a GIF): its thumbnail is a still, the file itself can be large. */
     val animated: Boolean get() = mimeType == "image/gif"
 }
+
+/** An encrypted file's key (`key.k`), IV and SHA-256, as the event carries them. */
+data class FileKeys(
+    val key: String,
+    val iv: String,
+    val sha256: String,
+)
 
 /** A link's preview as the sender bundled it (MSC4095 / Beeper's): what it is, and a picture. */
 data class LinkPreview(

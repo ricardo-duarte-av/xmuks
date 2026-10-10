@@ -261,7 +261,7 @@ private fun Content(
 
         is MessageContent.Sticker -> {
             AsyncImage(
-                model = resolver.media(c.media.mxc, c.media.encrypted),
+                model = resolver.file(c.media),
                 contentDescription = c.body.ifBlank { stringResource(R.string.sticker) },
                 modifier = Modifier.size(STICKER_SIZE).tapOrHold { onOpen(c.media, ViewerMedia.Kind.Image) },
             )
@@ -370,7 +370,7 @@ private fun VideoContent(
     onOpen: (Media, ViewerMedia.Kind) -> Unit,
 ) {
     val player = actions.player
-    val url = resolver.media(c.media.mxc, c.media.encrypted)
+    val url = resolver.file(c.media)
     val inline =
         if (player != null && url != null && message.uploadProgress == null) {
             InlineVideo(player, message.eventId) {
