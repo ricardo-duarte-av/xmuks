@@ -28,7 +28,15 @@ class ShareScreenshotTest {
     ) = SharedItem(id, PickedFile(Uri.parse("file:///$name"), name, null, 1234, kind), preview = null)
 
     @Test
-    fun captions() {
+    fun captions() = shot(gallery = false, "share_captions")
+
+    @Test
+    fun galleryCaption() = shot(gallery = true, "share_gallery")
+
+    private fun shot(
+        gallery: Boolean,
+        name: String,
+    ) {
         val room = RoomSummary("!r:x", "TEST7TESTE", null, false, false, null, false, Preview.None, 0, Unread())
         compose.setContent {
             XmuksTheme(darkTheme = true, dynamicColor = false) {
@@ -42,6 +50,7 @@ class ShareScreenshotTest {
                         ),
                     text = "Look at these",
                     unreadable = listOf("broken.heic"),
+                    gallery = gallery,
                     onChangeRoom = {},
                     onRemove = {},
                     onSend = {},
@@ -49,6 +58,6 @@ class ShareScreenshotTest {
                 )
             }
         }
-        compose.onRoot().captureRoboImage("src/test/screenshots/share_captions.png")
+        compose.onRoot().captureRoboImage("src/test/screenshots/$name.png")
     }
 }

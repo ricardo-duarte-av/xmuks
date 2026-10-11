@@ -82,6 +82,7 @@ fun ShareRoute(
     val rooms by viewModel.rooms.collectAsStateWithLifecycle()
     val room by viewModel.room.collectAsStateWithLifecycle()
     val unreadable by viewModel.unreadable.collectAsStateWithLifecycle()
+    val gallery by viewModel.gallery.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val chosen = room?.let { id -> rooms?.firstOrNull { it.roomId == id } }
     if (room == null) {
@@ -94,6 +95,7 @@ fun ShareRoute(
             items = items,
             text = viewModel.text,
             unreadable = unreadable,
+            gallery = gallery,
             onChangeRoom = { viewModel.choose(null) },
             onRemove = viewModel::remove,
             onSend = { captions -> scope.launch { onDone(viewModel.send(captions)) } },
@@ -194,13 +196,15 @@ private fun TopBar(
     )
 }
 
-/** The chosen room, each file with its own caption, and Send. */
+/** The chosen room, each file with its own caption (or a gallery's one), and Send. */
 @Composable
 internal fun CaptionScreen(
     room: RoomSummary?,
     items: List<SharedItem>?,
     text: String?,
     unreadable: List<String>,
+    /** The files go as one gallery: one caption for them all, under [ShareViewModel.GALLERY_CAPTION]. */
+    gallery: Boolean,
     onChangeRoom: () -> Unit,
     onRemove: (String) -> Unit,
     onSend: (Map<String, String>) -> Unit,
@@ -212,6 +216,7 @@ internal fun CaptionScreen(
     items?.forEachIndexed { index, item ->
         if (item.id !in captions) captions[item.id] = TextFieldState(if (index == 0) text.orEmpty() else "")
     }
+    val galleryCaption = remember { TextFieldState(text.orEmpty()) }
     Scaffold(
         modifier = modifier,
         containerColor = ScreenCards.ground,
@@ -226,7 +231,15 @@ internal fun CaptionScreen(
         floatingActionButton = {
             if (items != null) {
                 ExtendedFloatingActionButton(
-                    onClick = { onSend(captions.mapValues { it.value.text.toString() }) },
+                    onClick = {
+                        onSend(
+                            if (gallery) {
+                                mapOf(ShareViewModel.GALLERY_CAPTION to galleryCaption.text.toString())
+                            } else {
+                                captions.mapValues { it.value.text.toString() }
+                            },
+                        )
+                    },
                     icon = { Icon(painterResource(R.drawable.ic_send), null) },
                     text = { Text(stringResource(R.string.share_send)) },
                     modifier = Modifier.imePadding(),
@@ -269,8 +282,9 @@ internal fun CaptionScreen(
                             key = "text"
                         ) { ScreenCard(Modifier.fillMaxWidth()) { Text(text, Modifier.padding(20.dp)) } }
                     }
+                    if (gallery) item(key = "gallery") { GalleryCaptionCard(galleryCaption) }
                     items(items, key = { it.id }) { item ->
-                        captions[item.id]?.let { ItemCard(item, it, { onRemove(item.id) }) }
+                        captions[item.id]?.let { ItemCard(item, it.takeUnless { gallery }, { onRemove(item.id) }) }
                     }
                 }
             }
@@ -300,11 +314,31 @@ private fun RoomLine(
     }
 }
 
-/** One file: a look at it, its name, its caption; and taking it out of the share. */
+/** Sending as a gallery: what says so, and its one caption. */
+@Composable
+private fun GalleryCaptionCard(caption: TextFieldState) {
+    ScreenCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                stringResource(R.string.share_as_gallery),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                state = caption,
+                placeholder = { Text(stringResource(R.string.share_gallery_caption)) },
+                lineLimits = TextFieldLineLimits.MultiLine(1, CAPTION_LINES),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+/** One file: a look at it, its name, its caption (none in a gallery); and taking it out of the share. */
 @Composable
 private fun ItemCard(
     item: SharedItem,
-    caption: TextFieldState,
+    caption: TextFieldState?,
     onRemove: () -> Unit,
 ) {
     ScreenCard(Modifier.fillMaxWidth()) {
@@ -322,12 +356,14 @@ private fun ItemCard(
                     onClick = onRemove
                 ) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.share_remove)) }
             }
-            OutlinedTextField(
-                state = caption,
-                placeholder = { Text(stringResource(R.string.share_caption)) },
-                lineLimits = TextFieldLineLimits.MultiLine(1, CAPTION_LINES),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (caption != null) {
+                OutlinedTextField(
+                    state = caption,
+                    placeholder = { Text(stringResource(R.string.share_caption)) },
+                    lineLimits = TextFieldLineLimits.MultiLine(1, CAPTION_LINES),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }

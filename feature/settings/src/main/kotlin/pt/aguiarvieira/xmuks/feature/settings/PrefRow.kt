@@ -54,9 +54,11 @@ internal fun PrefRow(
     layers: PrefLayers,
     scope: PrefScope,
     edits: PrefEdits,
+    /** Settings' one scope: no "where it comes from", no reset (turning it back is the reset). */
+    plain: Boolean = false,
 ) {
     val pref = entry.pref
-    val setHere = layers.lookup(pref, scope) != null
+    val setHere = !plain && layers.lookup(pref, scope) != null
     var editing by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     // Turning on a preference that needs permissions asks for them first; it's only set if granted.
@@ -75,7 +77,9 @@ internal fun PrefRow(
     val toggle: (() -> Unit)? =
         (pref as? Pref.Bool)?.let { bool -> { setBool(bool, !layers.get(bool)) } }
     ListItem(
-        supportingContent = { Details(entry, layers, scope, setHere) },
+        supportingContent = {
+            if (plain) Text(stringResource(entry.description)) else Details(entry, layers, scope, setHere)
+        },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (setHere) {

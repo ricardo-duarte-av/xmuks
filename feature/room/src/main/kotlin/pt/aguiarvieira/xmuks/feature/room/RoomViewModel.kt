@@ -109,9 +109,9 @@ class RoomViewModel
                 items.asReversed().withUnreadSeparator(u?.timestamp)
             }.stateIn(viewModelScope, WHILE_VISIBLE, null)
 
-        /** Starting a call here tells the room (groups; this room's own setting, on this device). */
+        /** Starting a call tells the room (groups): the one setting, as Settings shows it. */
         val setCallNotifyRoom: (Boolean) -> Unit = { on ->
-            viewModelScope.launch { preferences.set(Prefs.callNotifyRoom, PrefScope.RoomDevice, on, roomId) }
+            viewModelScope.launch { preferences.set(Prefs.callNotifyRoom, PrefScope.Device, on) }
         }
 
         /** Whether we may be in a call here (the room's power levels). */

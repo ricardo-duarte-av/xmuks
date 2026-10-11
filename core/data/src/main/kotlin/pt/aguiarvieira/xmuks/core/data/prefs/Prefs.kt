@@ -57,24 +57,26 @@ object Prefs {
         )
     val lowBandwidth = Pref.Bool("low_bandwidth", false, DEVICE_GLOBAL)
 
-    /**
-     * xmuks' own, not gomuks': a room with an avatar takes its colours from it. Kept on this
-     * device (globally, or for one room), never in the account, where gomuks web would meet a key
-     * it doesn't know.
-     */
-    val roomAvatarColors = Pref.Bool("xmuks_room_avatar_colors", true, listOf(RoomDevice, Device))
+    // xmuks' own settings, not gomuks': kept on this device and global only — never in the
+    // account (gomuks web would meet keys it doesn't know), never per room.
 
-    /** xmuks' own: starting a group call tells the room (a "call started" notification). */
-    val callNotifyRoom = Pref.Bool("xmuks_call_notify_room", true, listOf(RoomDevice, Device))
+    /** A room with an avatar takes its colours from it. */
+    val roomAvatarColors = Pref.Bool("xmuks_room_avatar_colors", true, DEVICE_GLOBAL)
+
+    /** Starting a group call tells the room (a "call started" notification). */
+    val callNotifyRoom = Pref.Bool("xmuks_call_notify_room", true, DEVICE_GLOBAL)
+
+    /** Files picked or shared together go as one MSC4274 gallery, not a message each. */
+    val sendGallery = Pref.Bool("xmuks_send_gallery", false, DEVICE_GLOBAL)
 
     /**
      * xmuks' own: how our call membership is sent. "auto" follows the call (whatever its members
      * use; a new call uses sticky events where the server has them), or force one.
      */
-    val callFormat = Pref.Choice("xmuks_call_format", "auto", listOf(Device), listOf("auto", "legacy", "sticky"))
+    val callFormat = Pref.Choice("xmuks_call_format", "auto", DEVICE_GLOBAL, listOf("auto", "legacy", "sticky"))
 
     /** xmuks' own: DM partners as phone contacts (Message, Voice call, Video call). */
-    val syncContacts = Pref.Bool("xmuks_sync_contacts", false, listOf(Device))
+    val syncContacts = Pref.Bool("xmuks_sync_contacts", false, DEVICE_GLOBAL)
 
     /** Every preference, in gomuks' order (its settings screen's). */
     val all: List<Pref<*>> =

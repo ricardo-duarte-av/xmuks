@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import pt.aguiarvieira.xmuks.core.account.AccountScoped
@@ -19,6 +20,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.SPOILER
 import pt.aguiarvieira.xmuks.core.data.timeline.messageParams
 import pt.aguiarvieira.xmuks.core.data.timeline.obj
+import pt.aguiarvieira.xmuks.core.protocol.Galleries
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
@@ -38,6 +40,18 @@ data class PendingUpload(
     val progress: Float = 0f,
     /** Why the last attempt failed; it waits for a retry or a discard. */
     val error: String? = null,
+    /** An MSC4274 gallery's files, in order (the fields above are the first one's); empty for one file. */
+    val gallery: List<PendingPart> = emptyList(),
+)
+
+/** One of a gallery's files on its way up: what the timeline shows of it. */
+data class PendingPart(
+    val kind: MediaKind,
+    val filename: String,
+    val previewFile: String?,
+    val width: Int?,
+    val height: Int?,
+    val blurhash: String?,
 )
 
 /**
@@ -53,7 +67,8 @@ class MediaSender(
 ) : AccountScoped {
     private class Upload(
         val shown: PendingUpload,
-        val media: PreparedMedia,
+        /** One file, or a gallery's (when [PendingUpload.gallery] isn't empty). */
+        val media: List<PreparedMedia>,
         val replyTo: ReplyTarget?,
         val encrypt: Boolean,
         /** Sent as a spoiler (MSC4193): hidden until tapped. */
@@ -84,21 +99,65 @@ class MediaSender(
         encrypt: Boolean,
         spoiler: Boolean = false,
     ) {
-        val thumbnail = media.thumbnail
+        val part = partOf(media)
         val shown =
             PendingUpload(
                 id = UUID.randomUUID().toString(),
                 roomId = roomId,
                 createdAt = clock(),
-                kind = media.kind,
-                filename = media.filename,
+                kind = part.kind,
+                filename = part.filename,
                 caption = caption,
-                previewFile = thumbnail?.file?.toURI()?.toString(),
-                width = media.width ?: thumbnail?.width,
-                height = media.height ?: thumbnail?.height,
-                blurhash = thumbnail?.blurhash,
+                previewFile = part.previewFile,
+                width = part.width,
+                height = part.height,
+                blurhash = part.blurhash,
+            )
+        start(Upload(shown, listOf(media), replyTo, encrypt, spoiler, seq = sequence.incrementAndGet()))
+    }
+
+    /** Several files as one MSC4274 gallery message with one [caption]. */
+    fun sendGallery(
+        roomId: String,
+        media: List<PreparedMedia>,
+        caption: String,
+        replyTo: ReplyTarget?,
+        encrypt: Boolean,
+        spoiler: Boolean = false,
+    ) {
+        if (media.size < 2) {
+            media.firstOrNull()?.let { send(roomId, it, caption, replyTo, encrypt, spoiler) }
+            return
+        }
+        val parts = media.map(::partOf)
+        val first = parts.first()
+        val shown =
+            PendingUpload(
+                id = UUID.randomUUID().toString(),
+                roomId = roomId,
+                createdAt = clock(),
+                kind = first.kind,
+                filename = first.filename,
+                caption = caption,
+                previewFile = first.previewFile,
+                width = first.width,
+                height = first.height,
+                blurhash = first.blurhash,
+                gallery = parts,
             )
         start(Upload(shown, media, replyTo, encrypt, spoiler, seq = sequence.incrementAndGet()))
+    }
+
+    private fun partOf(media: PreparedMedia): PendingPart {
+        val thumbnail = media.thumbnail
+        return PendingPart(
+            kind = media.kind,
+            filename = media.filename,
+            previewFile = thumbnail?.file?.toURI()?.toString(),
+            width = media.width ?: thumbnail?.width,
+            height = media.height ?: thumbnail?.height,
+            blurhash = thumbnail?.blurhash,
+        )
     }
 
     fun retry(id: String) {
@@ -138,7 +197,48 @@ class MediaSender(
     }
 
     private suspend fun upload(upload: Upload) {
-        val media = upload.media
+        val count = upload.media.size
+        // Each file's content as gomuks made it, with our thumbnail; progress spread over them all.
+        val contents =
+            upload.media.mapIndexed { i, media ->
+                uploadOne(
+                    media,
+                    upload.encrypt
+                ) { p -> change(upload.shown.id) { it.copy(progress = (i + p) / count) } }
+            }
+        val roomId = upload.shown.roomId
+        // Files picked together arrive in the order they were picked: a small one that finished
+        // first waits for those before it (one that failed doesn't hold the rest up).
+        uploads.first { all ->
+            all.values.none { it.shown.roomId == roomId && it.seq < upload.seq && it.shown.error == null }
+        }
+        val params =
+            if (upload.shown.gallery.isEmpty()) {
+                messageParams(
+                    roomId,
+                    upload.shown.caption,
+                    upload.replyTo,
+                    baseContent = contents.single(),
+                    extra = extraContent(upload.spoiler),
+                )
+            } else {
+                messageParams(
+                    roomId,
+                    upload.shown.caption,
+                    upload.replyTo,
+                    baseContent = galleryBase(),
+                    extra = galleryExtra(contents, upload.spoiler),
+                )
+            }
+        outbox.sendMessage(roomId, params)
+    }
+
+    /** One file (and its thumbnail) up through gomuks: the message content to send it with. */
+    private suspend fun uploadOne(
+        media: PreparedMedia,
+        encrypt: Boolean,
+        onProgress: (Float) -> Unit,
+    ): JsonObject {
         val thumbnail =
             media.thumbnail?.let { t ->
                 uploader
@@ -146,30 +246,20 @@ class MediaSender(
                         UploadSource(t.bytes.size.toLong()) { t.bytes.inputStream() },
                         "thumbnail.jpg",
                         "image/jpeg",
-                        upload.encrypt
+                        encrypt
                     ).getOrThrow()
             }
         val content =
             uploader
-                .upload(media.source, media.filename, media.mimeType, upload.encrypt, voiceMessage = media.voice) { p ->
-                    change(upload.shown.id) { it.copy(progress = p) }
-                }.getOrThrow()
-        val roomId = upload.shown.roomId
-        // Files picked together arrive in the order they were picked: a small one that finished
-        // first waits for those before it (one that failed doesn't hold the rest up).
-        uploads.first { all ->
-            all.values.none { it.shown.roomId == roomId && it.seq < upload.seq && it.shown.error == null }
-        }
-        outbox.sendMessage(
-            roomId,
-            messageParams(
-                roomId,
-                upload.shown.caption,
-                upload.replyTo,
-                baseContent = withOurs(content, media, thumbnail),
-                extra = extraContent(upload.spoiler),
-            )
-        )
+                .upload(
+                    media.source,
+                    media.filename,
+                    media.mimeType,
+                    encrypt,
+                    voiceMessage = media.voice,
+                    onProgress = onProgress
+                ).getOrThrow()
+        return withOurs(content, media, thumbnail)
     }
 
     private fun change(
@@ -232,6 +322,28 @@ class MediaSender(
                 info[BLURHASH] = JsonPrimitive(thumbnail.blurhash)
             }
             return JsonObject(content + ("info" to JsonObject(info)))
+        }
+
+        /** A gallery's own content: its msgtype; gomuks fills the caption in from the text. */
+        fun galleryBase(): JsonObject =
+            JsonObject(mapOf("msgtype" to JsonPrimitive(Galleries.UNSTABLE_MSGTYPE), "body" to JsonPrimitive("")))
+
+        /**
+         * A gallery's items, beside gomuks' content (which would drop them): each file's content
+         * with `itemtype` for `msgtype`, and the spoiler mark on each when it's one.
+         */
+        fun galleryExtra(
+            contents: List<JsonObject>,
+            spoiler: Boolean,
+        ): JsonObject {
+            val items =
+                contents.map { content ->
+                    val item = content.toMutableMap()
+                    item.remove("msgtype")?.let { item["itemtype"] = it }
+                    if (spoiler) item[SPOILER] = JsonPrimitive(true)
+                    JsonObject(item)
+                }
+            return JsonObject(mapOf("itemtypes" to JsonArray(items)))
         }
 
         /** What goes beside gomuks' content: the spoiler mark (MSC4193), when it's one. */

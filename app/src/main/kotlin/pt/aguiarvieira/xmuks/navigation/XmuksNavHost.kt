@@ -60,6 +60,7 @@ import pt.aguiarvieira.xmuks.feature.roomlist.NotificationsRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SearchRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
 import pt.aguiarvieira.xmuks.feature.settings.PreferencesRoute
+import pt.aguiarvieira.xmuks.feature.settings.SettingsRoute
 import pt.aguiarvieira.xmuks.feature.share.ShareRequest
 import pt.aguiarvieira.xmuks.feature.share.ShareRoute
 
@@ -96,6 +97,9 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
 @Serializable data class PreferencesKey(
     val roomId: String? = null,
 ) : NavKey
+
+/** xmuks' own settings. */
+@Serializable data object SettingsKey : NavKey
 
 /** Something shared from another app, on its way to a room. */
 @Serializable data class ShareKey(
@@ -375,6 +379,11 @@ fun XmuksNavHost(
                                     PreferencesRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
                                 }
                             }
+                            entry<SettingsKey> {
+                                Destination {
+                                    SettingsRoute(onBack = { backStack.removeLastOrNull() })
+                                }
+                            }
                             entry<SearchKey> { key ->
                                 Destination(roomId = key.roomId) {
                                     SearchRoute(
@@ -442,6 +451,7 @@ fun XmuksNavHost(
                                         onOpenRoom = { backStack.openRoom(it, LINK_SCOPE) },
                                         onOpenIgnoredUsers = { backStack.add(IgnoredUsersKey) },
                                         onOpenPreferences = { backStack.add(PreferencesKey()) },
+                                        onOpenSettings = { backStack.add(SettingsKey) },
                                         onBack = { backStack.removeLastOrNull() },
                                         onOpenMedia = { backStack.add(MediaKey(it)) },
                                     )

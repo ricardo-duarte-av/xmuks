@@ -11,19 +11,8 @@ fun PendingUpload.toTimelineItem(
     me: String,
     myName: String,
 ): TimelineItem.Message {
-    val media =
-        Media(
-            mxc = previewFile.orEmpty(),
-            encrypted = false,
-            mimeType = null,
-            width = width,
-            height = height,
-            size = null,
-            blurhash = blurhash,
-            thumbnailMxc = previewFile,
-            thumbnailEncrypted = false,
-        )
     val shownCaption = caption.takeIf { it.isNotBlank() }
+    val first = PendingPart(kind, filename, previewFile, width, height, blurhash)
     return TimelineItem.Message(
         key = "u:$id",
         eventId = "u:$id",
@@ -33,10 +22,10 @@ fun PendingUpload.toTimelineItem(
         fromMe = true,
         timestamp = createdAt,
         content =
-            when (kind) {
-                MediaKind.Image -> MessageContent.Image(media, shownCaption)
-                MediaKind.Video -> MessageContent.Video(media, shownCaption)
-                MediaKind.Audio, MediaKind.File -> MessageContent.File(media, filename)
+            if (gallery.isEmpty()) {
+                first.content(shownCaption)
+            } else {
+                MessageContent.Gallery(gallery.map { it.content(null) }, shownCaption, html = null)
             },
         reply = null,
         reactions = emptyList(),
@@ -49,6 +38,28 @@ fun PendingUpload.toTimelineItem(
         localId = UPLOAD_PREFIX + id,
         uploadProgress = progress.takeIf { error == null },
     )
+}
+
+/** A file on its way up as the timeline shows it: its thumbnail from our cache. */
+private fun PendingPart.content(caption: String?): MessageContent {
+    val media =
+        Media(
+            mxc = previewFile.orEmpty(),
+            encrypted = false,
+            mimeType = null,
+            width = width,
+            height = height,
+            size = null,
+            blurhash = blurhash,
+            thumbnailMxc = previewFile,
+            thumbnailEncrypted = false,
+            name = filename,
+        )
+    return when (kind) {
+        MediaKind.Image -> MessageContent.Image(media, caption)
+        MediaKind.Video -> MessageContent.Video(media, caption)
+        MediaKind.Audio, MediaKind.File -> MessageContent.File(media, filename)
+    }
 }
 
 /** Local IDs of uploads (as opposed to outbox entries): what resend and discard tell apart. */

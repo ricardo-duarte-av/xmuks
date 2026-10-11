@@ -5,6 +5,8 @@
     <string name="share_search">Search rooms</string>
     <string name="share_no_rooms">No rooms match</string>
     <string name="share_caption">Caption</string>
+    <string name="share_as_gallery">Sending as one gallery (change this in Settings)</string>
+    <string name="share_gallery_caption">Gallery caption</string>
     <string name="share_send">Send</string>
     <string name="share_change_room">Change</string>
     <string name="share_remove">Remove</string>

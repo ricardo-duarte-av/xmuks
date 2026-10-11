@@ -16,7 +16,7 @@ internal enum class Section(
     Calls(R.string.section_calls),
 }
 
-/** A preference as the settings screen shows it. */
+/** A preference as the settings screens show it. */
 internal class PrefEntry(
     val pref: Pref<*>,
     val title: Int,
@@ -26,7 +26,10 @@ internal class PrefEntry(
     val inXmuks: Boolean = true,
     /** Runtime permissions turning it on needs (asked for then). */
     val permissions: List<String> = emptyList(),
-)
+) {
+    /** xmuks' own setting (listed in Settings), not one of gomuks' preferences. */
+    val own: Boolean get() = pref.key.startsWith("xmuks_")
+}
 
 /** Labels for a choice's values (the rest show as they are, e.g. code themes and GIF services). */
 internal val CHOICE_LABELS: Map<String?, Int> =
@@ -61,6 +64,7 @@ internal val ENTRIES: List<PrefEntry> =
             R.string.pref_send_bundled_url_previews_desc,
             Section.Sending,
         ),
+        PrefEntry(Prefs.sendGallery, R.string.pref_send_gallery, R.string.pref_send_gallery_desc, Section.Sending),
         PrefEntry(Prefs.uploadDialog, R.string.pref_upload_dialog, R.string.pref_upload_dialog_desc, Section.Sending),
         PrefEntry(
             Prefs.hideFingerprint,

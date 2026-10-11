@@ -23,6 +23,8 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaKind
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.PickedFile
+import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
+import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
@@ -54,6 +56,7 @@ class ShareViewModel
         private val preparer: MediaPreparer,
         private val sender: MediaSender,
         private val drafts: DraftStore,
+        preferences: PreferenceStore,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -89,6 +92,11 @@ class ShareViewModel
         private val _room = MutableStateFlow(request.roomId)
         val room: StateFlow<String?> = _room.asStateFlow()
 
+        /** Several files go as one gallery (xmuks' setting), with one caption: [GALLERY_CAPTION]. */
+        val gallery: StateFlow<Boolean> =
+            combine(preferences.value(Prefs.sendGallery), _items) { on, list -> on && (list?.size ?: 0) > 1 }
+                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
         /** The text that came with the share: the first file's caption, or the message itself. */
         val text: String? = request.text?.takeIf { it.isNotBlank() }
 
@@ -103,8 +111,9 @@ class ShareViewModel
         fun remove(id: String) = _items.update { list -> list?.filterNot { it.id == id } }
 
         /**
-         * Sends every file with its caption (in order, each its own message), or — with no files —
-         * puts the text in the room's composer. The result is the room, to open.
+         * Sends every file with its caption (in order, each its own message) or, as a [gallery],
+         * all in one message with its one caption; with no files, puts the text in the room's
+         * composer. The result is the room, to open.
          */
         suspend fun send(captions: Map<String, String>): String? {
             val roomId = _room.value ?: return null
@@ -114,6 +123,11 @@ class ShareViewModel
                 return roomId
             }
             val encrypted = rooms.value?.firstOrNull { it.roomId == roomId }?.encrypted == true
+            if (gallery.value) {
+                val prepared = files.mapNotNull { runCatching { preparer.prepare(it.file) }.getOrNull() }
+                sender.sendGallery(roomId, prepared, captions[GALLERY_CAPTION].orEmpty().trim(), null, encrypted)
+                return roomId
+            }
             files.forEach { item ->
                 runCatching { preparer.prepare(item.file) }.onSuccess { prepared ->
                     sender.send(roomId, prepared, captions[item.id].orEmpty().trim(), null, encrypted)
@@ -163,8 +177,10 @@ class ShareViewModel
 
         private fun safeName(name: String) = name.replace('/', '_').ifBlank { "file" }
 
-        private companion object {
-            const val SHARED = "shared"
-            const val KEEP_MS = 24L * 60 * 60 * 1000
+        companion object {
+            /** The caption's key in [send]'s captions when it's a gallery. */
+            const val GALLERY_CAPTION = ""
+            private const val SHARED = "shared"
+            private const val KEEP_MS = 24L * 60 * 60 * 1000
         }
     }

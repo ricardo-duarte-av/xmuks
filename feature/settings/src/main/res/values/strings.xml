@@ -6,6 +6,7 @@
     <string name="reset">Reset</string>
     <string name="preferences">Preferences</string>
     <string name="room_preferences">Room preferences</string>
+    <string name="settings">Settings</string>
     <string name="action_failed">That didn\'t work: %1$s</string>
 
     <string name="scope_account">Account</string>
@@ -62,6 +63,8 @@
     <string name="pref_show_date_separators_desc">Whether messages on different days should have a date between them.</string>
     <string name="pref_show_room_emoji_packs">Show room emoji packs</string>
     <string name="pref_show_room_emoji_packs_desc">Whether to show custom emoji packs provided by the room. If off, only your personal packs are offered.</string>
+    <string name="pref_send_gallery">Send several files as a gallery</string>
+    <string name="pref_send_gallery_desc">Files picked or shared together go as one gallery message (MSC4274) instead of one message each. Apps that don\'t support galleries yet won\'t show them</string>
     <string name="pref_upload_dialog">Show upload dialog</string>
     <string name="pref_upload_dialog_desc">Whether to show the screen for adjusting media (resizing, caption) before it\'s sent.</string>
     <string name="pref_hide_fingerprint">Hide fingerprint</string>

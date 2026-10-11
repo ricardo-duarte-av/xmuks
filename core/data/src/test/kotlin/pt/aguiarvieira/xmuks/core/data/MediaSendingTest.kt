@@ -117,4 +117,25 @@ class MediaSendingTest {
         assertEquals("plot", (mediaMessage("m.image", reasoned, "i.png") as MessageContent.Image).media.spoilerReason)
         assertFalse((mediaMessage("m.image", gomuks, "i.png") as MessageContent.Image).media.spoiler)
     }
+
+    @Test
+    fun `a gallery goes as its msgtype, its items beside gomuks' content, and reads back`() {
+        val a = json("""{"msgtype":"m.image","body":"a.jpg","url":"mxc://s/a","info":{"w":4,"h":3}}""")
+        val b = json("""{"msgtype":"m.video","body":"b.mp4","file":{"url":"mxc://s/b","key":{"k":"K"},"iv":"I","hashes":{"sha256":"H"}}}""")
+        val base = MediaSender.galleryBase()
+        val extra = MediaSender.galleryExtra(listOf(a, b), spoiler = true)
+        assertEquals("dm.filament.gallery", base["msgtype"]!!.jsonPrimitive.content)
+        val items = extra["itemtypes"] as kotlinx.serialization.json.JsonArray
+        assertEquals("m.image", items[0].jsonObject["itemtype"]!!.jsonPrimitive.content)
+        assertFalse(items[0].jsonObject.containsKey("msgtype"))
+        assertTrue(items[1].jsonObject.containsKey(pt.aguiarvieira.xmuks.core.data.timeline.SPOILER))
+        // As gomuks sends it (extra merged in, the caption as body), it reads back as the gallery.
+        val sent = JsonObject(base + extra + ("body" to kotlinx.serialization.json.JsonPrimitive("trip")))
+        val read =
+            pt.aguiarvieira.xmuks.core.data.timeline
+                .galleryMessage(sent, "trip", null)!!
+        assertEquals(2, read.items.size)
+        assertEquals("trip", read.caption)
+        assertTrue((read.items[1] as MessageContent.Video).media.spoiler)
+    }
 }

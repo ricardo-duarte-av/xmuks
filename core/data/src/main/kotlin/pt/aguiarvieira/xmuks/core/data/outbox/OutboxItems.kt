@@ -10,10 +10,12 @@ import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TextKind
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
+import pt.aguiarvieira.xmuks.core.data.timeline.galleryMessage
 import pt.aguiarvieira.xmuks.core.data.timeline.media
 import pt.aguiarvieira.xmuks.core.data.timeline.mediaMessage
 import pt.aguiarvieira.xmuks.core.database.outbox.OutboxEntity
 import pt.aguiarvieira.xmuks.core.database.outbox.OutboxState
+import pt.aguiarvieira.xmuks.core.protocol.Galleries
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 
 /**
@@ -46,7 +48,11 @@ fun List<OutboxEntity>.toTimelineItems(
             fromMe = true,
             timestamp = entry.createdAt,
             content =
-                mediaOf(params["base_content"] as? JsonObject, params.string("text").orEmpty())
+                mediaOf(
+                    params["base_content"] as? JsonObject,
+                    params.string("text").orEmpty(),
+                    params["extra"] as? JsonObject
+                )
                     ?: MessageContent.Text(
                         body = if (emote) text.removePrefix(EMOTE_PREFIX) else text,
                         html = null,
@@ -74,10 +80,13 @@ fun List<OutboxEntity>.toTimelineItems(
 private fun mediaOf(
     base: JsonObject?,
     caption: String,
+    /** What went beside gomuks' content: a gallery's items are there. */
+    extra: JsonObject?,
 ): MessageContent? {
     val msgtype = base?.string("msgtype") ?: return null
     val content = if (caption.isEmpty()) base else JsonObject(base + ("body" to JsonPrimitive(caption)))
     return when (msgtype) {
+        in Galleries.msgtypes -> galleryMessage(JsonObject(content + extra.orEmpty()), caption, null)
         "m.sticker" -> media(content)?.let { MessageContent.Sticker(it, content.string("body").orEmpty()) }
         "m.image", "m.video", "m.audio", "m.file" -> mediaMessage(msgtype, content, content.string("body").orEmpty())
         "m.location" -> MessageContent.Location(content.string("body").orEmpty(), content.string("geo_uri"))

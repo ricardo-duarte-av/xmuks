@@ -88,7 +88,9 @@ private fun GalleryGrid(
     var expanded by rememberSaveable(message.eventId) { mutableStateOf(false) }
     // Without previews, one tap shows the whole gallery (spoilers still wait for their own tap).
     var tapped by rememberSaveable(message.eventId) { mutableStateOf(false) }
-    val waiting = !display.showPreviews && !tapped
+    val uploading = message.uploadProgress
+    // Our own upload always shows, as a single picture's does.
+    val waiting = !display.showPreviews && !tapped && uploading == null
     val shown = if (expanded || items.size <= MAX_TILES) items.size else MAX_TILES
     val hidden = items.size - shown
     Box(contentAlignment = Alignment.Center) {
@@ -118,6 +120,7 @@ private fun GalleryGrid(
         if (waiting && items.take(shown).any(::waitsForGalleryTap)) {
             Box(Modifier.tapOrHold { tapped = true }) { TapToShow() }
         }
+        uploading?.let { UploadProgress(it) }
     }
 }
 
@@ -191,7 +194,11 @@ private fun GalleryTile(
             .sharedElement(SharedKeys.media(key))
             .clip(RoundedCornerShape(TILE_RADIUS))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .tapOrHold(onClick = (if (more == 0) reveal.onTap else null) ?: open),
+            .tapOrHold(
+                enabled = message.uploadProgress == null,
+                onClick =
+                    (if (more == 0) reveal.onTap else null) ?: open
+            ),
         contentAlignment = Alignment.Center,
     ) {
         if (kind != null) {

@@ -139,7 +139,7 @@ fun PreferencesScreen(
                 .navigationBarsPadding()
                 .fillMaxSize(),
         ) {
-            PrefList(layers, scope, edits)
+            PrefList(ENTRIES.filter { !it.own && scope in it.pref.scopes }, layers, scope, edits)
         }
     }
 }
@@ -171,12 +171,13 @@ private fun ScopeChooser(
 }
 
 @Composable
-private fun PrefList(
+internal fun PrefList(
+    shown: List<PrefEntry>,
     layers: PrefLayers,
     scope: PrefScope,
     edits: PrefEdits,
+    plain: Boolean = false,
 ) {
-    val shown = ENTRIES.filter { scope in it.pref.scopes }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
         shown.groupBy { it.section }.forEach { (section, entries) ->
             stickyHeader(key = section.name, contentType = "heading") {
@@ -192,7 +193,7 @@ private fun PrefList(
                 )
             }
             items(entries, key = { it.pref.key }, contentType = { it.pref::class }) { entry ->
-                PrefRow(entry, layers, scope, edits)
+                PrefRow(entry, layers, scope, edits, plain)
             }
         }
     }
