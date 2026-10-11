@@ -124,7 +124,7 @@ class RoomListRepository(
                     previewType == null -> Preview.None
                     previewType == "m.sticker" -> Preview.Sticker
                     previewType == "m.room.encrypted" -> Preview.Encrypted
-                    !previewText.isNullOrBlank() -> Preview.Text(previewText!!)
+                    !previewText.isNullOrBlank() -> Preview.Text(previewText!!, previewHtml)
                     else -> Preview.None
                 },
             timestamp = maxOf(sortingTs, previewTs ?: 0),

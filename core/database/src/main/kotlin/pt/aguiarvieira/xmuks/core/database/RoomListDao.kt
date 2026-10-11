@@ -26,6 +26,7 @@ data class RoomSummaryRow(
     val unreadHighlights: Int,
     val markedUnread: Boolean,
     val previewText: String?,
+    val previewHtml: String? = null,
     val previewType: String?,
     val previewSender: String?,
     /** The sender's current display name in this room, from member state (so renames apply at once). */
@@ -121,7 +122,8 @@ interface RoomListDao {
         """
         SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.sortingTs,
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
-            e.previewText AS previewText, e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
+            e.previewText AS previewText, e.previewHtml AS previewHtml,
+            e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
              WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
             b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
@@ -137,7 +139,8 @@ interface RoomListDao {
         """
         SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.sortingTs,
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
-            e.previewText AS previewText, e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
+            e.previewText AS previewText, e.previewHtml AS previewHtml,
+            e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
              WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
             b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
@@ -162,7 +165,8 @@ interface RoomListDao {
         )
         SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.sortingTs,
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
-            e.previewText AS previewText, e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
+            e.previewText AS previewText, e.previewHtml AS previewHtml,
+            e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
              WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
             b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
@@ -215,7 +219,8 @@ interface RoomListDao {
         """
         SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.sortingTs,
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
-            e.previewText AS previewText, e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
+            e.previewText AS previewText, e.previewHtml AS previewHtml,
+            e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
              WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
             b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
@@ -231,7 +236,8 @@ interface RoomListDao {
         """
         SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.sortingTs,
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
-            e.previewText AS previewText, e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
+            e.previewText AS previewText, e.previewHtml AS previewHtml,
+            e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
              WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
             b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar

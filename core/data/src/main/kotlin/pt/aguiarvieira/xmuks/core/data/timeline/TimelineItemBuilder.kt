@@ -283,7 +283,7 @@ class TimelineItemBuilder(
             }
 
             "m.image", "m.video", "m.audio", "m.file" -> {
-                mediaMessage(msgtype, content, body)
+                mediaMessage(msgtype, content, body, html = html)
             }
 
             in Galleries.msgtypes -> {

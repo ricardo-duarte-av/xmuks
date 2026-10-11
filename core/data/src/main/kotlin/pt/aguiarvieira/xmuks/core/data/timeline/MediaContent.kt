@@ -12,11 +12,16 @@ internal fun mediaMessage(
     body: String,
     /** Keep the files' keys: gomuks doesn't store them for gallery items. */
     withKeys: Boolean = false,
+    /** The event's HTML: the caption's, when the sender formatted it. */
+    html: String? = null,
 ): MessageContent? {
     val media = media(content, withKeys) ?: return null
+    val caption = caption(content)
+    // As for galleries: gomuks' HTML for a plain caption is only linkified text.
+    val captionHtml = html.takeIf { caption != null && content.str("formatted_body") != null }
     return when (msgtype) {
-        "m.image" -> MessageContent.Image(media, caption(content))
-        "m.video" -> MessageContent.Video(media, caption(content))
+        "m.image" -> MessageContent.Image(media, caption, captionHtml)
+        "m.video" -> MessageContent.Video(media, caption, captionHtml)
         "m.audio" -> audioMessage(media, content, body)
         else -> MessageContent.File(media, content.str("filename") ?: body)
     }

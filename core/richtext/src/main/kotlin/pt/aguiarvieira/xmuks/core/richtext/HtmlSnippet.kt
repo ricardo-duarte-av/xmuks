@@ -25,9 +25,15 @@ fun HtmlSnippet(
     maxLines: Int,
     modifier: Modifier = Modifier,
 ) {
-    val colors = htmlColors()
-    val text = remember(html, colors) { snippetOf(HtmlParser(colors, images = false).parse(html), colors) }
+    val text = rememberHtmlSnippet(html)
     Text(text, color = color, style = style, maxLines = maxLines, overflow = TextOverflow.Ellipsis, modifier = modifier)
+}
+
+/** [HtmlSnippet]'s text, for callers that put it in a line of their own (a room list preview). */
+@Composable
+fun rememberHtmlSnippet(html: String): AnnotatedString {
+    val colors = htmlColors()
+    return remember(html, colors) { snippetOf(HtmlParser(colors, images = false).parse(html), colors) }
 }
 
 internal fun snippetOf(

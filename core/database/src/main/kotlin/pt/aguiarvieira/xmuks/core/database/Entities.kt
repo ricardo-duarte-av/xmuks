@@ -82,7 +82,8 @@ data class EventEntity(
     val content: String,
     val unsigned: String?,
     val previewText: String?,
-    val sanitizedHtml: String?,
+    /** [previewText] with its formatting: gomuks' sanitised HTML, when the sender formatted it. */
+    val previewHtml: String?,
     val relatesTo: String?,
     val relationType: String?,
     val redactedBy: String?,

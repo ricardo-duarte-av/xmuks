@@ -46,6 +46,8 @@ enum class CallBadge { Voice, Video }
 sealed interface Preview {
     data class Text(
         val text: String,
+        /** [text] as the sender formatted it (sanitised HTML); null when it is plain. */
+        val html: String? = null,
     ) : Preview
 
     data object Sticker : Preview

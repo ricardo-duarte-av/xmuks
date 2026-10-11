@@ -250,10 +250,11 @@ private fun Content(
                 c.media,
                 resolver,
                 c.caption,
+                c.html,
                 color,
                 message.eventId,
                 ViewerMedia.Kind.Image,
-                message.uploadProgress
+                message.uploadProgress,
             ) {
                 onOpen(c.media, ViewerMedia.Kind.Image)
             }
@@ -384,6 +385,7 @@ private fun VideoContent(
         c.media,
         resolver,
         c.caption,
+        c.html,
         color,
         message.eventId,
         ViewerMedia.Kind.Video,
@@ -405,6 +407,8 @@ private fun MediaImage(
     media: Media,
     resolver: MediaResolver,
     caption: String?,
+    /** The caption's HTML, when the sender formatted it. */
+    captionHtml: String?,
     color: Color,
     eventId: String,
     kind: ViewerMedia.Kind,
@@ -456,7 +460,14 @@ private fun MediaImage(
                 kind == ViewerMedia.Kind.Video -> PlayBadge()
             }
         }
-        caption?.let { PlainContent(it, color, MaterialTheme.typography.bodyLarge) }
+        caption?.let {
+            val style = MaterialTheme.typography.bodyLarge
+            if (captionHtml != null) {
+                HtmlContent(captionHtml, color, style, { resolver.media(it, false) })
+            } else {
+                PlainContent(it, color, style)
+            }
+        }
     }
 }
 

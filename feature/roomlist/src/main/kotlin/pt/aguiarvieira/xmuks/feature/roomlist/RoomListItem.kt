@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.UnreadBadge
 import pt.aguiarvieira.xmuks.core.designsystem.component.UnreadLevel
 import pt.aguiarvieira.xmuks.core.designsystem.component.sharedElement
 import pt.aguiarvieira.xmuks.core.designsystem.util.ListTimestamps
+import pt.aguiarvieira.xmuks.core.richtext.rememberHtmlSnippet
 
 @Composable
 fun RoomListItem(
@@ -122,9 +124,9 @@ fun RoomListItem(
                 Text(
                     text =
                         when {
-                            inCall -> stringResource(R.string.call_in_progress)
+                            inCall -> AnnotatedString(stringResource(R.string.call_in_progress))
                             display.showPreview -> previewLine(room)
-                            else -> ""
+                            else -> AnnotatedString("")
                         },
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (inCall) colors.primary else colors.onSurfaceVariant,
@@ -140,13 +142,13 @@ fun RoomListItem(
 }
 
 @Composable
-private fun previewLine(room: RoomSummary): String {
+private fun previewLine(room: RoomSummary): AnnotatedString {
     val body =
         when (val p = room.preview) {
-            is Preview.Text -> p.text
-            Preview.Sticker -> stringResource(R.string.preview_sticker)
-            Preview.Encrypted -> stringResource(R.string.preview_encrypted)
-            Preview.None -> return ""
+            is Preview.Text -> p.html?.let { rememberHtmlSnippet(it) } ?: AnnotatedString(p.text)
+            Preview.Sticker -> AnnotatedString(stringResource(R.string.preview_sticker))
+            Preview.Encrypted -> AnnotatedString(stringResource(R.string.preview_encrypted))
+            Preview.None -> return AnnotatedString("")
         }
     val sender =
         when {
@@ -157,8 +159,13 @@ private fun previewLine(room: RoomSummary): String {
             // in a DM the other person is implied
             else -> room.previewSender
         }
-    return if (sender == null) body else stringResource(R.string.preview_sender, sender, body)
+    if (sender == null) return body
+    // The body keeps its styling: the string only places it beside the sender.
+    val (before, after) = stringResource(R.string.preview_sender, sender, BODY_MARK).split(BODY_MARK, limit = 2)
+    return AnnotatedString(before) + body + AnnotatedString(after)
 }
+
+private const val BODY_MARK = "\u0000"
 
 /**
  * One rule for rooms, spaces and tabs: anything needing attention shows a number (red when it

@@ -17,6 +17,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItemBuilder
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineOptions
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineSnapshot
+import pt.aguiarvieira.xmuks.core.data.timeline.previewHtmlOf
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 import pt.aguiarvieira.xmuks.core.protocol.LocalContent
@@ -252,6 +253,41 @@ class TimelineItemBuilderTest {
                 ev(content = """{"msgtype":"m.text","body":"plain"}"""),
             ).messages()
         assertEquals(listOf("<i>clean</i>", "<i>raw</i>", null), msgs.map { (it.content as MessageContent.Text).html })
+    }
+
+    @Test
+    fun `a formatted caption keeps its html, a plain one doesn't`() {
+        val img = """"msgtype":"m.image","url":"mxc://s/i","filename":"cat.jpg""""
+        val msgs =
+            build(
+                ev(content = """{$img,"body":"**cat**","format":"org.matrix.custom.html","formatted_body":"<b>cat</b>"}""") {
+                    copy(localContent = LocalContent(sanitizedHtml = "<b>cat</b>"))
+                },
+                ev(content = """{$img,"body":"cat.org"}""") {
+                    copy(localContent = LocalContent(sanitizedHtml = "<a href=\"https://cat.org\">cat.org</a>", wasPlaintext = true))
+                },
+            ).messages()
+        assertEquals(listOf("<b>cat</b>", null), msgs.map { (it.content as MessageContent.Image).html })
+    }
+
+    @Test
+    fun `the room list preview keeps formatting only where the sender gave it`() {
+        val html = """"format":"org.matrix.custom.html","formatted_body":"<b>x</b>""""
+        val formatted = LocalContent(sanitizedHtml = "<b>x</b>", previewText = "**x**")
+        assertEquals("<b>x</b>", previewHtmlOf(json("""{"msgtype":"m.text","body":"**x**",$html}"""), formatted))
+        assertEquals(
+            "<b>x</b>",
+            previewHtmlOf(json("""{"msgtype":"m.image","body":"**x**","filename":"a.jpg",$html}"""), formatted)
+        )
+        // No caption: the preview is gomuks' "Sent an image".
+        assertNull(previewHtmlOf(json("""{"msgtype":"m.image","body":"a.jpg",$html}"""), formatted))
+        // Linkified plain text isn't formatting.
+        assertNull(
+            previewHtmlOf(
+                json("""{"msgtype":"m.text","body":"a.b"}"""),
+                LocalContent(sanitizedHtml = "a.b", previewText = "a.b", wasPlaintext = true)
+            )
+        )
     }
 
     @Test

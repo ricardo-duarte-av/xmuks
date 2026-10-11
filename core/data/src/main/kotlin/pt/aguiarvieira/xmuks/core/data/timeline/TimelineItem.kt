@@ -167,11 +167,15 @@ sealed interface MessageContent {
     data class Image(
         val media: Media,
         val caption: String?,
+        /** The caption's sanitised HTML, null for plain text. */
+        val html: String? = null,
     ) : MessageContent
 
     data class Video(
         val media: Media,
         val caption: String?,
+        /** The caption's sanitised HTML, null for plain text. */
+        val html: String? = null,
     ) : MessageContent
 
     data class Audio(

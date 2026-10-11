@@ -6,6 +6,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 import pt.aguiarvieira.xmuks.core.protocol.Event
+import pt.aguiarvieira.xmuks.core.protocol.Galleries
 import pt.aguiarvieira.xmuks.core.protocol.LocalContent
 
 private const val HTML_FORMAT = "org.matrix.custom.html"
@@ -20,6 +21,25 @@ internal fun htmlOf(
 ): String? =
     sanitized?.takeIf { it.isNotBlank() }
         ?: content.str("formatted_body")?.takeIf { content.str("format") == HTML_FORMAT && it.isNotBlank() }
+
+/**
+ * The room list preview's formatting: gomuks' sanitised HTML when the sender formatted the text
+ * that gomuks' `preview_text` shows (a message, or a media caption), else null.
+ */
+fun previewHtmlOf(
+    content: JsonObject,
+    local: LocalContent?,
+): String? {
+    val html = local?.sanitizedHtml?.takeIf { it.isNotBlank() } ?: return null
+    if (local.wasPlaintext || local.previewText.isNullOrBlank() || content.str("format") != HTML_FORMAT) return null
+    val shown =
+        when (content.str("msgtype")) {
+            "m.text", "m.notice", "m.emote", null -> true
+            "m.image", "m.video", "m.audio", "m.file" -> caption(content) != null
+            else -> content.str("msgtype") in Galleries.msgtypes
+        }
+    return html.takeIf { shown }
+}
 
 /**
  * The sender's per-room name, or for a per-message profile (bridges, bots speaking for someone)
