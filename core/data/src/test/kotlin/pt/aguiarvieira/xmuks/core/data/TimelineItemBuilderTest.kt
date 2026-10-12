@@ -449,4 +449,23 @@ class TimelineItemBuilderTest {
         val items = quiet.build(TimelineSnapshot("!r", events = events.toList(), eventsByRowId = events.associateBy { it.rowId }, loaded = true), emptyMap())
         assertTrue(items.none { it is TimelineItem.Hidden })
     }
+
+    @Test
+    fun `a message mentions us by name or as the room, never our own`() {
+        val byName = ev(content = """{"msgtype":"m.text","body":"yeah","m.mentions":{"user_ids":["@me:x"]}}""")
+        val room = ev(content = """{"msgtype":"m.text","body":"morning @room","m.mentions":{"room":true}}""")
+        val other = ev(content = """{"msgtype":"m.text","body":"hi ann","m.mentions":{"user_ids":["@ann:x"]}}""")
+        val plain = ev(content = """{"msgtype":"m.text","body":"hi me"}""")
+        val ours = ev(sender = "@me:x", content = """{"msgtype":"m.text","body":"@room!","m.mentions":{"room":true}}""")
+        val shown = build(byName, room, other, plain, ours).messages().map { it.mentionsMe }
+        assertEquals(listOf(true, true, false, false, false), shown)
+    }
+
+    @Test
+    fun `an edit's new content decides whether a message mentions us`() {
+        val edited = """{"msgtype":"m.text","body":"* hi","m.mentions":{},"m.new_content":{"msgtype":"m.text","body":"hi","m.mentions":{"user_ids":["@me:x"]}}}"""
+        val edit = ev(content = edited) { copy(relationType = "m.replace") }
+        val original = ev(content = """{"msgtype":"m.text","body":"hi"}""") { copy(lastEditRowId = edit.rowId) }
+        assertTrue(build(original, extra = listOf(edit)).messages().single().mentionsMe)
+    }
 }

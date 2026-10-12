@@ -50,6 +50,8 @@ sealed interface TimelineItem {
         val linkPreviews: List<LinkPreview> = emptyList(),
         /** Ours in a bridged room: how far it got on the other network, as the bridge reports. */
         val bridgeDelivery: BridgeDelivery? = null,
+        /** Someone else's message that mentions us (`m.mentions`: us by name, or the whole room). */
+        val mentionsMe: Boolean = false,
     ) : TimelineItem {
         /** The label as plain text ("profile via sender", or the sender's name). */
         val senderName: String get() = label.text

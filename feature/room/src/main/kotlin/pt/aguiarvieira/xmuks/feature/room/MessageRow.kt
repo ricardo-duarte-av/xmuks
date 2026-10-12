@@ -223,9 +223,25 @@ private fun Bubble(
                 if (message.lastInGroup) big else small
             )
         }
-    val container = if (mine) colors.primaryContainer else colors.surfaceContainerHigh
-    val onContainer = if (mine) colors.onPrimaryContainer else colors.onSurface
-    Surface(shape = shape, color = container) { content(onContainer) }
+    // Mentions of us stand out in the tertiary role, and keep calling with a pulse (see mentionPulse).
+    val mention = message.mentionsMe
+    val container =
+        when {
+            mine -> colors.primaryContainer
+            mention -> colors.tertiaryContainer
+            else -> colors.surfaceContainerHigh
+        }
+    val onContainer =
+        when {
+            mine -> colors.onPrimaryContainer
+            mention -> colors.onTertiaryContainer
+            else -> colors.onSurface
+        }
+    Surface(
+        shape = shape,
+        color = container,
+        modifier = if (mention) Modifier.mentionPulse(shape) else Modifier,
+    ) { content(onContainer) }
 }
 
 @Composable

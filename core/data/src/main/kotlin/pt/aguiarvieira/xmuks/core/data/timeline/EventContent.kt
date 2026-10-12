@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.core.data.timeline
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -133,3 +134,17 @@ internal fun JsonObject.str(key: String) = (get(key) as? JsonPrimitive)?.takeIf 
 internal fun JsonObject.bool(key: String) = (get(key) as? JsonPrimitive)?.takeIf { !it.isString }?.booleanOrNull
 
 internal fun JsonObject.long(key: String) = (get(key) as? JsonPrimitive)?.longOrNull
+
+/**
+ * Whether [content]'s intentional mentions (`m.mentions`) name [me] or the whole room. An edit's
+ * `m.new_content` carries the full set, so it's the content to ask.
+ */
+internal fun mentions(
+    content: JsonObject,
+    me: String?,
+): Boolean {
+    val mentions = content.obj("m.mentions") ?: return false
+    if (mentions.bool("room") == true) return true
+    val users = mentions["user_ids"] as? JsonArray ?: return false
+    return me != null && users.any { (it as? JsonPrimitive)?.contentOrNull == me }
+}
