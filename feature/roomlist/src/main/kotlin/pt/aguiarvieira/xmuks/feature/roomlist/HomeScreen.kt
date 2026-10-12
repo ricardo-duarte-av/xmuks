@@ -1,6 +1,8 @@
 package pt.aguiarvieira.xmuks.feature.roomlist
 
 import android.text.format.DateFormat
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,12 +21,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ShortNavigationBar
@@ -46,10 +50,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -162,16 +168,7 @@ fun HomeScreen(
                             )
                         },
                         actions = {
-                            IconButton(onClick = onSearchMessages) {
-                                Icon(painterResource(R.drawable.ic_search), stringResource(R.string.search_messages))
-                            }
-                            IconButton(onClick = onOpenNotifications) {
-                                Icon(
-                                    painterResource(R.drawable.ic_notifications),
-                                    stringResource(R.string.notifications)
-                                )
-                            }
-                            AccountButton(state, onAccountClick)
+                            AccountMenu(state, onAccountClick, onOpenNotifications, onSearchMessages)
                         },
                         windowInsets = WindowInsets(0),
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
@@ -270,37 +267,70 @@ fun HomeScreen(
     }
 }
 
-/** Our display name and Matrix ID beside our avatar, which opens our profile (and the account). */
+/**
+ * Our display name and Matrix ID beside our avatar; tapping any of it opens a menu, like a room's:
+ * options (our profile, and the account), mentions, and search.
+ */
 @Composable
-private fun AccountButton(
+private fun AccountMenu(
     state: HomeUiState,
-    onClick: () -> Unit,
+    onOptions: () -> Unit,
+    onMentions: () -> Unit,
+    onSearch: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        state.profile?.let { profile ->
-            Column(horizontalAlignment = Alignment.End, modifier = Modifier.widthIn(max = 200.dp)) {
-                Text(
-                    profile.displayName,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    profile.userId,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier =
+                Modifier
+                    .padding(end = 4.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .clickable(onClickLabel = stringResource(R.string.account_menu), role = Role.Button) { menu = true }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+        ) {
+            state.profile?.let { profile ->
+                Column(horizontalAlignment = Alignment.End, modifier = Modifier.widthIn(max = 200.dp)) {
+                    Text(
+                        profile.displayName,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        profile.userId,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-        }
-        IconButton(onClick = onClick) {
             RoomAvatar(
                 name = state.profile?.displayName ?: state.account,
                 id = state.profile?.userId ?: state.account,
                 avatarUrl = state.profile?.avatarUrl,
                 size = 32.dp,
             )
+        }
+        // Anchored at our avatar's corner, so it opens against the right edge, as a room's menu does.
+        Box(Modifier.align(Alignment.BottomEnd)) {
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                listOf(
+                    R.string.account_options to onOptions,
+                    R.string.account_mentions to onMentions,
+                    R.string.account_search to onSearch,
+                ).forEach { (label, action) ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(label)) },
+                        onClick = {
+                            menu = false
+                            action()
+                        },
+                    )
+                }
+            }
         }
     }
 }

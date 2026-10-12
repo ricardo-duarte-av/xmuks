@@ -17,6 +17,10 @@
     <string name="space_rooms">%1$d rooms</string>
     <string name="back">Back</string>
     <string name="account">Account</string>
+    <string name="account_menu">Account menu</string>
+    <string name="account_options">Options</string>
+    <string name="account_mentions">Mentions</string>
+    <string name="account_search">Search</string>
     <string name="status_connecting">Connecting…</string>
     <string name="status_syncing">Syncing…</string>
     <string name="status_catching_up">Catching up…</string>

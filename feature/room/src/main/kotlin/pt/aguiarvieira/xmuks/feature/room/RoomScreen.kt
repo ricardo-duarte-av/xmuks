@@ -579,6 +579,7 @@ private fun HeaderCard(
                     sharedScope = sharedScope,
                     subtitle = if (inThread) stringResource(R.string.thread) else typingText(typing),
                     onAvatarClick = { resolver.image(room?.avatarMxc, room?.name)?.let(onOpenMedia) },
+                    onTitleClick = onRoomInfo,
                 )
             },
             actions = {
