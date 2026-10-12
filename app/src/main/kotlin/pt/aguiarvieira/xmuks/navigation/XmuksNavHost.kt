@@ -113,8 +113,10 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
     val roomId: String? = null,
 ) : NavKey
 
-/** Past notifications across rooms. */
-@Serializable data object NotificationsKey : NavKey
+/** Past notifications (mentions, or everything that notified): across rooms, or [roomId]'s first. */
+@Serializable data class NotificationsKey(
+    val roomId: String? = null,
+) : NavKey
 
 /** Everyone we ignore. */
 @Serializable data object IgnoredUsersKey : NavKey
@@ -272,7 +274,7 @@ fun XmuksNavHost(
                                         onOpenRoom = backStack::openRoom,
                                         onOpenSpace = { backStack.add(SpaceKey(it)) },
                                         onOpenProfile = { backStack.add(UserKey(it)) },
-                                        onOpenNotifications = { backStack.add(NotificationsKey) },
+                                        onOpenNotifications = { backStack.add(NotificationsKey()) },
                                         onSearchMessages = { backStack.add(SearchKey()) },
                                         onOpenInvite = { backStack.add(InviteKey(it)) },
                                     )
@@ -299,6 +301,7 @@ fun XmuksNavHost(
                                         onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                         onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
                                         onSearch = { backStack.add(SearchKey(key.roomId)) },
+                                        onMentions = { backStack.add(NotificationsKey(key.roomId)) },
                                         onCall = { video -> backStack.add(CallKey(key.roomId, video)) },
                                         onSendFiles = { uris -> backStack.add(ShareKey(uris, null, key.roomId)) },
                                         onOpenThread = { root -> backStack.add(ThreadKey(key.roomId, root)) },
@@ -398,9 +401,10 @@ fun XmuksNavHost(
                                     )
                                 }
                             }
-                            entry<NotificationsKey> {
-                                Destination {
+                            entry<NotificationsKey> { key ->
+                                Destination(roomId = key.roomId) {
                                     NotificationsRoute(
+                                        roomId = key.roomId,
                                         onBack = { backStack.removeLastOrNull() },
                                         onOpenEvent = {
                                             roomId,

@@ -366,6 +366,15 @@ class RoomViewModel
             contextTarget.value = null
         }
 
+        /** Opening the room at an event: in the live timeline when it's within reach, else a window around it. */
+        val jump =
+            EventJump(
+                viewModelScope,
+                timeline,
+                loadOlder = { thread?.loadOlder() ?: session.loadOlder() },
+                showContext = ::showContext,
+            )
+
         init {
             viewModelScope.launch { session.open() }
             // Sync only reports call changes: a call already going on is found by looking.

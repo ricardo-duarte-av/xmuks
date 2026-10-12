@@ -141,6 +141,7 @@
         <item quantity="other">%1$d pinned messages</item>
     </plurals>
     <string name="search_room">Search</string>
+    <string name="room_mentions">Mentions</string>
     <string name="voice_call">Voice call</string>
     <string name="video_call">Video call</string>
     <string name="call_return">Return to call</string>

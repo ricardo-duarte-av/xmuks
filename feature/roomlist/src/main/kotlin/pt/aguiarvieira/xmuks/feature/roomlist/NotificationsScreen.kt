@@ -44,7 +44,11 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -59,26 +63,36 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
 import pt.aguiarvieira.xmuks.core.designsystem.util.ListTimestamps
-import javax.inject.Inject
 
 /** What's shown: the notifications so far, whether more are coming, and why not if it failed. */
 data class NotificationsState(
     val kind: MentionKind = MentionKind.Mentions,
+    /** The room it was opened from, if any; [roomId] is it while "this room" is on. */
+    val openedIn: String? = null,
+    /** Only this room's; every room's when null. */
+    val roomId: String? = null,
     val items: List<FoundEvent> = emptyList(),
     val loading: Boolean = true,
     val hasMore: Boolean = true,
     val error: String? = null,
 )
 
-@HiltViewModel
+@HiltViewModel(assistedFactory = NotificationsViewModel.Factory::class)
 class NotificationsViewModel
-    @Inject
+    @AssistedInject
     constructor(
+        @Assisted roomId: String?,
         private val mentions: Mentions,
         val media: MediaUrls,
     ) : ViewModel() {
-        private val _state = MutableStateFlow(NotificationsState())
+        @AssistedFactory
+        interface Factory {
+            fun create(roomId: String?): NotificationsViewModel
+        }
+
+        private val _state = MutableStateFlow(NotificationsState(openedIn = roomId, roomId = roomId))
         val state: StateFlow<NotificationsState> = _state.asStateFlow()
+        private var running: Job? = null
 
         init {
             loadMore()
@@ -86,7 +100,15 @@ class NotificationsViewModel
 
         fun show(kind: MentionKind) {
             if (kind == _state.value.kind) return
-            _state.value = NotificationsState(kind = kind)
+            restart { it.copy(kind = kind) }
+        }
+
+        fun thisRoomOnly(on: Boolean) = restart { it.copy(roomId = if (on) it.openedIn else null) }
+
+        /** From the top, with what's asked for changed; a page still coming for the old ask is dropped. */
+        private fun restart(change: (NotificationsState) -> NotificationsState) {
+            running?.cancel()
+            _state.update { change(it).copy(items = emptyList(), loading = true, hasMore = true, error = null) }
             loadMore()
         }
 
@@ -100,13 +122,16 @@ class NotificationsViewModel
                     .lastOrNull()
                     ?.timestamp
                     ?.minus(1) ?: System.currentTimeMillis()
-            viewModelScope.launch {
-                mentions
-                    .page(now.kind, before)
-                    .onSuccess { page ->
-                        _state.update { it.copy(items = it.items + page, loading = false, hasMore = page.size >= PAGE) }
-                    }.onFailure { e -> _state.update { it.copy(loading = false, error = e.message) } }
-            }
+            running =
+                viewModelScope.launch {
+                    mentions
+                        .page(now.kind, before, roomId = now.roomId)
+                        .onSuccess { page ->
+                            _state.update {
+                                it.copy(items = it.items + page, loading = false, hasMore = page.size >= PAGE)
+                            }
+                        }.onFailure { e -> _state.update { it.copy(loading = false, error = e.message) } }
+                }
         }
 
         private companion object {
@@ -119,7 +144,12 @@ fun NotificationsRoute(
     onBack: () -> Unit,
     onOpenEvent: (roomId: String, eventId: String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: NotificationsViewModel = hiltViewModel(),
+    /** Opened from a room: its mentions first, with a chip to see every room's. */
+    roomId: String? = null,
+    viewModel: NotificationsViewModel =
+        hiltViewModel<NotificationsViewModel, NotificationsViewModel.Factory>(key = "notifications:$roomId") {
+            it.create(roomId)
+        },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     NotificationsScreen(
@@ -129,7 +159,8 @@ fun NotificationsRoute(
         viewModel::loadMore,
         onOpenEvent,
         onBack,
-        modifier
+        modifier,
+        onThisRoom = viewModel::thisRoomOnly,
     )
 }
 
@@ -144,6 +175,7 @@ fun NotificationsScreen(
     onOpen: (roomId: String, eventId: String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onThisRoom: (Boolean) -> Unit = {},
     now: Long = rememberNow(),
 ) {
     Scaffold(
@@ -166,6 +198,10 @@ fun NotificationsScreen(
                         Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        if (state.openedIn != null) {
+                            val on = state.roomId != null
+                            FilterChip(on, { onThisRoom(!on) }, { Text(stringResource(R.string.search_this_room)) })
+                        }
                         MentionKind.entries.forEach { kind ->
                             FilterChip(
                                 selected = kind == state.kind,

@@ -100,6 +100,8 @@ fun RoomRoute(
     onOpenLink: (uri: String) -> Unit = {},
     onOpenRoomInfo: () -> Unit = {},
     onSearch: () -> Unit = {},
+    /** Past mentions of us in this room. */
+    onMentions: () -> Unit = {},
     /** Starts (or joins) the room's call; null where calls aren't offered. */
     onCall: ((video: Boolean) -> Unit)? = null,
     /** Files to send with a caption each (the share screen, for this room). */
@@ -144,7 +146,8 @@ fun RoomRoute(
         remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media, viewModel.mediaImages) }
     val androidContext = LocalContext.current
     val uriHandler = remember(androidContext, onOpenLink) { SafeUriHandler(androidContext, onOpenLink) }
-    LaunchedEffect(jumpTo) { jumpTo?.let(viewModel::showContext) }
+    val focus by viewModel.jump.focus.collectAsStateWithLifecycle()
+    LaunchedEffect(jumpTo) { jumpTo?.let(viewModel.jump::reach) }
     LaunchedEffect(refusal) {
         refusal?.let {
             Toast.makeText(androidContext, it, Toast.LENGTH_LONG).show()
@@ -180,6 +183,7 @@ fun RoomRoute(
             onOpenUser = onOpenUser,
             onOpenRoomInfo = onOpenRoomInfo,
             onSearch = onSearch,
+            onMentions = onMentions,
             // Bridged rooms (DM or group) get no calls: the bridges don't carry Matrix calls.
             onCall =
                 onCall.takeIf { threadRoot == null && bridge == null }?.let { start ->
@@ -203,6 +207,8 @@ fun RoomRoute(
             pins = PinsUi(pins, pinnedItems, viewModel.pins::toggle, viewModel.pins::load),
             onShowContext = viewModel::showContext,
             onLeaveContext = viewModel::leaveContext,
+            focusEvent = focus,
+            onFocusConsume = viewModel.jump::done,
             composer =
                 ComposerActions(
                     draft = viewModel.draft,
@@ -360,6 +366,10 @@ fun RoomScreen(
     modifier: Modifier = Modifier,
     onOpenRoomInfo: () -> Unit = {},
     onSearch: () -> Unit = {},
+    onMentions: () -> Unit = {},
+    /** An event to land on in the live timeline (the room was opened at it); [onFocusConsume] once there. */
+    focusEvent: String? = null,
+    onFocusConsume: () -> Unit = {},
     onCall: ((video: Boolean) -> Unit)? = null,
     /** The room's call, while there is one. */
     call: RoomCall? = null,
@@ -420,6 +430,7 @@ fun RoomScreen(
             )
         }
     JumpEffects(context, contextList, onLeaveContext) { highlighted = it }
+    FocusEffect(focusEvent, { shown }, liveList, onShowContext, onFocusConsume) { highlighted = it }
     LaunchedEffect(highlighted) {
         if (highlighted != null) {
             delay(HIGHLIGHT_MS)
@@ -464,6 +475,7 @@ fun RoomScreen(
                     onOpenMedia,
                     onOpenRoomInfo,
                     onSearch,
+                    onMentions,
                     inThread,
                     bridge,
                     onCall,
@@ -533,6 +545,7 @@ private fun HeaderCard(
     onOpenMedia: (ViewerMedia) -> Unit,
     onRoomInfo: () -> Unit,
     onSearch: () -> Unit,
+    onMentions: () -> Unit,
     inThread: Boolean = false,
     bridge: BridgeInfo? = null,
     onCall: ((video: Boolean) -> Unit)? = null,
@@ -601,6 +614,15 @@ private fun HeaderCard(
                             onSearch()
                         },
                     )
+                    if (!inThread) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.room_mentions)) },
+                            onClick = {
+                                menu = false
+                                onMentions()
+                            },
+                        )
+                    }
                 }
             },
         )
@@ -788,52 +810,6 @@ private fun LoadOlderNearTop(
     }
 }
 
-/** Once a context window is in, scroll to its event and light it up; if it failed, say so and go back. */
-@Composable
-private fun JumpEffects(
-    context: ContextView?,
-    list: LazyListState,
-    onLeaveContext: () -> Unit,
-    highlight: (String) -> Unit,
-) {
-    val androidContext = LocalContext.current
-    val failedText = stringResource(R.string.context_failed)
-    val leave by rememberUpdatedState(onLeaveContext)
-    val light by rememberUpdatedState(highlight)
-    LaunchedEffect(context?.eventId, context?.items != null, context?.failed) {
-        val view = context ?: return@LaunchedEffect
-        if (view.failed) {
-            Toast.makeText(androidContext, failedText, Toast.LENGTH_SHORT).show()
-            leave()
-            return@LaunchedEffect
-        }
-        val index = view.items?.indexOfEvent(view.eventId) ?: return@LaunchedEffect
-        if (index >= 0) {
-            list.scrollToItem(index, list.focusOffset())
-            light(view.eventId)
-        }
-    }
-}
-
-/**
- * Where a jumped-to item should sit: a third of the way up rather than on the bottom edge (in this
- * reversed list, "scroll to item" puts it at the start, i.e. the bottom). Negative = further up.
- */
-private fun LazyListState.focusOffset() = -(layoutInfo.viewportSize.height / FOCUS_FRACTION)
-
-private val TimelineItem.eventId: String?
-    get() =
-        when (this) {
-            is TimelineItem.Message -> eventId
-            is TimelineItem.StateChange -> eventId
-            is TimelineItem.Hidden -> eventId
-            is TimelineItem.Call -> eventId
-            is TimelineItem.DaySeparator -> null
-            TimelineItem.UnreadSeparator -> null
-        }
-
-private fun List<TimelineItem>.indexOfEvent(eventId: String) = indexOfFirst { it.eventId == eventId }
-
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Loading(modifier: Modifier = Modifier) = LoadingIndicator(modifier)
@@ -867,6 +843,5 @@ private fun typingText(typing: List<String>): String? =
 
 private const val PREFETCH_DISTANCE = 10
 private const val HIGHLIGHT_MS = 1_600L
-private const val FOCUS_FRACTION = 3
 
 private const val DISABLED_ALPHA = 0.38f
