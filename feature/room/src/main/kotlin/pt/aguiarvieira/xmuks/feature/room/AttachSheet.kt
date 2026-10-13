@@ -42,7 +42,7 @@ internal fun AttachSheet(
     onDismiss: () -> Unit,
     /** Why the bridged network won't take one, if it won't: dimmed, and tapping it says why. */
     limitOf: (Attachment) -> Limit? = { null },
-    onLimited: (Limit) -> Unit = {},
+    onLimit: (Limit) -> Unit = {},
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         FlowRow(
@@ -58,7 +58,7 @@ internal fun AttachSheet(
                     stringResource(attachment.label),
                     onClick = {
                         onDismiss()
-                        if (limit != null) onLimited(limit) else onPick(attachment)
+                        if (limit != null) onLimit(limit) else onPick(attachment)
                     },
                     modifier = Modifier.limited(limit),
                 )

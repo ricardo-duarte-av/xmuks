@@ -67,7 +67,7 @@ class MediaActions(
     /** What the bridged network here takes; null when nothing is limited. */
     private val features: () -> RoomFeatures? = { null },
     /** A file the network won't take, not sent: said in a toast. */
-    private val onLimited: (Limit) -> Unit = {},
+    private val onLimit: (Limit) -> Unit = {},
 ) {
     private val _draft = MutableStateFlow<MediaDraft?>(null)
     val draft: StateFlow<MediaDraft?> = _draft.asStateFlow()
@@ -114,7 +114,7 @@ class MediaActions(
         size: Long,
     ): Boolean {
         val issue = features()?.checkMedia(msgtype, mime, size)?.firstOrNull { it.blocks } ?: return false
-        onLimited(Limit.Media(issue))
+        onLimit(Limit.Media(issue))
         return true
     }
 

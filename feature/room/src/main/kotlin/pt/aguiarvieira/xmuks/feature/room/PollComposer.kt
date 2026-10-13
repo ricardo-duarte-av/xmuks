@@ -43,7 +43,7 @@ internal fun PollComposer(
     /** The longest answer the bridged network takes. */
     maxAnswerLength: Int? = null,
     /** Adding an answer past [maxAnswers]. */
-    onLimited: (Limit) -> Unit = {},
+    onLimit: (Limit) -> Unit = {},
 ) {
     var question by remember { mutableStateOf("") }
     val answers = remember { mutableStateListOf("", "") }
@@ -86,7 +86,7 @@ internal fun PollComposer(
                 // Past what the network takes: still offered, dimmed, saying why.
                 val limit = maxAnswers?.takeIf { answers.size >= it }?.let(Limit::TooManyOptions)
                 TextButton(
-                    onClick = { if (limit != null) onLimited(limit) else answers.add("") },
+                    onClick = { if (limit != null) onLimit(limit) else answers.add("") },
                     modifier = Modifier.limited(limit),
                 ) { Text(stringResource(R.string.poll_add_answer)) }
             }

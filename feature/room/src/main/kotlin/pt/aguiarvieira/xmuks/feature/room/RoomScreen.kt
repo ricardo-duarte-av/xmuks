@@ -287,7 +287,7 @@ fun RoomRoute(
                         ),
                     features = features,
                     network = bridge?.protocol,
-                    onLimited = viewModel.limited::show,
+                    onLimit = viewModel.limited::show,
                 ),
             modifier = modifier,
         )
@@ -341,7 +341,7 @@ class ComposerActions(
     /** The bridged network's name, for saying what it won't do. */
     val network: String? = null,
     /** Something dimmed was tapped: say why. */
-    val onLimited: (Limit) -> Unit = {},
+    val onLimit: (Limit) -> Unit = {},
 )
 
 /** What the emoji/sticker pickers show, and what picking does. */

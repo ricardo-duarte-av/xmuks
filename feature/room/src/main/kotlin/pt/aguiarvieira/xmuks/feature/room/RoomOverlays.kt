@@ -124,19 +124,7 @@ internal fun RoomOverlays(
             onDismiss = { state.picker = null },
         )
     }
-    state.deleting?.let { message ->
-        DeleteDialog(
-            matrixOnly =
-                composer.features?.deleteBlock(message.timestamp, System.currentTimeMillis())?.let {
-                    composer.network ?: stringResource(R.string.network_fallback)
-                },
-            onConfirm = {
-                composer.onDelete(message)
-                state.deleting = null
-            },
-            onDismiss = { state.deleting = null },
-        )
-    }
+    state.deleting?.let { message -> DeleteFor(message, state, composer) }
     composer.history?.let { MessageHistorySheet(it, resolver, actions, composer.onHideHistory) }
     composer.reactions?.let { ReactionsSheet(it, resolver, actions.openUser, composer.onHideReactions) }
     ComposerOverlays(state, composer, resolver)
@@ -354,7 +342,7 @@ private fun ComposerOverlays(
         AttachSheet(
             available = composer.attachments,
             limitOf = { attachmentLimit(composer.features, it) },
-            onLimited = composer.onLimited,
+            onLimit = composer.onLimit,
             onPick = {
                 when (it) {
                     Attachment.Voice -> state.recordingVoice = true
@@ -374,7 +362,7 @@ private fun ComposerOverlays(
             composer.onSendMedia,
             composer.onCancelMedia,
             composer.network,
-            composer.onLimited,
+            composer.onLimit,
         )
     }
     if (state.recordingVoice) VoiceSheet(composer.onSendVoice) { state.recordingVoice = false }
@@ -386,12 +374,33 @@ private fun ComposerOverlays(
             onDismiss = { state.writingPoll = false },
             maxAnswers = features?.pollMaxOptions,
             maxAnswerLength = features?.pollOptionMaxLength,
-            onLimited = composer.onLimited,
+            onLimit = composer.onLimit,
         )
     }
     if (state.choosingPersona) {
         PersonaChooser(composer.personas, resolver.avatar, composer.onChoosePersona) { state.choosingPersona = false }
     }
+}
+
+/** Confirming [message]'s deletion; past the network's window, saying it stays there. */
+@Composable
+private fun DeleteFor(
+    message: TimelineItem.Message,
+    state: OverlayState,
+    composer: ComposerActions,
+) {
+    val keptBy =
+        composer.features?.deleteBlock(message.timestamp, System.currentTimeMillis())?.let {
+            composer.network ?: stringResource(R.string.network_fallback)
+        }
+    DeleteDialog(
+        matrixOnly = keptBy,
+        onConfirm = {
+            composer.onDelete(message)
+            state.deleting = null
+        },
+        onDismiss = { state.deleting = null },
+    )
 }
 
 /** Why the bridged network won't take [attachment], if it won't. */
@@ -442,9 +451,9 @@ private fun MessageMenuFor(
                 thread = features?.threadBlock(),
                 reaction = { key -> features?.reactionBlock(key, custom = false) },
                 moreReactions = features?.takeUnless { it.reaction.works }?.let { Limit.Unsupported(Action.React) },
-                onLimited = { limit ->
+                onLimit = { limit ->
                     state.menuFor = null
-                    composer.onLimited(limit)
+                    composer.onLimit(limit)
                 },
             ),
         pinned = if (pins.pins.canPin) message.eventId in pins.pins.eventIds else null,

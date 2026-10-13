@@ -68,14 +68,14 @@ internal fun MediaSendScreen(
     /** The bridged network's name, for what it would make of the file. */
     network: String? = null,
     /** Send tapped for a file the network won't take. */
-    onLimited: (Limit) -> Unit = {},
+    onLimit: (Limit) -> Unit = {},
 ) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         // Dark whatever the app's theme: media reads best on black, and the controls must too.
-        XmuksTheme(darkTheme = true) { MediaSendContent(draft, onChoose, onSend, onDismiss, network, onLimited) }
+        XmuksTheme(darkTheme = true) { MediaSendContent(draft, onChoose, onSend, onDismiss, network, onLimit) }
     }
 }
 
@@ -86,7 +86,7 @@ private fun MediaSendContent(
     onSend: (caption: String, spoiler: Boolean) -> Unit,
     onDismiss: () -> Unit,
     network: String?,
-    onLimited: (Limit) -> Unit,
+    onLimit: (Limit) -> Unit,
 ) {
     val caption = rememberTextFieldState()
     var spoiler by rememberSaveable { mutableStateOf(false) }
@@ -148,7 +148,7 @@ private fun MediaSendContent(
                 )
                 val blocked = draft.blocked?.let(Limit::Media)
                 FilledIconButton(
-                    onClick = { if (blocked != null) onLimited(blocked) else onSend(caption.text.toString(), spoiler) },
+                    onClick = { if (blocked != null) onLimit(blocked) else onSend(caption.text.toString(), spoiler) },
                     enabled = !draft.sending,
                     modifier = Modifier.size(56.dp).limited(blocked),
                 ) {

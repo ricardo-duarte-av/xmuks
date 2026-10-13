@@ -45,7 +45,7 @@ class EmojiActions(
     /** What the bridged network here allows; null when nothing is limited. */
     private val features: () -> RoomFeatures? = { null },
     /** A reaction the network won't take, not sent: said in a toast. */
-    private val onLimited: (Limit) -> Unit = {},
+    private val onLimit: (Limit) -> Unit = {},
     /** Where a sticker goes: a reply, or into the thread shown. */
     private val replyTo: () -> ReplyTarget? = { null },
 ) {
@@ -87,7 +87,7 @@ class EmojiActions(
         custom: Boolean,
     ): Boolean {
         val limit = features()?.reactionBlock(key, custom) ?: return false
-        onLimited(limit)
+        onLimit(limit)
         return true
     }
 

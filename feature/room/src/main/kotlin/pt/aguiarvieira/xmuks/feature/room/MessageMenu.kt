@@ -32,22 +32,6 @@ import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 
 /**
- * What the bridged network won't do with a message: those items stay, dimmed, and tapping one
- * says why ([onLimited]). [delete] only relabels deleting: the Matrix copy still goes.
- */
-internal class MenuLimits(
-    val edit: Limit? = null,
-    val delete: Limit? = null,
-    val reply: Limit? = null,
-    val thread: Limit? = null,
-    /** Why a quick reaction won't do. */
-    val reaction: (String) -> Limit? = { null },
-    /** No reactions at all. */
-    val moreReactions: Limit? = null,
-    val onLimited: (Limit) -> Unit = {},
-)
-
-/**
  * What can be done with a message (long press): react, reply, edit (ours, once sent), thread,
  * pin, save, copy its text, delete.
  */
@@ -112,7 +96,7 @@ private fun ThreadAndPin(
     limits: MenuLimits,
 ) {
     if (onThread != null) {
-        Item(R.drawable.ic_thread, R.string.reply_in_thread, limits.thread, limits.onLimited, onThread)
+        Item(R.drawable.ic_thread, R.string.reply_in_thread, limits.thread, limits.onLimit, onThread)
     }
     if (pinned != null) {
         Item(
@@ -133,8 +117,8 @@ private fun SentItems(
     onReactions: () -> Unit,
     limits: MenuLimits,
 ) {
-    Item(R.drawable.ic_reply, R.string.reply, limits.reply, limits.onLimited, onReply)
-    if (message.editSource != null) Item(R.drawable.ic_edit, R.string.edit, limits.edit, limits.onLimited, onEdit)
+    Item(R.drawable.ic_reply, R.string.reply, limits.reply, limits.onLimit, onReply)
+    if (message.editSource != null) Item(R.drawable.ic_edit, R.string.edit, limits.edit, limits.onLimit, onEdit)
     if (message.edited) Item(R.drawable.ic_history, R.string.view_edits) { onHistory() }
     if (message.content == MessageContent.Redacted) Item(R.drawable.ic_history, R.string.view_deleted) { onHistory() }
     if (message.reactions.isNotEmpty()) Item(R.drawable.ic_add_reaction, R.string.view_reactions, onReactions)
@@ -153,12 +137,12 @@ private fun Item(
     icon: Int,
     label: Int,
     limit: Limit?,
-    onLimited: (Limit) -> Unit,
+    onLimit: (Limit) -> Unit,
     onClick: () -> Unit,
 ) = ListItem(
     leadingContent = { Icon(painterResource(icon), contentDescription = null) },
     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    modifier = Modifier.clickable { if (limit != null) onLimited(limit) else onClick() }.limited(limit),
+    modifier = Modifier.clickable { if (limit != null) onLimit(limit) else onClick() }.limited(limit),
 ) { Text(stringResource(label)) }
 
 /** The most used emoji, one tap to react, and the full picker behind "+". */
@@ -180,7 +164,7 @@ private fun QuickReactions(
                 Modifier
                     .size(QUICK)
                     .clip(CircleShape)
-                    .clickable { if (limit != null) limits.onLimited(limit) else onReact(e) }
+                    .clickable { if (limit != null) limits.onLimit(limit) else onReact(e) }
                     .limited(limit),
                 contentAlignment = Alignment.Center,
             ) {
@@ -189,7 +173,7 @@ private fun QuickReactions(
         }
         val more = limits.moreReactions
         FilledTonalIconButton(
-            onClick = { if (more != null) limits.onLimited(more) else onMore() },
+            onClick = { if (more != null) limits.onLimit(more) else onMore() },
             modifier = Modifier.size(QUICK).limited(more),
         ) {
             Icon(
