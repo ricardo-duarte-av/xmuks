@@ -77,6 +77,9 @@ class RoomSession(
     /** What this room is bridged to, if it is. */
     val bridge: Flow<BridgeInfo?> = state.map(::bridgeOf).distinctUntilChanged()
 
+    /** What the bridged network(s) here can do; null when nothing says (not bridged). */
+    val features: Flow<RoomFeatures?> = state.map(::roomFeaturesOf).distinctUntilChanged()
+
     /** Polls here: their votes, and starting, answering and ending them. */
     val polls = RoomPolls(roomId, exec, outbox, scope)
 

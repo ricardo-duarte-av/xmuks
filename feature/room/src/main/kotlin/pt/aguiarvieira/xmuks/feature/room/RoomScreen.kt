@@ -76,7 +76,9 @@ import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.BridgeInfo
+import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
+import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
@@ -125,6 +127,8 @@ fun RoomRoute(
     val hasMoreBefore by viewModel.hasMoreBefore.collectAsStateWithLifecycle()
     val linkPreviews by viewModel.linkPreviews.previews.collectAsStateWithLifecycle()
     val bridge by viewModel.bridge.collectAsStateWithLifecycle()
+    val features by viewModel.features.collectAsStateWithLifecycle()
+    val limited by viewModel.limited.value.collectAsStateWithLifecycle()
     val call by viewModel.call.collectAsStateWithLifecycle()
     val canCall by viewModel.canCall.collectAsStateWithLifecycle()
     val newestEvent by viewModel.newestEvent.collectAsStateWithLifecycle()
@@ -155,6 +159,12 @@ fun RoomRoute(
         refusal?.let {
             Toast.makeText(androidContext, it, Toast.LENGTH_LONG).show()
             viewModel.refusal.shown()
+        }
+    }
+    LaunchedEffect(limited) {
+        limited?.let {
+            Toast.makeText(androidContext, limitText(androidContext, it, bridge?.protocol), Toast.LENGTH_LONG).show()
+            viewModel.limited.shown()
         }
     }
     LifecycleResumeEffect(viewModel) {
@@ -275,6 +285,9 @@ fun RoomRoute(
                             viewModel.linkPreviews::load,
                             viewModel.linkPreviews::dismiss,
                         ),
+                    features = features,
+                    network = bridge?.protocol,
+                    onLimited = viewModel.limited::show,
                 ),
             modifier = modifier,
         )
@@ -323,6 +336,12 @@ class ComposerActions(
     val polls: PollActions = PollActions(),
     val linkPreviews: LinkPreviewsUi = LinkPreviewsUi(),
     val mentions: MentionHintsUi = MentionHintsUi(),
+    /** What the bridged network here can do; null when the room isn't bridged (nothing is limited). */
+    val features: RoomFeatures? = null,
+    /** The bridged network's name, for saying what it won't do. */
+    val network: String? = null,
+    /** Something dimmed was tapped: say why. */
+    val onLimited: (Limit) -> Unit = {},
 )
 
 /** What the emoji/sticker pickers show, and what picking does. */
@@ -408,6 +427,7 @@ fun RoomScreen(
     val liveList = rememberLazyListState()
     val contextList = remember(context?.eventId) { LazyListState() }
     var highlighted by remember { mutableStateOf<String?>(null) }
+    var limitsShown by remember { mutableStateOf(false) }
     val shown by rememberUpdatedState(if (context != null) context.items else timeline.items)
     val list by rememberUpdatedState(if (context != null) contextList else liveList)
     val showContext by rememberUpdatedState(onShowContext)
@@ -455,6 +475,9 @@ fun RoomScreen(
         overlays.pinsShown = true
     }
     RoomOverlays(overlays, composer, resolver, actions, onSaveMedia, onOpenThread, pins)
+    composer.features?.takeIf { limitsShown }?.let { features ->
+        NetworkLimitsSheet(features, composer.network) { limitsShown = false }
+    }
     if (overlays.pinsShown) {
         PinnedSheet(pins, resolver, onShow = { eventId ->
             overlays.pinsShown = false
@@ -492,6 +515,7 @@ fun RoomScreen(
                     callNotifyRoom,
                     onCallNotifyRoom,
                     callAllowed,
+                    onNetworkLimits = composer.features?.let { { limitsShown = true } },
                 )
                 UnderHeader(call, onCall, pinned = if (inThread) 0 else pins.pins.eventIds.size) {
                     overlays.pinsShown =
@@ -521,6 +545,7 @@ fun RoomScreen(
                     network = bridge?.protocol,
                     mentions = composer.mentions,
                     onSendMedia = composer.onSendNow,
+                    maxLength = composer.features?.maxTextLength,
                 )
             }
         },
@@ -562,6 +587,8 @@ private fun HeaderCard(
     callNotifyRoom: Boolean = true,
     onCallNotifyRoom: (Boolean) -> Unit = {},
     callAllowed: Boolean = true,
+    /** What the bridged network supports, in a sheet; null when the room isn't bridged. */
+    onNetworkLimits: (() -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     var startSheet by remember { mutableStateOf(false) }
@@ -630,6 +657,15 @@ private fun HeaderCard(
                             onClick = {
                                 menu = false
                                 onMentions()
+                            },
+                        )
+                    }
+                    if (onNetworkLimits != null) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.network_limits)) },
+                            onClick = {
+                                menu = false
+                                onNetworkLimits()
                             },
                         )
                     }
@@ -854,5 +890,5 @@ private fun typingText(typing: List<String>): String? =
 private const val PREFETCH_DISTANCE = 10
 private const val HIGHLIGHT_MS = 1_600L
 
-private const val DISABLED_ALPHA = 0.38f
+internal const val DISABLED_ALPHA = 0.38f
 private const val HALF = 0.5f

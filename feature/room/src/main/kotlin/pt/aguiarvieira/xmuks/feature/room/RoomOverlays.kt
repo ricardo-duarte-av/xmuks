@@ -36,8 +36,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import pt.aguiarvieira.xmuks.core.data.timeline.Action
+import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
+import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.media
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
@@ -97,6 +100,7 @@ internal fun RoomOverlays(
             packs = composer.emoji.packs,
             recent = composer.emoji.recent,
             resolver = resolver,
+            blocked = { picked -> reactionLimit(composer, picked) != null },
             onPick = { picked ->
                 val target = request.reactTo
                 when {
@@ -122,6 +126,10 @@ internal fun RoomOverlays(
     }
     state.deleting?.let { message ->
         DeleteDialog(
+            matrixOnly =
+                composer.features?.deleteBlock(message.timestamp, System.currentTimeMillis())?.let {
+                    composer.network ?: stringResource(R.string.network_fallback)
+                },
             onConfirm = {
                 composer.onDelete(message)
                 state.deleting = null
@@ -149,9 +157,24 @@ internal fun RoomOverlays(
     }
 }
 
-/** The most used Unicode emoji (custom ones need the picker), topped up with the usual ones. */
-private fun quickReactions(recent: List<String>): List<String> =
-    (recent.filterNot { it.startsWith("mxc://") } + DEFAULT_QUICK_REACTIONS).distinct().take(QUICK_REACTIONS)
+/**
+ * The most used Unicode emoji (custom ones need the picker), topped up with the usual ones; where
+ * the network takes only some, those first.
+ */
+private fun quickReactions(
+    recent: List<String>,
+    allowed: Set<String>?,
+): List<String> {
+    val all = (recent.filterNot { it.startsWith("mxc://") } + DEFAULT_QUICK_REACTIONS).distinct()
+    val ordered = if (allowed == null) all else all.filter { it in allowed } + allowed + all
+    return ordered.distinct().take(QUICK_REACTIONS)
+}
+
+/** Why the bridged network won't take [picked] as a reaction, if it won't. */
+private fun reactionLimit(
+    composer: ComposerActions,
+    picked: Picked,
+): Limit? = composer.features?.reactionBlock(picked.key, picked is Picked.Custom)
 
 /** Emoji into the draft: Unicode as is, custom ones as `:shortcode:` (expanded when sent). */
 private fun Picked.asText(): String =
@@ -330,6 +353,8 @@ private fun ComposerOverlays(
     if (state.attaching) {
         AttachSheet(
             available = composer.attachments,
+            limitOf = { attachmentLimit(composer.features, it) },
+            onLimited = composer.onLimited,
             onPick = {
                 when (it) {
                     Attachment.Voice -> state.recordingVoice = true
@@ -343,15 +368,57 @@ private fun ComposerOverlays(
         )
     }
     composer.mediaDraft?.let { draft ->
-        MediaSendScreen(draft, composer.onChooseSize, composer.onSendMedia, composer.onCancelMedia)
+        MediaSendScreen(
+            draft,
+            composer.onChooseSize,
+            composer.onSendMedia,
+            composer.onCancelMedia,
+            composer.network,
+            composer.onLimited,
+        )
     }
     if (state.recordingVoice) VoiceSheet(composer.onSendVoice) { state.recordingVoice = false }
     if (state.pickingLocation) LocationPicker(composer.onSendLocation) { state.pickingLocation = false }
-    if (state.writingPoll) PollComposer(composer.polls.onStart) { state.writingPoll = false }
+    if (state.writingPoll) {
+        val features = composer.features
+        PollComposer(
+            composer.polls.onStart,
+            onDismiss = { state.writingPoll = false },
+            maxAnswers = features?.pollMaxOptions,
+            maxAnswerLength = features?.pollOptionMaxLength,
+            onLimited = composer.onLimited,
+        )
+    }
     if (state.choosingPersona) {
         PersonaChooser(composer.personas, resolver.avatar, composer.onChoosePersona) { state.choosingPersona = false }
     }
 }
+
+/** Why the bridged network won't take [attachment], if it won't. */
+private fun attachmentLimit(
+    features: RoomFeatures?,
+    attachment: Attachment,
+): Limit? =
+    when (attachment) {
+        Attachment.Poll -> {
+            features?.pollBlock()
+        }
+
+        Attachment.Location -> {
+            features?.locationBlock()
+        }
+
+        Attachment.Voice -> {
+            features
+                ?.checkMedia(RoomFeatures.VOICE, RoomFeatures.VOICE_MIME, 0)
+                ?.firstOrNull { it.blocks }
+                ?.let(Limit::Media)
+        }
+
+        else -> {
+            null
+        }
+    }
 
 /** The long-press menu for [message], and what each of its items does. */
 @Composable
@@ -363,8 +430,23 @@ private fun MessageMenuFor(
     onOpenThread: ((String) -> Unit)?,
     pins: PinsUi,
 ) {
+    val features = composer.features
+    val now = System.currentTimeMillis()
     MessageMenu(
         message,
+        limits =
+            MenuLimits(
+                edit = features?.editBlock(message.timestamp, now),
+                delete = features?.deleteBlock(message.timestamp, now),
+                reply = features?.replyBlock(),
+                thread = features?.threadBlock(),
+                reaction = { key -> features?.reactionBlock(key, custom = false) },
+                moreReactions = features?.takeUnless { it.reaction.works }?.let { Limit.Unsupported(Action.React) },
+                onLimited = { limit ->
+                    state.menuFor = null
+                    composer.onLimited(limit)
+                },
+            ),
         pinned = if (pins.pins.canPin) message.eventId in pins.pins.eventIds else null,
         onPin = {
             pins.onToggle(message.eventId)
@@ -411,7 +493,7 @@ private fun MessageMenuFor(
             state.deleting = message
             state.menuFor = null
         },
-        quickReactions = quickReactions(composer.emoji.recent),
+        quickReactions = quickReactions(composer.emoji.recent, features?.allowedReactions),
         onReact = { key ->
             composer.emoji.onReact(message, Picked.Unicode(key))
             state.menuFor = null

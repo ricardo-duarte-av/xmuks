@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -73,6 +74,8 @@ internal fun EmojiPickerSheet(
     onPick: (Picked) -> Unit,
     onSubscribe: (ImagePack, Boolean) -> Unit,
     onDismiss: () -> Unit,
+    /** What the bridged network won't take as a reaction: dimmed (picking it says why). */
+    blocked: (Picked) -> Boolean = { false },
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -87,7 +90,8 @@ internal fun EmojiPickerSheet(
             onPick,
             onSubscribe,
             Modifier.height(PICKER_HEIGHT),
-            allowFreeform = true
+            allowFreeform = true,
+            blocked = blocked,
         )
     }
 }
@@ -106,6 +110,8 @@ internal fun EmojiPicker(
     allowFreeform: Boolean = false,
     /** The search field; the composer's panel hides it until asked (it takes rows of emoji). */
     showSearch: Boolean = true,
+    /** Shown dimmed: what the bridged network won't take (still picked, to say why). */
+    blocked: (Picked) -> Boolean = { false },
 ) {
     val query = rememberTextFieldState()
     val q by remember(showSearch) { derivedStateOf { if (showSearch) query.text.toString().trim() else "" } }
@@ -173,7 +179,7 @@ internal fun EmojiPicker(
                 }
                 section.items.forEachIndexed { i, picked ->
                     item(key = section.id + ":" + i + ":" + picked.key) {
-                        Cell(picked, resolver) { onPick(picked) }
+                        Cell(picked, resolver, blocked(picked)) { onPick(picked) }
                     }
                 }
             }
@@ -233,10 +239,12 @@ private fun SectionHeader(
 private fun Cell(
     picked: Picked,
     resolver: MediaResolver,
+    dimmed: Boolean,
     onClick: () -> Unit,
 ) {
     Box(
         Modifier
+            .alpha(if (dimmed) DISABLED_ALPHA else 1f)
             .aspectRatio(1f)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)

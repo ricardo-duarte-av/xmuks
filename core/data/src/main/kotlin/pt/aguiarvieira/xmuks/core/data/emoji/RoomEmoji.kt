@@ -107,20 +107,32 @@ class RoomEmoji(
                 .filter(::isEmojiKey)
         }
 
-    /** Adds our [key] reaction to [target], or takes it back if it's already ours. */
+    /**
+     * Adds our [key] reaction to [target], or takes it back if it's already ours. Adding takes back
+     * [replacing] first: ours that make way where a network allows only so many each.
+     */
     suspend fun toggleReaction(
         target: String,
         key: String,
         existing: Reaction?,
         shortcode: String? = null,
+        replacing: List<Reaction> = emptyList(),
     ) {
         if (existing?.mine == true) {
-            val ids = existing.myEventId?.let(::listOf) ?: myReactionIds(target, key)
-            ids.forEach { writer.redact(it) }
+            takeBack(target, existing)
         } else {
+            replacing.forEach { takeBack(target, it) }
             writer.react(target, key, shortcode)
             bumpRecent(key)
         }
+    }
+
+    private suspend fun takeBack(
+        target: String,
+        reaction: Reaction,
+    ) {
+        val ids = reaction.myEventId?.let(::listOf) ?: myReactionIds(target, reaction.key)
+        ids.forEach { writer.redact(it) }
     }
 
     /** Subscribes to (or drops) a room's pack, keeping both the new and legacy account data in step. */

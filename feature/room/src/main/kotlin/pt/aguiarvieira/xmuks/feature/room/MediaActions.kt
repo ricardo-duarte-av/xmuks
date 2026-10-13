@@ -13,7 +13,10 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaKind
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.PickedFile
+import pt.aguiarvieira.xmuks.core.data.timeline.Limit
+import pt.aguiarvieira.xmuks.core.data.timeline.MediaIssue
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
+import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import java.io.File
 import kotlin.math.max
 
@@ -35,7 +38,16 @@ data class MediaDraft(
     val sending: Boolean = false,
     /** Preparing it failed (an unreadable file, say). */
     val error: String? = null,
-)
+    /** What the bridged network would make of it (nothing when the room isn't bridged). */
+    val issues: List<MediaIssue> = emptyList(),
+    /** The network drops captions on this kind of file. */
+    val captionDropped: Boolean = false,
+    /** The longest caption the network shows. */
+    val maxCaption: Int? = null,
+) {
+    /** What stops it reaching the network at all, if anything. */
+    val blocked: MediaIssue? get() = issues.firstOrNull { it.blocks }
+}
 
 /**
  * The preview-and-send step for attachments: [pick] opens it, sizes are worked out (images, in
@@ -52,6 +64,10 @@ class MediaActions(
     private val onSent: () -> Unit,
     /** gomuks' `upload_dialog`: preview (size, caption) before sending, or send as picked. */
     private val showDialog: () -> Boolean = { true },
+    /** What the bridged network here takes; null when nothing is limited. */
+    private val features: () -> RoomFeatures? = { null },
+    /** A file the network won't take, not sent: said in a toast. */
+    private val onLimited: (Limit) -> Unit = {},
 ) {
     private val _draft = MutableStateFlow<MediaDraft?>(null)
     val draft: StateFlow<MediaDraft?> = _draft.asStateFlow()
@@ -74,9 +90,32 @@ class MediaActions(
                     MediaKind.Video -> preparer.videoPreview(file)
                     else -> null
                 }
-            _draft.value = MediaDraft(file, preview)
+            _draft.value = withIssues(MediaDraft(file, preview))
             if (preparer.resizable(file)) offerSizes(file)
         }
+    }
+
+    /** [draft] with what the network would make of its file. */
+    private fun withIssues(draft: MediaDraft): MediaDraft {
+        val features = features() ?: return draft
+        val msgtype = RoomFeatures.msgtypeOf(draft.file.kind)
+        val kind = features.files[msgtype]
+        return draft.copy(
+            issues = features.checkMedia(msgtype, draft.file.mimeType, draft.file.size),
+            captionDropped = kind != null && !kind.caption.works,
+            maxCaption = kind?.maxCaptionLength,
+        )
+    }
+
+    /** Whether the network refuses a [msgtype] file of [mime] and [size] bytes: if so, it's said, not sent. */
+    private fun refused(
+        msgtype: String,
+        mime: String?,
+        size: Long,
+    ): Boolean {
+        val issue = features()?.checkMedia(msgtype, mime, size)?.firstOrNull { it.blocks } ?: return false
+        onLimited(Limit.Media(issue))
+        return true
     }
 
     /** Original plus every smaller size; the default is Large when the image is bigger than that. */
@@ -138,6 +177,7 @@ class MediaActions(
 
     /** No preview step: the file as it is, no caption. */
     private suspend fun sendAsPicked(file: PickedFile) {
+        if (refused(RoomFeatures.msgtypeOf(file.kind), file.mimeType, file.size)) return
         runCatching { preparer.prepare(file, null) }.onSuccess { prepared ->
             sender.send(roomId, prepared, "", replyTo(), encrypted())
             onSent()
@@ -146,6 +186,7 @@ class MediaActions(
 
     /** A recording from the voice sheet: straight to the uploads, no preview step. */
     fun sendVoice(file: File) {
+        if (refused(RoomFeatures.VOICE, RoomFeatures.VOICE_MIME, file.length())) return
         sender.send(roomId, preparer.voice(file), "", replyTo(), encrypted())
         onSent()
     }

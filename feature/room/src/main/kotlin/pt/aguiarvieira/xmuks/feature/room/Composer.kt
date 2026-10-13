@@ -28,6 +28,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
@@ -71,6 +72,8 @@ internal fun ComposerCard(
     network: String? = null,
     /** GIFs and stickers from the keyboard, images pasted in: sent as they are. */
     onSendMedia: (android.net.Uri) -> Unit = {},
+    /** The longest message the bridged network takes: a count shows near it, and sending past it is dimmed. */
+    maxLength: Int? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     val mediaReceiver = rememberMediaReceiver(onSendMedia)
@@ -133,7 +136,22 @@ internal fun ComposerCard(
                         }
                     },
                 )
-                FilledIconButton(onClick = onSend, enabled = state.text.isNotBlank()) {
+                val length = state.text.length
+                val over = maxLength != null && length > maxLength
+                if (maxLength != null && length * COUNT_FROM_TENTHS >= maxLength * COUNT_AT_TENTHS) {
+                    Text(
+                        "$length / $maxLength",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (over) colors.error else colors.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.CenterVertically).padding(end = 4.dp),
+                    )
+                }
+                // Too long for the network: still tappable, so sending can say why.
+                FilledIconButton(
+                    onClick = onSend,
+                    enabled = state.text.isNotBlank(),
+                    modifier = Modifier.alpha(if (over) DISABLED_ALPHA else 1f),
+                ) {
                     Icon(
                         painterResource(R.drawable.ic_send),
                         contentDescription = stringResource(R.string.send),
@@ -236,21 +254,34 @@ internal fun UnsentDialog(
     )
 }
 
-/** Deleting is for everyone and can't be undone: confirm first. */
+/**
+ * Deleting is for everyone and can't be undone: confirm first. [matrixOnly] names the bridged
+ * network that keeps it (past its window for deleting), when one does.
+ */
 @Composable
 internal fun DeleteDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    matrixOnly: String? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.delete_title)) },
-        text = { Text(stringResource(R.string.delete_text)) },
+        text = {
+            Text(
+                matrixOnly?.let { stringResource(R.string.delete_text_matrix_only, it) }
+                    ?: stringResource(R.string.delete_text),
+            )
+        },
         confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.delete)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
 private const val MAX_LINES = 6
+
+/** The count shows from 90% of the network's limit. */
+private const val COUNT_FROM_TENTHS = 10
+private const val COUNT_AT_TENTHS = 9
 
 private val BUTTON_OVERLAP = (-12).dp

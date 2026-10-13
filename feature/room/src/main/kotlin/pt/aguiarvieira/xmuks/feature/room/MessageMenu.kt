@@ -27,17 +27,36 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 
 /**
- * What can be done with a message (long press): reply, edit (ours, once sent), copy its text.
- * Reactions, forwarding, redaction and the rest join as M5 goes on.
+ * What the bridged network won't do with a message: those items stay, dimmed, and tapping one
+ * says why ([onLimited]). [delete] only relabels deleting: the Matrix copy still goes.
+ */
+internal class MenuLimits(
+    val edit: Limit? = null,
+    val delete: Limit? = null,
+    val reply: Limit? = null,
+    val thread: Limit? = null,
+    /** Why a quick reaction won't do. */
+    val reaction: (String) -> Limit? = { null },
+    /** No reactions at all. */
+    val moreReactions: Limit? = null,
+    val onLimited: (Limit) -> Unit = {},
+)
+
+/**
+ * What can be done with a message (long press): react, reply, edit (ours, once sent), thread,
+ * pin, save, copy its text, delete.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MessageMenu(
     message: TimelineItem.Message,
+    /** What the bridged network won't do with it. */
+    limits: MenuLimits,
     /** Its file saved where the user picks; null when it has none. */
     onSave: (() -> Unit)?,
     /** Answering in its thread (its own, or the one it's in); null inside a thread. */
@@ -64,9 +83,9 @@ internal fun MessageMenu(
     val text = (message.content as? MessageContent.Text)?.body
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
-            if (sent) QuickReactions(quickReactions, onReact, onMoreReactions)
-            if (sent) SentItems(message, onReply, onEdit, onHistory, onReactions)
-            if (sent) ThreadAndPin(onThread, pinned, onPin)
+            if (sent) QuickReactions(quickReactions, onReact, onMoreReactions, limits)
+            if (sent) SentItems(message, onReply, onEdit, onHistory, onReactions, limits)
+            if (sent) ThreadAndPin(onThread, pinned, onPin, limits)
             if (sent && onEndPoll != null) Item(R.drawable.ic_poll, R.string.poll_end, onEndPoll)
             if (onSave != null && message.uploadProgress == null) Item(R.drawable.ic_download, R.string.save, onSave)
             if (text != null) {
@@ -76,7 +95,9 @@ internal fun MessageMenu(
                 }
             }
             if (sent && message.fromMe && message.content != MessageContent.Redacted) {
-                Item(R.drawable.ic_delete, R.string.delete) { onDelete() }
+                // Past the network's window it still goes here: said so, not dimmed.
+                val label = if (limits.delete != null) R.string.delete_matrix_only else R.string.delete
+                Item(R.drawable.ic_delete, label) { onDelete() }
             }
         }
     }
@@ -88,8 +109,11 @@ private fun ThreadAndPin(
     onThread: (() -> Unit)?,
     pinned: Boolean?,
     onPin: () -> Unit,
+    limits: MenuLimits,
 ) {
-    if (onThread != null) Item(R.drawable.ic_thread, R.string.reply_in_thread, onThread)
+    if (onThread != null) {
+        Item(R.drawable.ic_thread, R.string.reply_in_thread, limits.thread, limits.onLimited, onThread)
+    }
     if (pinned != null) {
         Item(
             if (pinned) R.drawable.ic_pin_off else R.drawable.ic_pin,
@@ -107,9 +131,10 @@ private fun SentItems(
     onEdit: () -> Unit,
     onHistory: () -> Unit,
     onReactions: () -> Unit,
+    limits: MenuLimits,
 ) {
-    Item(R.drawable.ic_reply, R.string.reply) { onReply() }
-    if (message.editSource != null) Item(R.drawable.ic_edit, R.string.edit) { onEdit() }
+    Item(R.drawable.ic_reply, R.string.reply, limits.reply, limits.onLimited, onReply)
+    if (message.editSource != null) Item(R.drawable.ic_edit, R.string.edit, limits.edit, limits.onLimited, onEdit)
     if (message.edited) Item(R.drawable.ic_history, R.string.view_edits) { onHistory() }
     if (message.content == MessageContent.Redacted) Item(R.drawable.ic_history, R.string.view_deleted) { onHistory() }
     if (message.reactions.isNotEmpty()) Item(R.drawable.ic_add_reaction, R.string.view_reactions, onReactions)
@@ -120,10 +145,20 @@ private fun Item(
     icon: Int,
     label: Int,
     onClick: () -> Unit,
+) = Item(icon, label, null, {}, onClick)
+
+/** An item the network may not allow ([limit]): then it's dimmed, and tapping it says why. */
+@Composable
+private fun Item(
+    icon: Int,
+    label: Int,
+    limit: Limit?,
+    onLimited: (Limit) -> Unit,
+    onClick: () -> Unit,
 ) = ListItem(
     leadingContent = { Icon(painterResource(icon), contentDescription = null) },
     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    modifier = Modifier.clickable(onClick = onClick),
+    modifier = Modifier.clickable { if (limit != null) onLimited(limit) else onClick() }.limited(limit),
 ) { Text(stringResource(label)) }
 
 /** The most used emoji, one tap to react, and the full picker behind "+". */
@@ -132,6 +167,7 @@ private fun QuickReactions(
     emoji: List<String>,
     onReact: (String) -> Unit,
     onMore: () -> Unit,
+    limits: MenuLimits,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -139,11 +175,23 @@ private fun QuickReactions(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         emoji.forEach { e ->
-            Box(Modifier.size(QUICK).clip(CircleShape).clickable { onReact(e) }, contentAlignment = Alignment.Center) {
+            val limit = limits.reaction(e)
+            Box(
+                Modifier
+                    .size(QUICK)
+                    .clip(CircleShape)
+                    .clickable { if (limit != null) limits.onLimited(limit) else onReact(e) }
+                    .limited(limit),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(e, fontSize = 24.sp)
             }
         }
-        FilledTonalIconButton(onClick = onMore, modifier = Modifier.size(QUICK)) {
+        val more = limits.moreReactions
+        FilledTonalIconButton(
+            onClick = { if (more != null) limits.onLimited(more) else onMore() },
+            modifier = Modifier.size(QUICK).limited(more),
+        ) {
             Icon(
                 painterResource(R.drawable.ic_add_reaction),
                 contentDescription = stringResource(R.string.add_reaction)

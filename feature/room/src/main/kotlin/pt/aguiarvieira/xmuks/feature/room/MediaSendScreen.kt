@@ -51,6 +51,8 @@ import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.media.MediaKind
+import pt.aguiarvieira.xmuks.core.data.timeline.Limit
+import pt.aguiarvieira.xmuks.core.data.timeline.MediaIssue
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 
 /**
@@ -63,13 +65,17 @@ internal fun MediaSendScreen(
     onChoose: (ImageSize) -> Unit,
     onSend: (caption: String, spoiler: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    /** The bridged network's name, for what it would make of the file. */
+    network: String? = null,
+    /** Send tapped for a file the network won't take. */
+    onLimited: (Limit) -> Unit = {},
 ) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         // Dark whatever the app's theme: media reads best on black, and the controls must too.
-        XmuksTheme(darkTheme = true) { MediaSendContent(draft, onChoose, onSend, onDismiss) }
+        XmuksTheme(darkTheme = true) { MediaSendContent(draft, onChoose, onSend, onDismiss, network, onLimited) }
     }
 }
 
@@ -79,6 +85,8 @@ private fun MediaSendContent(
     onChoose: (ImageSize) -> Unit,
     onSend: (caption: String, spoiler: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    network: String?,
+    onLimited: (Limit) -> Unit,
 ) {
     val caption = rememberTextFieldState()
     var spoiler by rememberSaveable { mutableStateOf(false) }
@@ -118,6 +126,7 @@ private fun MediaSendContent(
                     Text(stringResource(R.string.send_as_spoiler), color = Color.White)
                 }
             }
+            NetworkNotes(draft, caption.text.length, network)
             draft.error?.let {
                 Text(
                     stringResource(R.string.attach_failed, it),
@@ -137,10 +146,11 @@ private fun MediaSendContent(
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier.weight(1f),
                 )
+                val blocked = draft.blocked?.let(Limit::Media)
                 FilledIconButton(
-                    onClick = { onSend(caption.text.toString(), spoiler) },
+                    onClick = { if (blocked != null) onLimited(blocked) else onSend(caption.text.toString(), spoiler) },
                     enabled = !draft.sending,
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier.size(56.dp).limited(blocked),
                 ) {
                     if (draft.sending) {
                         CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
@@ -151,6 +161,46 @@ private fun MediaSendContent(
             }
         }
     }
+}
+
+/** What the bridged network would make of the file and its caption ([captionLength] long), if anything. */
+@Composable
+private fun NetworkNotes(
+    draft: MediaDraft,
+    captionLength: Int,
+    network: String?,
+) {
+    val context = LocalContext.current
+    val caption =
+        when {
+            captionLength == 0 -> null
+            draft.captionDropped -> MediaIssue.CaptionDropped
+            draft.maxCaption != null && captionLength > draft.maxCaption -> MediaIssue.CaptionTooLong(draft.maxCaption)
+            else -> null
+        }
+    val issues = draft.issues + listOfNotNull(caption)
+    if (issues.isEmpty()) return
+    Column(Modifier.padding(horizontal = 16.dp)) {
+        issues.forEach { issue -> NetworkNote(mediaText(context, issue, network), issue) }
+    }
+}
+
+@Composable
+private fun NetworkNote(
+    text: String,
+    issue: MediaIssue,
+) {
+    Text(
+        text,
+        color =
+            when {
+                issue.blocks -> MaterialTheme.colorScheme.error
+                issue == MediaIssue.Converted -> Color.White.copy(alpha = 0.7f)
+                else -> MaterialTheme.colorScheme.tertiary
+            },
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(vertical = 2.dp),
+    )
 }
 
 @Composable

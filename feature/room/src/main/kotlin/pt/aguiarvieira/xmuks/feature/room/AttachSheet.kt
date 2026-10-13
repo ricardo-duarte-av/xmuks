@@ -27,6 +27,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 
 /**
  * The + button's sheet: what can be attached ([available], in order), and "Send as" for choosing
@@ -39,6 +40,9 @@ internal fun AttachSheet(
     onPick: (Attachment) -> Unit,
     onSendAs: (() -> Unit)?,
     onDismiss: () -> Unit,
+    /** Why the bridged network won't take one, if it won't: dimmed, and tapping it says why. */
+    limitOf: (Attachment) -> Limit? = { null },
+    onLimited: (Limit) -> Unit = {},
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         FlowRow(
@@ -48,16 +52,22 @@ internal fun AttachSheet(
             maxItemsInEachRow = PER_ROW,
         ) {
             available.forEach { attachment ->
-                AttachOption(attachment.icon, stringResource(attachment.label)) {
-                    onDismiss()
-                    onPick(attachment)
-                }
+                val limit = limitOf(attachment)
+                AttachOption(
+                    attachment.icon,
+                    stringResource(attachment.label),
+                    onClick = {
+                        onDismiss()
+                        if (limit != null) onLimited(limit) else onPick(attachment)
+                    },
+                    modifier = Modifier.limited(limit),
+                )
             }
             if (onSendAs != null) {
-                AttachOption(R.drawable.ic_person, stringResource(R.string.send_as_title)) {
+                AttachOption(R.drawable.ic_person, stringResource(R.string.send_as_title), onClick = {
                     onDismiss()
                     onSendAs()
-                }
+                })
             }
         }
     }
@@ -68,10 +78,11 @@ private fun AttachOption(
     @DrawableRes icon: Int,
     label: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier =
-            Modifier
+            modifier
                 .width(
                     OPTION_WIDTH
                 ).clip(RoundedCornerShape(16.dp))

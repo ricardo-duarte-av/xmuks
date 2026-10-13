@@ -48,8 +48,10 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.BridgeInfo
 import pt.aguiarvieira.xmuks.core.data.timeline.CodeThemes
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
+import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
+import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import javax.inject.Named
@@ -125,6 +127,12 @@ class RoomViewModel
 
         /** What this room is bridged to, if it is. */
         val bridge: StateFlow<BridgeInfo?> = session.bridge.stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        /** What the bridged network here can do; null when the room isn't bridged (nothing is limited). */
+        val features: StateFlow<RoomFeatures?> = session.features.stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        /** Something the network here doesn't allow was tried: said in a toast. */
+        val limited = OneShot<Limit>()
 
         /**
          * The newest event someone else sent, shown or not (a bridge's delivery report is hidden, but
@@ -216,6 +224,8 @@ class RoomViewModel
                 replyTo = { target.reply() },
                 onSent = { if (modes.mode.value is ComposeMode.Reply) modes.cancel() },
                 showDialog = { prefs.value.get(Prefs.uploadDialog) },
+                features = { features.value },
+                onLimited = limited::show,
             )
 
         /** Pinned messages: which, the list, pinning and unpinning. */
@@ -224,7 +234,8 @@ class RoomViewModel
         val polls = pollActions(viewModelScope, session.polls)
 
         /** Reacting, stickers, recent emoji and pack subscriptions. */
-        val emoji = EmojiActions(viewModelScope, session, WHILE_VISIBLE) { target.reply() }
+        val emoji =
+            EmojiActions(viewModelScope, session, WHILE_VISIBLE, { features.value }, limited::show) { target.reply() }
 
         /** Whether the next send is a new message, a reply or an edit. */
         val modes = ComposeModes(draft)
@@ -269,6 +280,10 @@ class RoomViewModel
             if (text.isEmpty()) return
             if (sendCommand(text)) return
             val mode = modes.mode.value
+            limitOf(mode, text)?.let {
+                limited.show(it)
+                return
+            }
             val outgoing = emoji.expandShortcodes(text)
             // Taken before the reply mode ends with the send.
             val replyTo = target.reply()
@@ -286,6 +301,17 @@ class RoomViewModel
                     }
                 }
             }
+        }
+
+        /** Why the network here won't take [text] (sent as [mode]), if it won't: the draft stays. */
+        private fun limitOf(
+            mode: ComposeMode,
+            text: String,
+        ): Limit? {
+            val features = features.value ?: return null
+            val now = System.currentTimeMillis()
+            val edit = (mode as? ComposeMode.Edit)?.let { features.editBlock(it.message.timestamp, now) }
+            return edit ?: features.textBlock(text.length)
         }
 
         /**

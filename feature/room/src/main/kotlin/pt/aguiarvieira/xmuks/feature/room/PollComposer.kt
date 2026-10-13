@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 
 /** Writing a poll: a question, two or more answers, one choice or several, results open or hidden. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,6 +38,12 @@ import androidx.compose.ui.unit.dp
 internal fun PollComposer(
     onStart: (PollDraft) -> Unit,
     onDismiss: () -> Unit,
+    /** The most answers the bridged network takes. */
+    maxAnswers: Int? = null,
+    /** The longest answer the bridged network takes. */
+    maxAnswerLength: Int? = null,
+    /** Adding an answer past [maxAnswers]. */
+    onLimited: (Limit) -> Unit = {},
 ) {
     var question by remember { mutableStateOf("") }
     val answers = remember { mutableStateListOf("", "") }
@@ -63,7 +70,7 @@ internal fun PollComposer(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         text,
-                        { answers[i] = it },
+                        { answers[i] = if (maxAnswerLength != null) it.take(maxAnswerLength) else it },
                         label = { Text(stringResource(R.string.poll_answer, i + 1)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
@@ -76,7 +83,12 @@ internal fun PollComposer(
                 }
             }
             if (answers.size < MAX_ANSWERS) {
-                TextButton(onClick = { answers.add("") }) { Text(stringResource(R.string.poll_add_answer)) }
+                // Past what the network takes: still offered, dimmed, saying why.
+                val limit = maxAnswers?.takeIf { answers.size >= it }?.let(Limit::TooManyOptions)
+                TextButton(
+                    onClick = { if (limit != null) onLimited(limit) else answers.add("") },
+                    modifier = Modifier.limited(limit),
+                ) { Text(stringResource(R.string.poll_add_answer)) }
             }
             SwitchRow(stringResource(R.string.poll_multiple), multiple) { multiple = it }
             SwitchRow(stringResource(R.string.poll_hide_results), hidden) { hidden = it }

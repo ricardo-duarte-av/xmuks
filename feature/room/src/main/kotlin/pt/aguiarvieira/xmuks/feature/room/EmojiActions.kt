@@ -8,7 +8,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.emoji.ImagePack
 import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
+import pt.aguiarvieira.xmuks.core.data.timeline.Limit
+import pt.aguiarvieira.xmuks.core.data.timeline.Reaction
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
+import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSession
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 
@@ -39,6 +42,10 @@ class EmojiActions(
     private val scope: CoroutineScope,
     private val session: RoomSession,
     started: SharingStarted,
+    /** What the bridged network here allows; null when nothing is limited. */
+    private val features: () -> RoomFeatures? = { null },
+    /** A reaction the network won't take, not sent: said in a toast. */
+    private val onLimited: (Limit) -> Unit = {},
     /** Where a sticker goes: a reply, or into the thread shown. */
     private val replyTo: () -> ReplyTarget? = { null },
 ) {
@@ -56,8 +63,10 @@ class EmojiActions(
         picked: Picked,
     ) {
         val existing = message.reactions.firstOrNull { it.key == picked.key }
+        if (existing?.mine != true && refused(picked.key, picked is Picked.Custom)) return
         val shortcode = (picked as? Picked.Custom)?.image?.shortcode
-        scope.launch { session.emoji.toggleReaction(message.eventId, picked.key, existing, shortcode) }
+        val replacing = makingWay(message, picked.key, existing)
+        scope.launch { session.emoji.toggleReaction(message.eventId, picked.key, existing, shortcode, replacing) }
     }
 
     /** Tapping a reaction under a message: join in, or take ours back. */
@@ -66,7 +75,35 @@ class EmojiActions(
         key: String,
     ) {
         val existing = message.reactions.firstOrNull { it.key == key }
-        scope.launch { session.emoji.toggleReaction(message.eventId, key, existing) }
+        // Taking ours back is always fine; joining in is a new reaction.
+        if (existing?.mine != true && refused(key, key.startsWith("mxc://"))) return
+        val replacing = makingWay(message, key, existing)
+        scope.launch { session.emoji.toggleReaction(message.eventId, key, existing, replacing = replacing) }
+    }
+
+    /** Whether the network here won't take [key] as a reaction: if so, it's said, not sent. */
+    private fun refused(
+        key: String,
+        custom: Boolean,
+    ): Boolean {
+        val limit = features()?.reactionBlock(key, custom) ?: return false
+        onLimited(limit)
+        return true
+    }
+
+    /**
+     * Our reactions to [message] that go to make room for [key], where the network allows only so
+     * many each (one, on WhatsApp): it replaces them there, so we do here too.
+     */
+    private fun makingWay(
+        message: TimelineItem.Message,
+        key: String,
+        existing: Reaction?,
+    ): List<Reaction> {
+        val max = features()?.reactionCount ?: return emptyList()
+        if (existing?.mine == true) return emptyList()
+        val ours = message.reactions.filter { it.mine && it.key != key }
+        return ours.take((ours.size - max + 1).coerceAtLeast(0))
     }
 
     /**
