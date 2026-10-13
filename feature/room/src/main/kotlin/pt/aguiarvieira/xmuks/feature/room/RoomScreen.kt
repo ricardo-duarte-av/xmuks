@@ -41,6 +41,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -51,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -80,6 +82,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
+import pt.aguiarvieira.xmuks.core.richtext.CodeTheme
 import pt.aguiarvieira.xmuks.core.richtext.LocalRichTextOptions
 import pt.aguiarvieira.xmuks.core.richtext.RichTextOptions
 import pt.aguiarvieira.xmuks.core.richtext.SafeUriHandler
@@ -158,12 +161,18 @@ fun RoomRoute(
         viewModel.onScreen(true)
         onPauseOrDispose { viewModel.onScreen(false) }
     }
+    val dark = MaterialTheme.colorScheme.surface.luminance() < HALF
+    val codeThemeName = CodeTheme.name(prefs.get(Prefs.codeBlockTheme), dark)
+    val codeTheme by produceState<CodeTheme?>(null, codeThemeName) {
+        value = viewModel.codeThemes.css(codeThemeName)?.let(CodeTheme::parse)
+    }
     CompositionLocalProvider(
         LocalUriHandler provides uriHandler,
         LocalRichTextOptions provides
             RichTextOptions(
                 wrapCode = prefs.get(Prefs.codeBlockLineWrap),
                 inlineImages = prefs.get(Prefs.showInlineImages),
+                codeTheme = codeTheme,
             ),
         LocalMediaDisplay provides MediaDisplay.of(prefs),
     ) {
@@ -846,3 +855,4 @@ private const val PREFETCH_DISTANCE = 10
 private const val HIGHLIGHT_MS = 1_600L
 
 private const val DISABLED_ALPHA = 0.38f
+private const val HALF = 0.5f

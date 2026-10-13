@@ -34,8 +34,11 @@ sealed interface HtmlBlock {
         val blocks: List<HtmlBlock>,
     ) : HtmlBlock
 
+    /** A code block; [tokens] are gomuks' syntax highlighting (Chroma classes), [language] as tagged. */
     data class Code(
         val code: String,
+        val tokens: List<CodeToken> = emptyList(),
+        val language: String? = null,
     ) : HtmlBlock
 
     data class Bullets(
@@ -126,7 +129,7 @@ class HtmlParser(
             }
 
             "pre" -> {
-                listOf(HtmlBlock.Code(el.wholeText().trimEnd('\n')))
+                listOf(codeBlockOf(el))
             }
 
             "ul", "ol" -> {

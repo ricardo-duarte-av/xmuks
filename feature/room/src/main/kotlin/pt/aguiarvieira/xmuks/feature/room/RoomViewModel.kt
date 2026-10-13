@@ -46,6 +46,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.MentionTargets
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.BridgeInfo
+import pt.aguiarvieira.xmuks.core.data.timeline.CodeThemes
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
@@ -76,6 +77,8 @@ class RoomViewModel
         mentionTargets: MentionTargets,
         private val roomCalls: RoomCalls,
         private val preferences: PreferenceStore,
+        /** Code blocks' colours, as gomuks serves them for its `code_block_theme`. */
+        val codeThemes: CodeThemes,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {

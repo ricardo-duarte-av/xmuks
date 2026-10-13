@@ -2,11 +2,8 @@ package pt.aguiarvieira.xmuks.feature.room
 
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-
-/** What a long press anywhere in a message does: its menu. Provided per message row. */
-val LocalMessageHold = staticCompositionLocalOf<(() -> Unit)?> { null }
+import pt.aguiarvieira.xmuks.core.richtext.LocalMessageHold
 
 /**
  * A tap target inside a message (a picture, a file, a map): tapping does [onClick], holding still

@@ -10,6 +10,8 @@ data class RichTextOptions(
     val wrapCode: Boolean = false,
     /** Custom emoji and inline images are drawn; if not, their text (alt) stands in. */
     val inlineImages: Boolean = true,
+    /** Code blocks' colours (gomuks' `code_block_theme`); null until loaded, or if it can't be. */
+    val codeTheme: CodeTheme? = null,
 )
 
 val LocalRichTextOptions = staticCompositionLocalOf { RichTextOptions() }

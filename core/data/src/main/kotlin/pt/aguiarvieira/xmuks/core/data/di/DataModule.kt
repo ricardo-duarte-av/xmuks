@@ -67,6 +67,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomListActions
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
+import pt.aguiarvieira.xmuks.core.data.timeline.CodeThemes
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomGallery
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
@@ -317,6 +318,12 @@ object DataModule {
         @Named("media") http: OkHttpClient,
         store: CredentialStore,
     ) = LinkPreviewFetcher(http, { store.credentials()?.serverUrl }, Dispatchers.IO)
+
+    @Provides @Singleton
+    fun codeThemes(
+        @Named("media") http: OkHttpClient,
+        store: CredentialStore,
+    ) = CodeThemes(http, { store.credentials()?.serverUrl }, Dispatchers.IO)
 
     @Provides @Singleton
     fun profileRepository(

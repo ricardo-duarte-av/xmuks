@@ -75,6 +75,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.util.Blurhash
 import pt.aguiarvieira.xmuks.core.richtext.HtmlContent
 import pt.aguiarvieira.xmuks.core.richtext.HtmlSnippet
 import pt.aguiarvieira.xmuks.core.richtext.LastLine
+import pt.aguiarvieira.xmuks.core.richtext.LocalMessageHold
 import pt.aguiarvieira.xmuks.core.richtext.PlainContent
 import java.text.DateFormat
 import java.util.Date

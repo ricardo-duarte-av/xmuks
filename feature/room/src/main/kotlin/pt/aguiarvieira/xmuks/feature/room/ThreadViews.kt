@@ -24,6 +24,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyPreview
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
+import pt.aguiarvieira.xmuks.core.richtext.LocalMessageHold
 
 /** Above a thread's message in the main timeline: which thread (its root), opening it. */
 @Composable

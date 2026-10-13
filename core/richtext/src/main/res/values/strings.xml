@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="code_title">Code</string>
+    <string name="code_close">Close</string>
+    <string name="code_copy">Copy all</string>
+    <string name="code_wrap">Wrap</string>
+    <plurals name="code_lines">
+        <item quantity="one">%d line</item>
+        <item quantity="other">%d lines</item>
+    </plurals>
+    <plurals name="code_more_lines">
+        <item quantity="one">%d more line · tap to see all</item>
+        <item quantity="other">%d more lines · tap to see all</item>
+    </plurals>
+</resources>
