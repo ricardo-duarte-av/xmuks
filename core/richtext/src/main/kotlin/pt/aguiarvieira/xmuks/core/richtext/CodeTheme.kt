@@ -22,13 +22,13 @@ data class CodeTheme(
     fun style(cls: String): SpanStyle? = styles[cls]
 
     companion object {
-        /** gomuks' "auto": GitHub's, light or dark with the app. */
+        /** gomuks' "auto" (or unset): GitHub's, light or dark with the app. */
         fun name(
-            preference: String,
+            preference: String?,
             dark: Boolean,
         ): String =
             when {
-                preference != AUTO -> preference
+                preference != null && preference != AUTO -> preference
                 dark -> "github-dark"
                 else -> "github"
             }
