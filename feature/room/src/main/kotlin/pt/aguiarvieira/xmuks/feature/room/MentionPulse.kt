@@ -20,13 +20,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 /**
- * A bubble that mentions us: its outline, in the tertiary colour its container is drawn in,
- * breathes slowly. Only the draw phase follows the pulse (no recomposition, no relayout); with
- * system animations off it's a still outline.
+ * A bubble that mentions us: its outline, in the theme's primary colour, breathes slowly. Only
+ * the draw phase follows the pulse (no recomposition, no relayout); with system animations off
+ * it's a still outline.
  */
 @Composable
 internal fun Modifier.mentionPulse(shape: Shape): Modifier {
-    val color = MaterialTheme.colorScheme.tertiary
+    val color = MaterialTheme.colorScheme.primary
     val context = LocalContext.current
     val still =
         remember(context) {

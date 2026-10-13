@@ -223,18 +223,18 @@ private fun Bubble(
                 if (message.lastInGroup) big else small
             )
         }
-    // Mentions of us stand out in the tertiary role, and keep calling with a pulse (see mentionPulse).
+    // Mentions of us stand out in the theme's own hue (tertiary would swap it, amber to lime), with a pulse.
     val mention = message.mentionsMe
     val container =
         when {
             mine -> colors.primaryContainer
-            mention -> colors.tertiaryContainer
+            mention -> colors.secondaryContainer
             else -> colors.surfaceContainerHigh
         }
     val onContainer =
         when {
             mine -> colors.onPrimaryContainer
-            mention -> colors.onTertiaryContainer
+            mention -> colors.onSecondaryContainer
             else -> colors.onSurface
         }
     Surface(
