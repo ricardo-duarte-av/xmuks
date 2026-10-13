@@ -51,7 +51,9 @@ internal fun CodeViewer(
     theme: CodeTheme?,
     onDismiss: () -> Unit,
 ) {
-    var wrap by rememberSaveable { mutableStateOf(LocalRichTextOptions.current.wrapCode) }
+    val wrapByDefault = LocalRichTextOptions.current.wrapCode
+    var wrap by rememberSaveable { mutableStateOf(wrapByDefault) }
+
     @Suppress("DEPRECATION") // The suspend Clipboard API needs ClipEntry plumbing for plain text.
     val clipboard = LocalClipboardManager.current
     val lines = remember(block.code) { block.code.count { it == '\n' } + 1 }
