@@ -154,6 +154,7 @@ class RoomViewModel
                 .map {
                     it.hasMoreBefore
                 }.stateIn(viewModelScope, WHILE_VISIBLE, true)
+
         /** Who's typing here; none in a thread, since typing is room-wide. */
         val typing: StateFlow<List<Typist>> =
             (if (thread == null) session.typing else flowOf(emptyList()))
