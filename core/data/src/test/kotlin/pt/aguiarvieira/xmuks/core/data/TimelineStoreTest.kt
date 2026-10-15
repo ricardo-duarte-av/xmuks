@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.core.data
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -9,6 +10,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -31,12 +33,16 @@ class TimelineStoreTest {
     ) : Paginator {
         val calls = mutableListOf<Pair<String, Long>>()
 
+        /** Set: the next page is computed only once it completes (a request still on the way). */
+        var gate: CompletableDeferred<Unit>? = null
+
         override suspend fun paginate(
             roomId: String,
             maxTimelineId: Long,
             limit: Int,
         ): PaginationResponse {
             calls += roomId to maxTimelineId
+            gate?.also { gate = null }?.await()
             val top = if (maxTimelineId == 0L) newest.toLong() else maxTimelineId - 1
             val ids = (top downTo maxOf(1, top - limit + 1)).toList()
             return PaginationResponse(events = ids.map { event(roomId, it) }, hasMore = ids.last() > 1)
@@ -237,5 +243,81 @@ class TimelineStoreTest {
             assertEquals(listOf("!a" to 0L, "!a" to 0L), gomuks.calls)
             assertEquals((71L..124L).toList(), ids("!a"))
             assertEquals(false, store.observe("!a").value.refreshing)
+        }
+
+    private fun live(
+        roomId: String,
+        id: Long,
+    ) = sync(roomId to SyncRoom(events = listOf(event(roomId, id)), timeline = listOf(TimelineRowTuple(id, id + 1000))))
+
+    @Test
+    fun `a room dropped while nobody watched reloads once watched again`() =
+        runBlocking {
+            store.streamChanged(true)
+            store.open("!a")
+            store.streamChanged(false)
+            // Screen off: nobody collects; a background catch-up drops the room and nothing reloads it.
+            gomuks.newest = 130
+            store.onFrame(sync(catchup = true))
+            assertFalse(store.observe("!a").value.loaded)
+            // Screen on: someone watches again, and the stream comes back.
+            val watching = scope.launch { store.observe("!a").collect {} }
+            delay(50)
+            store.streamChanged(true)
+            withTimeout(2_000) { store.observe("!a").first { it.loaded } }
+            assertEquals((81L..130L).toList(), ids("!a"))
+            watching.cancel()
+        }
+
+    @Test
+    fun `what the stream brings while the newest page is on the way is kept`() =
+        runBlocking {
+            store.streamChanged(true)
+            val gate = CompletableDeferred<Unit>().also { gomuks.gate = it }
+            val opening = scope.launch { store.open("!a") }
+            delay(50)
+            // gomuks answers with 71..120, but 121 and 122 reach us while the request is out.
+            store.onFrame(live("!a", 121))
+            store.onFrame(live("!a", 122))
+            gate.complete(Unit)
+            opening.join()
+            assertEquals((71L..122L).toList(), ids("!a"))
+        }
+
+    @Test
+    fun `a page asked for before a catch-up is thrown away, never leaving a hole`() =
+        runBlocking {
+            store.streamChanged(true)
+            store.open("!a")
+            store.streamChanged(false)
+            val watching = scope.launch { store.observe("!a").collect {} }
+            delay(50)
+            // Back on: the refresh goes out and stalls (a dead pooled connection)…
+            gomuks.newest = 200
+            val gate = CompletableDeferred<Unit>().also { gomuks.gate = it }
+            val stale = scope.launch { store.refreshWatched() }
+            delay(50)
+            // …meanwhile the stream returns with a catch-up, the reload lands, live messages follow.
+            store.onFrame(sync(catchup = true))
+            withTimeout(2_000) { store.observe("!a").first { it.loaded } }
+            store.onFrame(live("!a", 201))
+            gomuks.newest = 120 // what the stalled request saw back then
+            gate.complete(Unit)
+            stale.join()
+            assertEquals((151L..201L).toList(), ids("!a"))
+            watching.cancel()
+        }
+
+    @Test
+    fun `a push prefetch cut short leaves no refresh hanging`() =
+        runBlocking {
+            store.streamChanged(true)
+            store.open("!a")
+            store.streamChanged(false)
+            gomuks.gate = CompletableDeferred()
+            withTimeoutOrNull(100) { store.prefetch("!a") }
+            assertFalse(store.observe("!a").value.refreshing)
+            store.open("!a")
+            assertEquals("nothing left marked as on the way: a later open fetches", 3, gomuks.calls.size)
         }
 }

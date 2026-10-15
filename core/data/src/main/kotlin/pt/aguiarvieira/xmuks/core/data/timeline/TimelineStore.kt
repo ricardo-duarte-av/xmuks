@@ -1,12 +1,15 @@
 package pt.aguiarvieira.xmuks.core.data.timeline
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import pt.aguiarvieira.xmuks.core.account.AccountScoped
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.GomuksEvent
@@ -14,6 +17,7 @@ import pt.aguiarvieira.xmuks.core.protocol.GomuksFrame
 import pt.aguiarvieira.xmuks.core.protocol.PaginationResponse
 import pt.aguiarvieira.xmuks.core.protocol.Receipt
 import pt.aguiarvieira.xmuks.core.protocol.SyncComplete
+import pt.aguiarvieira.xmuks.core.protocol.SyncRoom
 import java.util.TreeMap
 
 /** One room's timeline as the UI sees it. */
@@ -52,6 +56,10 @@ fun interface Paginator {
  * - while the stream is down (the app in the background, a reconnect under way) nothing reaches
  *   them: each is unconfirmed until opened again, which fetches its newest page from gomuks at
  *   once (gomuks itself is always current) instead of showing what was held.
+ * A newest page and the stream meet without a hole: what the stream delivers for a room while its
+ * page is on the way is held back and laid on top once the page is in (anything that came before
+ * the request is in the page). A page asked for before the room was dropped is thrown away. A room
+ * someone is watching never stays dropped: it reloads when watched again and when the stream is back.
  * At most [maxRooms] rooms are kept (least recently opened go first); rooms nobody is watching are
  * trimmed to their newest [keepWhenClosed] events.
  */
@@ -90,6 +98,19 @@ class TimelineStore(
         /** What's held is on show while its newest page is fetched. */
         var refreshing = false
 
+        /** Bumped whenever the contents are dropped: pages asked for before then no longer fit. */
+        var epoch = 0L
+
+        /** The [epoch] a newest page is being fetched for (-1: none), so only one is ever on the way. */
+        var fetchingFor = -1L
+
+        /** What the stream delivered while that page was on the way: laid on top of it once it's in. */
+        val arrivedMeanwhile = mutableListOf<SyncRoom>()
+
+        val fetching get() = fetchingFor == epoch
+
+        val watched get() = state.subscriptionCount.value > 0
+
         fun canLoadOlder() = loaded && !loadingOlder && hasMoreBefore && rows.isNotEmpty()
 
         /** Drops the room's contents; returns its ID if someone is looking at it (so it reloads now). */
@@ -97,10 +118,24 @@ class TimelineStore(
             rows.clear()
             events.clear()
             receipts.clear()
+            arrivedMeanwhile.clear()
+            epoch++
             loaded = false
+            loadingOlder = false
+            refreshing = false
             hasMoreBefore = true
             publish()
-            return state.value.roomId.takeIf { state.subscriptionCount.value > 0 }
+            return state.value.roomId.takeIf { watched }
+        }
+
+        /** Live events, receipts and the echoes they retire. */
+        fun applyLive(sync: SyncRoom) {
+            sync.events.forEach { events[it.rowId] = it }
+            sync.timeline.forEach {
+                rows[it.timelineRowId] = it.eventRowId
+                echoes.remove(it.eventRowId) // the real row is in: the echo has served
+            }
+            addReceipts(sync.receipts.values.flatten())
         }
 
         fun addPage(page: PaginationResponse) {
@@ -145,6 +180,9 @@ class TimelineStore(
     /** The stream is up and continuous: what it delivers keeps the loaded timelines current. */
     private var live = false
 
+    /** Bumped each time the stream goes down: a page fetched across a drop isn't confirmed by it. */
+    private var streamRun = 0L
+
     /** Insertion order = recency (accessOrder), for least-recently-opened eviction. */
     private val rooms = LinkedHashMap<String, RoomTimeline>(16, 0.75f, true)
 
@@ -165,13 +203,14 @@ class TimelineStore(
 
     /**
      * Rooms on screen that the stream stopped keeping current (the app was away long enough for it
-     * to close): their newest page now, rather than when the stream is back and has replayed.
+     * to close), or that were dropped while nobody watched (a catch-up with the screen off): their
+     * newest page now, rather than when the stream is back and has replayed.
      */
     suspend fun refreshWatched() {
         val stale =
             mutex.withLock {
                 rooms.values
-                    .filter { it.loaded && !it.confirmed && it.state.subscriptionCount.value > 0 }
+                    .filter { (!it.loaded || !it.confirmed) && it.watched }
                     .map { it.state.value.roomId }
             }
         stale.forEach { loadNewest(it) }
@@ -179,26 +218,36 @@ class TimelineStore(
 
     /**
      * The stream came up ([up]) or went down. Down, every timeline held stops being current: each is
-     * fetched afresh when next opened.
+     * fetched afresh when next opened. Up, rooms on screen that aren't current are fetched now.
      */
-    suspend fun streamChanged(up: Boolean) =
+    suspend fun streamChanged(up: Boolean) {
         mutex.withLock {
             live = up
-            if (!up) rooms.values.forEach { it.confirmed = false }
+            if (!up) {
+                streamRun++
+                rooms.values.forEach { it.confirmed = false }
+            }
         }
+        if (up) refreshWatched()
+    }
 
     suspend fun loadOlder(roomId: String) {
+        var asked: RoomTimeline? = null
+        var epoch = 0L
         val oldest =
             mutex.withLock {
                 val room = rooms[roomId] ?: return
                 if (!room.canLoadOlder()) return
                 room.loadingOlder = true
                 room.publish()
+                asked = room
+                epoch = room.epoch
                 room.rows.firstKey()
             }
         val page = paginator.paginate(roomId, oldest, pageSize)
         mutex.withLock {
-            val room = rooms[roomId] ?: return
+            // Dropped meanwhile: an older page has nothing left to go in front of.
+            val room = rooms[roomId]?.takeIf { it === asked && it.epoch == epoch } ?: return
             room.loadingOlder = false
             if (page != null) {
                 room.addPage(page)
@@ -272,36 +321,69 @@ class TimelineStore(
         if (stale) loadNewest(roomId)
     }
 
+    /** Which room a newest page was asked for, and when. */
+    private class Fetch(
+        val room: RoomTimeline,
+        val epoch: Long,
+        val streamRun: Long,
+    )
+
     private suspend fun loadNewest(roomId: String) {
-        mutex.withLock {
-            rooms[roomId]?.takeIf { it.loaded && !it.refreshing }?.let {
-                it.refreshing = true
-                it.publish()
+        val fetch =
+            mutex.withLock {
+                val room = rooms[roomId] ?: return
+                if (room.fetching) return // the one on the way serves this caller too
+                room.fetchingFor = room.epoch
+                room.arrivedMeanwhile.clear()
+                if (room.loaded && !room.refreshing) {
+                    room.refreshing = true
+                    room.publish()
+                }
+                Fetch(room, room.epoch, streamRun)
             }
-        }
-        val page = paginator.paginate(roomId, 0, pageSize)
-        mutex.withLock {
-            val room = rooms[roomId] ?: return
-            room.refreshing = false
-            if (page == null) {
-                room.publish()
-                return
+        val page =
+            try {
+                paginator.paginate(roomId, 0, pageSize)
+            } catch (e: CancellationException) {
+                // e.g. a push's bounded prefetch: the room must not keep "fetching" (or its progress bar).
+                withContext(NonCancellable) { finishNewest(roomId, fetch, page = null) }
+                throw e
             }
-            // Onto what's held only if it reaches back into it (no gap between them); otherwise
-            // the newest page replaces it, never leaving a hole in the middle.
-            val oldest = page.events.mapNotNull { it.timelineRowId.takeIf { id -> id != 0L } }.minOrNull()
-            val joins = room.loaded && oldest != null && room.rows.isNotEmpty() && oldest <= room.rows.lastKey()
-            if (!joins) {
-                room.rows.clear()
-                room.events.clear()
-                room.receipts.clear()
-                room.hasMoreBefore = page.hasMore
-            }
-            room.addPage(page)
-            room.loaded = true
-            room.confirmed = live
+        finishNewest(roomId, fetch, page)
+    }
+
+    private suspend fun finishNewest(
+        roomId: String,
+        fetch: Fetch,
+        page: PaginationResponse?,
+    ) = mutex.withLock {
+        // Evicted, or dropped since it was asked for (a page from before a catch-up can be missing
+        // what came between; the reload the drop started fetches what's current).
+        val room = rooms[roomId]?.takeIf { it === fetch.room && it.epoch == fetch.epoch } ?: return@withLock
+        room.fetchingFor = -1
+        room.refreshing = false
+        val meanwhile = room.arrivedMeanwhile.toList()
+        room.arrivedMeanwhile.clear()
+        if (page == null) {
             room.publish()
+            return@withLock
         }
+        // Onto what's held only if it reaches back into it (no gap between them); otherwise
+        // the newest page replaces it, never leaving a hole in the middle.
+        val oldest = page.events.mapNotNull { it.timelineRowId.takeIf { id -> id != 0L } }.minOrNull()
+        val joins = room.loaded && oldest != null && room.rows.isNotEmpty() && oldest <= room.rows.lastKey()
+        if (!joins) {
+            room.rows.clear()
+            room.events.clear()
+            room.receipts.clear()
+            room.hasMoreBefore = page.hasMore
+        }
+        room.addPage(page)
+        // Whatever the stream brought while the page was on the way is newer than it, or in it already.
+        meanwhile.forEach(room::applyLive)
+        room.loaded = true
+        room.confirmed = live && streamRun == fetch.streamRun
+        room.publish()
     }
 
     private suspend fun applySync(sync: SyncComplete) {
@@ -312,17 +394,14 @@ class TimelineStore(
                 rooms.values.forEach { it.invalidate()?.let(reload::add) }
             }
             sync.rooms.forEach { (roomId, syncRoom) ->
-                val room = rooms[roomId]?.takeIf { it.loaded } ?: return@forEach
+                val room = rooms[roomId] ?: return@forEach
                 if (syncRoom.reset) {
                     room.invalidate()?.let(reload::add)
                     return@forEach
                 }
-                syncRoom.events.forEach { room.events[it.rowId] = it }
-                syncRoom.timeline.forEach {
-                    room.rows[it.timelineRowId] = it.eventRowId
-                    room.echoes.remove(it.eventRowId) // the real row is in: the echo has served
-                }
-                room.addReceipts(syncRoom.receipts.values.flatten())
+                if (room.fetching) room.arrivedMeanwhile += syncRoom
+                if (!room.loaded) return@forEach
+                room.applyLive(syncRoom)
                 room.publish()
             }
             sync.leftRooms.forEach { rooms.remove(it) }

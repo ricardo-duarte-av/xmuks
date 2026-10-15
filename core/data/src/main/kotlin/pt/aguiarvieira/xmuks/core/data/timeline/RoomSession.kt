@@ -83,7 +83,15 @@ class RoomSession(
     /** Polls here: their votes, and starting, answering and ending them. */
     val polls = RoomPolls(roomId, exec, outbox, scope)
 
-    val snapshot: Flow<TimelineSnapshot> = polls.withVotes(flow { emitAll(store.observe(roomId)) })
+    val snapshot: Flow<TimelineSnapshot> =
+        polls.withVotes(
+            flow {
+                // Watched again (the screen back on): what's held may have been dropped or gone stale
+                // meanwhile — a no-op when it's current.
+                scope.launch { store.open(roomId) }
+                emitAll(store.observe(roomId))
+            },
+        )
 
     /**
      * What the timeline shows; rebuilt off the main thread whenever the timeline or a profile
