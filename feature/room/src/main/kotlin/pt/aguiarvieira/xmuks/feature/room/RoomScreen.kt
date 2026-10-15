@@ -573,8 +573,7 @@ fun RoomScreen(
                             onLoadOlder,
                         )
                     }
-                    // Typing is room-wide: a thread doesn't show it.
-                    if (!inThread) TypingIndicator(typing, resolver)
+                    TypingIndicator(typing, resolver)
                 }
                 MarkReadAtBottom(timeline, liveList, composer.onMarkRead)
             }

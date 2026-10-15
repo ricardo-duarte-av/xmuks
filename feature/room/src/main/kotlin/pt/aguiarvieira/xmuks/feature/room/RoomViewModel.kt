@@ -54,6 +54,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
+import pt.aguiarvieira.xmuks.core.data.timeline.Typist
 import javax.inject.Named
 
 @HiltViewModel(assistedFactory = RoomViewModel.Factory::class)
@@ -153,7 +154,10 @@ class RoomViewModel
                 .map {
                     it.hasMoreBefore
                 }.stateIn(viewModelScope, WHILE_VISIBLE, true)
-        val typing: StateFlow<List<String>> = session.typing.stateIn(viewModelScope, WHILE_VISIBLE, emptyList())
+        /** Who's typing here; none in a thread, since typing is room-wide. */
+        val typing: StateFlow<List<Typist>> =
+            (if (thread == null) session.typing else flowOf(emptyList()))
+                .stateIn(viewModelScope, WHILE_VISIBLE, emptyList())
 
         /** Raw events loaded (shown or not): changes with every page, even one of only hidden events. */
         val loadedEvents: StateFlow<Int> =
