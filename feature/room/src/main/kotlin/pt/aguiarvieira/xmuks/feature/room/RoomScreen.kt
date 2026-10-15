@@ -80,6 +80,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
+import pt.aguiarvieira.xmuks.core.data.timeline.Typist
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
@@ -382,7 +383,7 @@ fun RoomScreen(
     room: RoomSummary?,
     timeline: TimelineState,
     context: ContextView?,
-    typing: List<String>,
+    typing: List<Typist>,
     resolver: MediaResolver,
     onBack: () -> Unit,
     onLoadOlder: () -> Unit,
@@ -501,7 +502,6 @@ fun RoomScreen(
                     roomId,
                     sharedScope,
                     room,
-                    typing,
                     resolver,
                     onBack,
                     onOpenMedia,
@@ -560,7 +560,22 @@ fun RoomScreen(
             if (context != null) {
                 ContextTimeline(context, contextList, resolver, actions, highlighted, onLeaveContext)
             } else {
-                LiveTimeline(timeline, liveList, followNext, unreadJump, resolver, actions, highlighted, onLoadOlder)
+                Column {
+                    Box(Modifier.weight(1f)) {
+                        LiveTimeline(
+                            timeline,
+                            liveList,
+                            followNext,
+                            unreadJump,
+                            resolver,
+                            actions,
+                            highlighted,
+                            onLoadOlder,
+                        )
+                    }
+                    // Typing is room-wide: a thread doesn't show it.
+                    if (!inThread) TypingIndicator(typing, resolver)
+                }
                 MarkReadAtBottom(timeline, liveList, composer.onMarkRead)
             }
         }
@@ -573,7 +588,6 @@ private fun HeaderCard(
     roomId: String,
     sharedScope: String,
     room: RoomSummary?,
-    typing: List<String>,
     resolver: MediaResolver,
     onBack: () -> Unit,
     onOpenMedia: (ViewerMedia) -> Unit,
@@ -613,7 +627,7 @@ private fun HeaderCard(
                     name = room?.name.orEmpty(),
                     avatarUrl = room?.avatarUrl,
                     sharedScope = sharedScope,
-                    subtitle = if (inThread) stringResource(R.string.thread) else typingText(typing),
+                    subtitle = if (inThread) stringResource(R.string.thread) else null,
                     onAvatarClick = { resolver.image(room?.avatarMxc, room?.name)?.let(onOpenMedia) },
                     onTitleClick = onRoomInfo,
                 )
@@ -877,15 +891,6 @@ private fun DayRow(
         }
     }
 }
-
-@Composable
-private fun typingText(typing: List<String>): String? =
-    when (typing.size) {
-        0 -> null
-        1 -> stringResource(R.string.typing_one, typing[0])
-        2 -> stringResource(R.string.typing_two, typing[0], typing[1])
-        else -> stringResource(R.string.typing_many)
-    }
 
 private const val PREFETCH_DISTANCE = 10
 private const val HIGHLIGHT_MS = 1_600L

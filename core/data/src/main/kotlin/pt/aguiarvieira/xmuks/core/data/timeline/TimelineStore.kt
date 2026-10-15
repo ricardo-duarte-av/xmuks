@@ -6,6 +6,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -174,7 +175,7 @@ class TimelineStore(
 
     private val _typing = MutableStateFlow<Map<String, List<String>>>(emptyMap())
 
-    /** Room → users typing now (ephemeral; replaced wholesale by each typing notification). */
+    /** Room → users typing now (ephemeral; replaced wholesale by each `typing` event from gomuks). */
     val typing: StateFlow<Map<String, List<String>>> = _typing.asStateFlow()
 
     /** The stream is up and continuous: what it delivers keeps the loaded timelines current. */
@@ -221,6 +222,8 @@ class TimelineStore(
      * fetched afresh when next opened. Up, rooms on screen that aren't current are fetched now.
      */
     suspend fun streamChanged(up: Boolean) {
+        // Nothing would ever say they stopped: who was typing goes with the stream.
+        if (!up) _typing.value = emptyMap()
         mutex.withLock {
             live = up
             if (!up) {
@@ -267,6 +270,13 @@ class TimelineStore(
 
             is GomuksEvent.SendComplete -> {
                 event.event?.let { onSendComplete(it) }
+            }
+
+            is GomuksEvent.Typing -> {
+                // The whole list each time; empty when nobody is typing any more.
+                _typing.update { all ->
+                    if (event.userIds.isEmpty()) all - event.roomId else all + (event.roomId to event.userIds)
+                }
             }
 
             is GomuksEvent.EventsDecrypted -> {

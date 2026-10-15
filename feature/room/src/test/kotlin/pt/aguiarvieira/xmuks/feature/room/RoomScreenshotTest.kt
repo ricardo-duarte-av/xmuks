@@ -27,6 +27,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TextKind
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
+import pt.aguiarvieira.xmuks.core.data.timeline.Typist
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -153,7 +154,7 @@ class RoomScreenshotTest {
     @Composable
     private fun Screen(
         items: List<TimelineItem>?,
-        typing: List<String> = emptyList(),
+        typing: List<Typist> = emptyList(),
     ) = RoomScreen(
         roomId = "!r",
         sharedScope = "chats",
@@ -172,7 +173,7 @@ class RoomScreenshotTest {
     )
 
     @Test
-    fun timeline() = shoot("room_timeline") { Screen(timeline.asReversed(), typing = listOf("Bob")) }
+    fun timeline() = shoot("room_timeline") { Screen(timeline.asReversed(), typing = listOf(Typist("@bob:x", "Bob", null))) }
 
     @Test
     fun timelineDark() = shoot("room_timeline_dark", dark = true) { Screen(timeline.asReversed()) }

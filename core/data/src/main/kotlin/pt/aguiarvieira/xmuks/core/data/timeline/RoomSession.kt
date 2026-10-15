@@ -255,15 +255,17 @@ class RoomSession(
     /** One of this room's threads, from its root. */
     fun thread(rootId: String) = ThreadTimeline(roomId, rootId, exec, snapshot)
 
-    /** Display names of whoever is typing (not us). */
-    val typing: Flow<List<String>> =
+    /** Whoever is typing here (not us), with the names and avatars they have in this room. */
+    val typing: Flow<List<Typist>> =
         combine(
             store.typing.map { it[roomId].orEmpty() }.distinctUntilChanged(),
             profiles,
             dao.meta()
         ) { users, known, meta ->
-            users.filter { it != meta?.userId }.map { known[it]?.displayName ?: localpart(it) }
-        }
+            users.filter { it != meta?.userId }.map {
+                Typist(it, known[it]?.displayName ?: localpart(it), known[it]?.avatarMxc)
+            }
+        }.distinctUntilChanged()
 
     suspend fun open() {
         seedProfiles()

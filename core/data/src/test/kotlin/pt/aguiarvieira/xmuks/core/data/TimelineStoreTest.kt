@@ -320,4 +320,17 @@ class TimelineStoreTest {
             store.open("!a")
             assertEquals("nothing left marked as on the way: a later open fetches", 3, gomuks.calls.size)
         }
+
+    @Test
+    fun `typing follows gomuks' list, and goes with the stream`() =
+        runBlocking {
+            fun typing(vararg users: String) = GomuksFrame("typing", -1, GomuksEvent.Typing("!a", users.toList()))
+            store.onFrame(typing("@b:x", "@c:x"))
+            assertEquals(mapOf("!a" to listOf("@b:x", "@c:x")), store.typing.value)
+            store.onFrame(typing())
+            assertEquals(emptyMap<String, List<String>>(), store.typing.value)
+            store.onFrame(typing("@b:x"))
+            store.streamChanged(false)
+            assertEquals("no one would ever say they stopped", emptyMap<String, List<String>>(), store.typing.value)
+        }
 }

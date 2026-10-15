@@ -8,6 +8,13 @@ data class MemberProfile(
     val avatarMxc: String?,
 )
 
+/** Someone typing in a room, as the room knows them. */
+data class Typist(
+    val userId: String,
+    val name: String,
+    val avatarMxc: String?,
+)
+
 /** What the timeline renders, in order. */
 sealed interface TimelineItem {
     /** Stable across updates, for lazy-list keys and animations. */
