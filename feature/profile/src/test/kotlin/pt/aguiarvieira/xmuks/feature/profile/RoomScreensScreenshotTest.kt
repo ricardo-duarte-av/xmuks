@@ -95,6 +95,27 @@ class RoomScreensScreenshotTest {
         }
 
     @Test
+    fun powerLevels() =
+        capture("room_power_levels") {
+            RoomPowerLevelsScreen(
+                info =
+                    info.copy(
+                        powerLevels =
+                            info.powerLevels.copy(
+                                users = mapOf("@bob:example.org" to 100, "@carol:example.org" to 50),
+                                events = mapOf("m.room.name" to 50, "m.room.power_levels" to 100, "org.example.custom" to 0),
+                            ),
+                    ),
+                me = "@bob:example.org",
+                actions = RoomInfoActions(),
+                busy = false,
+                error = null,
+                onErrorShow = {},
+                onBack = {},
+            )
+        }
+
+    @Test
     fun preview() =
         capture("room_preview") {
             RoomPreviewScreen(

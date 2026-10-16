@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.runtime.Immutable
 import pt.aguiarvieira.xmuks.core.data.push.RoomNotifications
 import pt.aguiarvieira.xmuks.core.data.roominfo.MembershipAction
+import pt.aguiarvieira.xmuks.core.data.roominfo.Threshold
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 
 /** Everything the room info screen can change, and where it can lead. */
@@ -17,6 +18,8 @@ class RoomInfoActions(
     val enableEncryption: () -> Unit = {},
     val setNotifications: (RoomNotifications) -> Unit = {},
     val setLevel: (userId: String, level: Long) -> Unit = { _, _ -> },
+    val setThreshold: (Threshold, level: Long) -> Unit = { _, _ -> },
+    val setEventLevel: (type: String, level: Long?) -> Unit = { _, _ -> },
     val membership: (userId: String, MembershipAction, reason: String?) -> Unit = { _, _, _ -> },
     val leave: (reason: String?) -> Unit = {},
     val personas: PersonaEdits = PersonaEdits({ _, _ -> }, {}, { _, _ -> }),
@@ -24,6 +27,7 @@ class RoomInfoActions(
     val openMembers: () -> Unit = {},
     val openPreferences: () -> Unit = {},
     val openState: () -> Unit = {},
+    val openPowerLevels: () -> Unit = {},
     val openGallery: () -> Unit = {},
     val openMedia: (ViewerMedia) -> Unit = {},
 )

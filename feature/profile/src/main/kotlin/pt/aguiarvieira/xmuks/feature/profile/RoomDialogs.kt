@@ -171,6 +171,7 @@ internal fun RoleDialog(
     isSelf: Boolean,
     onChoose: (Long) -> Unit,
     onDismiss: () -> Unit,
+    title: String = stringResource(R.string.member_role),
 ) {
     val presets =
         listOf(PowerLevels.ADMIN, PowerLevels.MODERATOR, usersDefault).distinct().filter { it <= mine }
@@ -183,7 +184,7 @@ internal fun RoleDialog(
             ?.takeIf { it <= mine }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.member_role)) },
+        title = { Text(title) },
         text = {
             Column {
                 presets.forEach { level ->
@@ -236,3 +237,56 @@ internal fun roleName(
         level == usersDefault -> stringResource(R.string.role_user)
         else -> stringResource(R.string.role_custom, level)
     }
+
+/**
+ * Something new to give a level to — a user, an event type — and the level, never above ours.
+ * [valid] says whether what's typed names one.
+ */
+@Composable
+internal fun AddLevelDialog(
+    title: String,
+    hint: String,
+    mine: Long,
+    initial: Long,
+    valid: (String) -> Boolean,
+    onAdd: (key: String, level: Long) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val key = rememberTextFieldState()
+    val number = rememberTextFieldState(initial.toString())
+    val name = key.text.toString().trim()
+    val level =
+        number.text
+            .toString()
+            .toLongOrNull()
+            ?.takeIf { it <= mine }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    state = key,
+                    placeholder = { Text(hint) },
+                    lineLimits = TextFieldLineLimits.SingleLine,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    state = number,
+                    label = { Text(stringResource(R.string.power_level)) },
+                    lineLimits = TextFieldLineLimits.SingleLine,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = valid(name) && level != null, onClick = {
+                level?.let { onAdd(name, it) }
+                onDismiss()
+            }) { Text(stringResource(R.string.add)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}

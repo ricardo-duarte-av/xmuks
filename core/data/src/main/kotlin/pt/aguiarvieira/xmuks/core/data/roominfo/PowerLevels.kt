@@ -75,6 +75,53 @@ data class PowerLevels(
         return outranks && (newLevel == null || newLevel <= mine)
     }
 
+    /** The level needed for a whole kind of action. */
+    fun of(threshold: Threshold): Long =
+        when (threshold) {
+            Threshold.UsersDefault -> usersDefault
+            Threshold.EventsDefault -> eventsDefault
+            Threshold.StateDefault -> stateDefault
+            Threshold.Invite -> invite
+            Threshold.Kick -> kick
+            Threshold.Ban -> ban
+            Threshold.Redact -> redact
+            Threshold.RoomNotification -> raw.obj(NOTIFICATIONS)?.level(ROOM) ?: DEFAULT_MODERATION
+        }
+
+    /**
+     * Whether [actor] may move a level (a threshold or an event type's) from [current] to [newLevel]:
+     * they need the right to change power levels, and both must be within their own.
+     */
+    fun canChange(
+        actor: String,
+        current: Long,
+        newLevel: Long? = null,
+    ): Boolean {
+        val mine = of(actor)
+        return canSetState(actor, TYPE) && current <= mine && (newLevel == null || newLevel <= mine)
+    }
+
+    /** The content with [threshold] at [level]. */
+    fun with(
+        threshold: Threshold,
+        level: Long,
+    ): JsonObject {
+        val key = threshold.key
+        if (threshold != Threshold.RoomNotification) return JsonObject(base + (key to JsonPrimitive(level)))
+        val notifications = raw.obj(NOTIFICATIONS) ?: JsonObject(emptyMap())
+        return JsonObject(base + (NOTIFICATIONS to JsonObject(notifications + (ROOM to JsonPrimitive(level)))))
+    }
+
+    /** The content with events of [type] needing [level], or (null) back to the default for their kind. */
+    fun withEvent(
+        type: String,
+        level: Long?,
+    ): JsonObject {
+        val updated = events.toMutableMap()
+        if (level == null) updated.remove(type) else updated[type] = level
+        return JsonObject(base + (EVENTS to buildJsonObject { updated.forEach { (t, l) -> put(t, JsonPrimitive(l)) } }))
+    }
+
     /** The content with [userId] at [level] (back to the default removes the entry). */
     fun withUser(
         userId: String,
@@ -83,9 +130,32 @@ data class PowerLevels(
         val updated = users.toMutableMap()
         if (level == usersDefault) updated.remove(userId) else updated[userId] = level
         return JsonObject(
-            raw + (USERS to buildJsonObject { updated.forEach { (id, l) -> put(id, JsonPrimitive(l)) } }),
+            base + (USERS to buildJsonObject { updated.forEach { (id, l) -> put(id, JsonPrimitive(l)) } }),
         )
     }
+
+    /**
+     * What a change starts from: the event's content, or, in a room without one, the levels in
+     * effect spelled out (sending only the changed key would put everything else at the spec's
+     * defaults for an existing event, taking the creator's 100 away).
+     */
+    private val base: JsonObject
+        get() =
+            raw.ifEmpty {
+                fun levels(map: Map<String, Long>) =
+                    buildJsonObject { map.forEach { (k, l) -> put(k, JsonPrimitive(l)) } }
+                buildJsonObject {
+                    put(USERS, levels(users))
+                    put("users_default", JsonPrimitive(usersDefault))
+                    put(EVENTS, levels(events))
+                    put("events_default", JsonPrimitive(eventsDefault))
+                    put("state_default", JsonPrimitive(stateDefault))
+                    put("ban", JsonPrimitive(ban))
+                    put("kick", JsonPrimitive(kick))
+                    put("invite", JsonPrimitive(invite))
+                    put("redact", JsonPrimitive(redact))
+                }
+            }
 
     companion object {
         const val TYPE = "m.room.power_levels"
@@ -95,6 +165,9 @@ data class PowerLevels(
         const val ADMIN = 100L
         const val MODERATOR = 50L
         private const val USERS = "users"
+        private const val EVENTS = "events"
+        private const val NOTIFICATIONS = "notifications"
+        private const val ROOM = "room"
         private const val DEFAULT_MODERATION = 50L
 
         /**
@@ -123,7 +196,7 @@ data class PowerLevels(
             return PowerLevels(
                 users = content.levels(USERS),
                 usersDefault = content.level("users_default") ?: 0,
-                events = content.levels("events"),
+                events = content.levels(EVENTS),
                 eventsDefault = content.level("events_default") ?: 0,
                 stateDefault = content.level("state_default") ?: DEFAULT_MODERATION,
                 ban = content.level("ban") ?: DEFAULT_MODERATION,
@@ -146,4 +219,20 @@ data class PowerLevels(
                 ?.toMap()
                 .orEmpty()
     }
+}
+
+/** The levels for whole kinds of actions, by where they are in the content. */
+enum class Threshold(
+    val key: String,
+) {
+    UsersDefault("users_default"),
+    EventsDefault("events_default"),
+    StateDefault("state_default"),
+    Invite("invite"),
+    Kick("kick"),
+    Ban("ban"),
+    Redact("redact"),
+
+    /** Under `notifications`: who may ping everyone with @room. */
+    RoomNotification("room"),
 }

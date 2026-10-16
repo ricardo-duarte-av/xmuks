@@ -53,6 +53,7 @@ fun RoomInfoRoute(
     onOpenMembers: () -> Unit,
     onOpenState: () -> Unit,
     onOpenGallery: () -> Unit,
+    onOpenPowerLevels: () -> Unit,
     /** We left the room: nothing of it to go back to. */
     onLeft: () -> Unit,
     modifier: Modifier = Modifier,
@@ -72,7 +73,16 @@ fun RoomInfoRoute(
     LaunchedEffect(left) { if (left) leave() }
     val media = remember(viewModel) { ProfileMedia(viewModel.media::avatar, viewModel.media::full) }
     val actions =
-        remember(viewModel, onOpenUser, onOpenMedia, onOpenMembers, onOpenPreferences, onOpenState, onOpenGallery) {
+        remember(
+            viewModel,
+            onOpenUser,
+            onOpenMedia,
+            onOpenMembers,
+            onOpenPreferences,
+            onOpenState,
+            onOpenGallery,
+            onOpenPowerLevels
+        ) {
             RoomInfoActions(
                 setName = viewModel::setName,
                 setTopic = viewModel::setTopic,
@@ -91,6 +101,7 @@ fun RoomInfoRoute(
                 openPreferences = onOpenPreferences,
                 openState = onOpenState,
                 openGallery = onOpenGallery,
+                openPowerLevels = onOpenPowerLevels,
             )
         }
     RoomInfoScreen(

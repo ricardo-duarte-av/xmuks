@@ -117,9 +117,12 @@ class RoomInfoViewModel
         fun setLevel(
             userId: String,
             level: Long,
-        ) {
+        ) = editLevels { it.withUser(userId, level) }
+
+        /** Sends the power levels as [change] makes them from the current ones. */
+        fun editLevels(change: (PowerLevels) -> JsonObject) {
             val levels = (_state.value as? RoomInfoState.Loaded)?.info?.powerLevels ?: return
-            setState(PowerLevels.TYPE, levels.withUser(userId, level))
+            setState(PowerLevels.TYPE, change(levels))
         }
 
         fun membership(

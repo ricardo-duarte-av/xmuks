@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.push.RoomNotifications
 import pt.aguiarvieira.xmuks.core.data.roominfo.Membership
+import pt.aguiarvieira.xmuks.core.data.roominfo.PowerLevels
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
@@ -191,6 +192,14 @@ internal fun RoomSettingsCard(
                 null,
                 onClick = { open = Setting.Encryption }.takeIf { canEncrypt },
             )
+            val canChangeLevels = levels.canSetState(me, PowerLevels.TYPE)
+            SettingRow(
+                R.drawable.ic_shield,
+                R.string.power_levels,
+                R.string.power_levels_summary,
+                onClick = actions.openPowerLevels.takeIf { canChangeLevels },
+                greyed = !canChangeLevels,
+            )
             Text(
                 stringResource(R.string.room_version, info.roomVersion),
                 style = MaterialTheme.typography.labelSmall,
@@ -242,11 +251,24 @@ private fun SettingRow(
     title: Int,
     value: Int?,
     onClick: (() -> Unit)?,
+    greyed: Boolean = false,
 ) {
+    val colors =
+        if (greyed) {
+            val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
+            ListItemDefaults.colors(
+                containerColor = Color.Transparent,
+                headlineColor = dim,
+                leadingIconColor = dim,
+                supportingColor = dim,
+            )
+        } else {
+            ListItemDefaults.colors(containerColor = Color.Transparent)
+        }
     ListItem(
         leadingContent = { Icon(painterResource(icon), null) },
         supportingContent = value?.let { { Text(stringResource(it)) } },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        colors = colors,
         modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
     ) { Text(stringResource(title)) }
 }
@@ -294,6 +316,9 @@ private fun notificationLabel(setting: RoomNotifications) =
 private const val NAME = "name"
 private const val TOPIC = "topic"
 private val AVATAR_SIZE = 96.dp
+
+/** Material's alpha for disabled content. */
+private const val DISABLED_ALPHA = 0.38f
 
 internal val JOIN_RULES =
     mapOf(

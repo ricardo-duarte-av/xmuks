@@ -13,6 +13,7 @@ import pt.aguiarvieira.xmuks.core.data.roominfo.Membership
 import pt.aguiarvieira.xmuks.core.data.roominfo.PowerLevels
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomPreview
+import pt.aguiarvieira.xmuks.core.data.roominfo.Threshold
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 
@@ -99,6 +100,43 @@ class RoomInfoTest {
         assertEquals(50L, promoted["users"]!!.jsonObject["@carol:x"]!!.jsonPrimitive.long)
         assertEquals(100L, promoted["state_default"]!!.jsonPrimitive.long)
         assertNull(pl.withUser("@bob:x", 0)["users"]!!.jsonObject["@bob:x"])
+    }
+
+    @Test
+    fun `thresholds and event levels change only within our own level`() {
+        val pl = RoomInfo.parse("!r", state("10", levels)).powerLevels
+        assertTrue(pl.canChange("@alice:x", pl.of(Threshold.StateDefault), 50))
+        assertFalse(pl.canChange("@alice:x", pl.of(Threshold.StateDefault), 101))
+        // Bob (50) can't change power levels at all: state_default is 100.
+        assertFalse(pl.canChange("@bob:x", pl.of(Threshold.Kick)))
+        assertEquals(50L, pl.of(Threshold.RoomNotification))
+    }
+
+    @Test
+    fun `a threshold or event level keeps the rest of the content`() {
+        val pl = RoomInfo.parse("!r", state("10", levels)).powerLevels
+        val kick = pl.with(Threshold.Kick, 100)
+        assertEquals(100L, kick["kick"]!!.jsonPrimitive.long)
+        assertEquals(50L, kick["users"]!!.jsonObject["@bob:x"]!!.jsonPrimitive.long)
+        val ping = pl.with(Threshold.RoomNotification, 0)
+        assertEquals(0L, ping["notifications"]!!.jsonObject["room"]!!.jsonPrimitive.long)
+        assertEquals(
+            50L,
+            pl
+                .withEvent("m.reaction", 50)["events"]!!
+                .jsonObject["m.reaction"]!!
+                .jsonPrimitive.long
+        )
+        assertNull(pl.withEvent("m.room.name", null)["events"]!!.jsonObject["m.room.name"])
+    }
+
+    @Test
+    fun `without power levels a change spells out the levels in effect`() {
+        val pl = RoomInfo.parse("!r", state("10")).powerLevels
+        val content = pl.with(Threshold.Invite, 50)
+        assertEquals(100L, content["users"]!!.jsonObject["@alice:x"]!!.jsonPrimitive.long)
+        assertEquals(0L, content["state_default"]!!.jsonPrimitive.long)
+        assertEquals(50L, content["invite"]!!.jsonPrimitive.long)
     }
 
     @Test
