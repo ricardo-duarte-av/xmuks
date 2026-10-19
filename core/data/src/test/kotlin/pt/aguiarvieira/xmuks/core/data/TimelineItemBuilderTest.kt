@@ -13,6 +13,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.MemberProfile
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyKind
 import pt.aguiarvieira.xmuks.core.data.timeline.SendState
+import pt.aguiarvieira.xmuks.core.data.timeline.SenderNetwork
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItemBuilder
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineOptions
@@ -57,9 +58,11 @@ class TimelineItemBuilderTest {
         vararg events: Event,
         extra: List<Event> = emptyList(),
         profiles: Map<String, MemberProfile> = emptyMap(),
+        networks: Map<String, SenderNetwork> = emptyMap(),
     ) = builder.build(
         TimelineSnapshot("!r", events = events.toList(), eventsByRowId = (events.toList() + extra).associateBy { it.rowId }, loaded = true),
         profiles,
+        networks,
     )
 
     private fun List<TimelineItem>.messages() = filterIsInstance<TimelineItem.Message>()
@@ -105,6 +108,43 @@ class TimelineItemBuilderTest {
         assertEquals(listOf("Cat via Bob in this room", "Bob in this room", "stranger"), items.map { it.senderName })
         assertEquals(listOf("cat", null, null), items.map { it.label.profileId })
         assertEquals(listOf("mxc://x/cat", "mxc://x/bob", null), items.map { it.senderAvatarMxc })
+    }
+
+    @Test
+    fun `bridged senders carry their network, matched by protocol ID`() {
+        val whatsapp = SenderNetwork("WhatsApp", "mxc://maunium.net/wa")
+        val signal = SenderNetwork("Signal", "mxc://maunium.net/signal")
+        val profiles =
+            mapOf(
+                "@wa_1:x" to MemberProfile("Thalita", null, network = "whatsapp"),
+                "@bob:x" to MemberProfile("Bob", null),
+            )
+        val items =
+            build(
+                ev(sender = "@wa_1:x"),
+                ev(sender = "@bob:x", ts = t0 + 1_000),
+                ev(
+                    sender = "@wa_1:x",
+                    ts = t0 + 2_000,
+                    content = """{"msgtype":"m.text","body":"a","com.beeper.per_message_profile":{"id":"cat","displayname":"Cat"}}""",
+                ),
+                profiles = profiles,
+                networks = mapOf("whatsapp" to whatsapp, "signal" to signal),
+            ).messages()
+        assertEquals(listOf(whatsapp, null, null), items.map { it.senderNetwork })
+    }
+
+    @Test
+    fun `a bridged sender's network falls back to the room's only bridge, and is read from member events`() {
+        val wa = SenderNetwork("WhatsApp", null)
+        val join = """{"membership":"join","displayname":"T","com.beeper.bridge.network":"whatsapp-lid"}"""
+        val items =
+            build(
+                ev(sender = "@wa_1:x", type = "m.room.member", stateKey = "@wa_1:x", content = join),
+                ev(sender = "@wa_1:x", ts = t0 + 1_000),
+                networks = mapOf("whatsapp" to wa),
+            ).messages()
+        assertEquals(wa, items.single().senderNetwork)
     }
 
     @Test

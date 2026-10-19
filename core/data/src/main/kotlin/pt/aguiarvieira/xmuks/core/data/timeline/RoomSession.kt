@@ -191,9 +191,10 @@ class RoomSession(
             profiles,
             dao.meta().map { it?.userId }.distinctUntilChanged(),
             preferences.map(TimelineOptions::of).distinctUntilChanged(),
-        ) { snap, known, me, options ->
+            state.map(::networksOf).distinctUntilChanged(),
+        ) { snap, known, me, options, networks ->
             resolveMissing(snap, known)
-            TimelineItemBuilder(me, options).build(snap, known)
+            TimelineItemBuilder(me, options).build(snap, known, networks)
         }.flowOn(Dispatchers.Default)
 
     /** Our read marker here (`m.fully_read`): the last event read; gomuks' mark_read moves it. */
@@ -355,6 +356,7 @@ class RoomSession(
         MemberProfile(
             displayName = (content["displayname"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() },
             avatarMxc = (content["avatar_url"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.startsWith("mxc://") },
+            network = bridgeNetworkOf(content),
         )
 
     private companion object {

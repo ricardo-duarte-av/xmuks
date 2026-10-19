@@ -6,6 +6,14 @@ import java.time.LocalDate
 data class MemberProfile(
     val displayName: String?,
     val avatarMxc: String?,
+    /** For a bridged user (puppet): their network's protocol ID (see [bridgeNetworkOf]). */
+    val network: String? = null,
+)
+
+/** The bridged network a sender is on: shown as its logo on their avatar. */
+data class SenderNetwork(
+    val name: String,
+    val logoMxc: String?,
 )
 
 /** Someone typing in a room, as the room knows them. */
@@ -59,6 +67,8 @@ sealed interface TimelineItem {
         val bridgeDelivery: BridgeDelivery? = null,
         /** Someone else's message that mentions us (`m.mentions`: us by name, or the whole room). */
         val mentionsMe: Boolean = false,
+        /** The sender is a bridged user: the network they're on. */
+        val senderNetwork: SenderNetwork? = null,
     ) : TimelineItem {
         /** The label as plain text ("profile via sender", or the sender's name). */
         val senderName: String get() = label.text

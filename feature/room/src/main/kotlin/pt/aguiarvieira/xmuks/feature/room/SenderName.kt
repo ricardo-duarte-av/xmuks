@@ -1,9 +1,11 @@
 package pt.aguiarvieira.xmuks.feature.room
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -17,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -29,6 +33,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
+import pt.aguiarvieira.xmuks.core.designsystem.component.NetworkBadge
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
 
@@ -83,16 +88,32 @@ internal fun Header(
     actions: TimelineActions,
 ) {
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(bottom = 4.dp)) {
-        RoomAvatar(
-            message.label.shownName,
-            message.label.profileId ?: message.sender,
-            resolver.avatar(message.senderAvatarMxc),
-            size = AVATAR_SIZE,
-            modifier =
-                Modifier.clip(CircleShape).clickable {
-                    resolver.image(message.senderAvatarMxc, message.senderName)?.let(actions.openMedia)
-                },
-        )
+        Box {
+            RoomAvatar(
+                message.label.shownName,
+                message.label.profileId ?: message.sender,
+                resolver.avatar(message.senderAvatarMxc),
+                size = AVATAR_SIZE,
+                modifier =
+                    Modifier.clip(CircleShape).clickable {
+                        resolver.image(message.senderAvatarMxc, message.senderName)?.let(actions.openMedia)
+                    },
+            )
+            // A bridged user: their network's logo, bottom right, as on a bridged room's avatar.
+            message.senderNetwork?.let { network ->
+                val label = stringResource(R.string.sender_network, network.name)
+                NetworkBadge(
+                    network.name,
+                    resolver.avatar(network.logoMxc),
+                    size = NETWORK_BADGE_SIZE,
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(x = NETWORK_BADGE_OFFSET, y = NETWORK_BADGE_OFFSET)
+                            .semantics { contentDescription = label },
+                )
+            }
+        }
         Spacer(Modifier.width(8.dp))
         // No leading above the line, and the font's own room above its ascenders taken back.
         val nameStyle =
@@ -134,3 +155,5 @@ internal fun OwnProfileHeader(
 }
 
 private val AVATAR_SIZE = 28.dp
+private val NETWORK_BADGE_SIZE = 14.dp
+private val NETWORK_BADGE_OFFSET = 3.dp

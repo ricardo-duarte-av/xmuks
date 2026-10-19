@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.core.data.timeline
 
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.Receipt
 
@@ -12,6 +13,8 @@ data class BridgeInfo(
     val channelAvatarMxc: String?,
     /** The bridge's bot, which also reports how our messages fared there. */
     val bot: String?,
+    /** The network's ID ("whatsapp"): what its bridged members name as theirs. */
+    val protocolId: String? = null,
 )
 
 /** How one of our messages fared on the bridged network, from the bridge's status reports. */
@@ -30,21 +33,40 @@ private val BRIDGE_TYPES = setOf("m.bridge", "uk.half-shot.bridge")
 internal const val SEND_STATUS = "com.beeper.message_send_status"
 
 /** The bridge described in a room's [state], if any. */
-fun bridgeOf(state: List<Event>): BridgeInfo? =
+fun bridgeOf(state: List<Event>): BridgeInfo? = bridgesOf(state).firstOrNull()
+
+/** Every bridge described in a room's [state]. */
+private fun bridgesOf(state: List<Event>): List<BridgeInfo> =
     state
         .filter { it.effectiveType in BRIDGE_TYPES && it.redactedBy == null }
-        .firstNotNullOfOrNull { event ->
+        .mapNotNull { event ->
             val content = event.effectiveContent
-            val protocol = content.obj("protocol") ?: return@firstNotNullOfOrNull null
+            val protocol = content.obj("protocol") ?: return@mapNotNull null
             val channel = content.obj("channel")
             BridgeInfo(
-                protocol = protocol.str("displayname") ?: protocol.str("id") ?: return@firstNotNullOfOrNull null,
+                protocol = protocol.str("displayname") ?: protocol.str("id") ?: return@mapNotNull null,
                 protocolAvatarMxc = protocol.str("avatar_url")?.takeIf { it.startsWith("mxc://") },
                 channel = channel?.str("displayname"),
                 channelAvatarMxc = channel?.str("avatar_url")?.takeIf { it.startsWith("mxc://") },
                 bot = content.str("bridgebot"),
+                protocolId = protocol.str("id"),
             )
         }
+
+/** The networks the room's bridges reach, by their protocol ID (what bridged members name). */
+fun networksOf(state: List<Event>): Map<String, SenderNetwork> =
+    bridgesOf(state)
+        .mapNotNull { bridge ->
+            bridge.protocolId?.let { it to SenderNetwork(bridge.protocol, bridge.protocolAvatarMxc) }
+        }.toMap()
+
+/**
+ * The network a member is a bridged user (puppet) of, from what mautrix bridges put in their
+ * `m.room.member`: `com.beeper.bridge.network` (or `.service`), a protocol ID like "whatsapp".
+ */
+internal fun bridgeNetworkOf(member: JsonObject): String? =
+    member.str("com.beeper.bridge.network")?.takeIf { it.isNotBlank() }
+        ?: member.str("com.beeper.bridge.service")?.takeIf { it.isNotBlank() }
 
 /**
  * Where [related] (the events referencing one of our messages) say it got to: delivered once any
