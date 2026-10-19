@@ -29,6 +29,11 @@ data class PushMessage(
     @SerialName("is_dm") val isDm: Boolean = false,
     val sender: PushUser,
     val self: PushUser,
+    /**
+     * The per-message profile (MSC4144) it was sent as: a bridge or bot speaking for someone
+     * (sent by gomuks from 2026-10-18 on). Its ID is the profile's own, not a Matrix ID.
+     */
+    @SerialName("per_message_profile") val perMessageProfile: PushUser? = null,
     val text: String,
     val image: String? = null,
     val mention: Boolean = false,
@@ -62,6 +67,30 @@ data class PushUser(
     /** A gomuks media path (`_gomuks/media/…?encrypted=false&fallback=…`), relative to the server. */
     val avatar: String? = null,
 )
+
+/**
+ * Who the message is shown as from: its per-message profile as "profile via sender" (as the
+ * timeline labels it), with the profile's avatar; else the sender. The ID stays apart from the
+ * sender's own, so the two are different people in one notification.
+ */
+val PushMessage.author: PushUser
+    get() {
+        val profile = perMessageProfile?.takeIf { it.id.isNotBlank() || it.name.isNotBlank() } ?: return sender
+        val name =
+            if (profile.name.isBlank() || profile.name == sender.name) {
+                sender.name
+            } else {
+                "${profile.name} via ${sender.name}"
+            }
+        return PushUser(id = "${sender.id}$PROFILE_SEPARATOR${profile.id}", name = name, avatar = profile.avatar)
+    }
+
+/** The name a message is attributed to: its per-message profile's own, else the sender's (emotes). */
+val PushMessage.authorName: String
+    get() = perMessageProfile?.name?.takeIf { it.isNotBlank() } ?: sender.name
+
+/** Between the sender's ID and a per-message profile's in [author]'s: never in a Matrix ID. */
+internal const val PROFILE_SEPARATOR = "#pmp:"
 
 /**
  * The room was read up to [readUpTo] elsewhere: its notification can go. [ts] is that read

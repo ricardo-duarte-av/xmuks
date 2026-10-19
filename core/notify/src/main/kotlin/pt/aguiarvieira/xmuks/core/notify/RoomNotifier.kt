@@ -192,7 +192,8 @@ class RoomNotifier(
         val people = HashMap<String, Person>()
         var highlighted = false
         fresh.forEach { m ->
-            val sender = people.getOrPut(m.sender.id) { person(m.sender, imageAuth) }
+            val author = m.author
+            val sender = people.getOrPut(author.id) { person(author, imageAuth) }
             val event = withTimeoutOrNull(EVENT_MS) { eventOf(m.roomId, m.eventId) }
             if (m.mention || (event?.unreadType ?: 0) and HIGHLIGHT != 0 ||
                 event?.mentionsRoom() == true
@@ -226,7 +227,8 @@ class RoomNotifier(
             .Builder()
             .setKey(user.id)
             .setName(user.name)
-            .setUri(PeopleUris.forUser(context, user.id))
+            // A per-message profile is nobody in Contacts, nor a Matrix user.
+            .apply { if (PROFILE_SEPARATOR !in user.id) setUri(PeopleUris.forUser(context, user.id)) }
             .setIcon(Avatars.round(loadBitmap(user.avatar, imageAuth), user.name, user.id))
             .build()
 

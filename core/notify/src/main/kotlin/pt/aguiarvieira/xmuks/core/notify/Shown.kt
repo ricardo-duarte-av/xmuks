@@ -62,7 +62,7 @@ private fun byType(
 
         "m.emote" -> {
             Shown(
-                SpannableStringBuilder("* ${push.sender.name} ").append(formatted(local?.sanitizedHtml, body, content))
+                SpannableStringBuilder("* ${push.authorName} ").append(formatted(local?.sanitizedHtml, body, content))
             )
         }
 

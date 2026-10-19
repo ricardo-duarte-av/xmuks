@@ -53,6 +53,24 @@ class PushCodecTest {
     }
 
     @Test
+    fun `a per-message profile shows as profile via sender, apart from the sender`() {
+        val profile = "\"per_message_profile\": {\"id\": \"cat\", \"name\": \"Cat\", \"avatar\": \"_gomuks/media/c\"},"
+        val sealed = seal(sample.replace("\"text\": \"hi\",", "$profile \"text\": \"hi\","))
+        val message = PushCodec.open(sealed, key)!!.messages.single()
+        assertEquals("Cat via Alice", message.author.name)
+        assertEquals("_gomuks/media/c", message.author.avatar)
+        assertTrue(message.author.id != message.sender.id)
+        assertEquals("Cat", message.authorName)
+    }
+
+    @Test
+    fun `without a per-message profile the sender is the author`() {
+        val message = PushCodec.open(seal(sample), key)!!.messages.single()
+        assertEquals(message.sender, message.author)
+        assertEquals("Alice", message.authorName)
+    }
+
+    @Test
     fun `wrong key, tampering or garbage give nothing`() {
         assertNull(PushCodec.open(seal(sample, ByteArray(32)), key))
         val sealed = Base64.getDecoder().decode(seal(sample))
