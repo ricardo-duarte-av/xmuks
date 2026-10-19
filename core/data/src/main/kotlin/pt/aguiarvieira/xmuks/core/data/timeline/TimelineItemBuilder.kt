@@ -190,8 +190,7 @@ class TimelineItemBuilder(
             threadReplies = maxOf(threadSizes[event.eventId] ?: 0, event.threadCount()),
             linkPreviews = if (options.showUrlPreviews) linkPreviewsOf(content) else emptyList(),
             mentionsMe = event.sender != me && mentions(content, me),
-            // A per-message profile speaks for someone else: the sender's network isn't theirs.
-            senderNetwork = if (perMessage == null) networkOf(profile) else null,
+            senderNetwork = senderNetworkOf(profile, perMessage, networks),
             bridgeDelivery =
                 if (event.sender != me) {
                     null
@@ -367,13 +366,6 @@ class TimelineItemBuilder(
             readBy = readers[event.eventId].orEmpty().toReaders(me, event.sender, members),
         )
     }
-
-    /**
-     * A bridged sender's network: the bridge with their protocol ID, else the room's only bridge
-     * (its `m.bridge` may name the network differently).
-     */
-    private fun networkOf(profile: MemberProfile?): SenderNetwork? =
-        profile?.network?.let { networks[it] ?: networks.values.singleOrNull() }
 
     /** Member events loaded with the timeline are newer than any fetched snapshot: they win. */
     private fun membersFromTimeline(events: List<Event>): Map<String, MemberProfile> =

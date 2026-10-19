@@ -61,6 +61,20 @@ fun networksOf(state: List<Event>): Map<String, SenderNetwork> =
         }.toMap()
 
 /**
+ * A bridged sender's network among [networks]: the bridge with their protocol ID, else the room's
+ * only bridge (its `m.bridge` may name the network differently). None for a message sent as a
+ * [perMessageProfile]: that speaks for someone else, whose network the sender's isn't.
+ */
+internal fun senderNetworkOf(
+    profile: MemberProfile?,
+    perMessageProfile: JsonObject?,
+    networks: Map<String, SenderNetwork>,
+): SenderNetwork? {
+    if (perMessageProfile != null) return null
+    return profile?.network?.let { networks[it] ?: networks.values.singleOrNull() }
+}
+
+/**
  * The network a member is a bridged user (puppet) of, from what mautrix bridges put in their
  * `m.room.member`: `com.beeper.bridge.network` (or `.service`), a protocol ID like "whatsapp".
  */
