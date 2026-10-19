@@ -33,7 +33,7 @@ internal fun HiddenRow(
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         // At the left edge, where others' messages start.
-        modifier.fillMaxWidth().padding(start = EDGE, end = 16.dp, top = ROW_GAP, bottom = ROW_GAP),
+        modifier.fillMaxWidth().padding(start = EDGE, end = 16.dp, top = ROW_GAP),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -77,5 +77,8 @@ internal fun HiddenRow(
 private val AVATAR_SIZE = 16.dp
 private val EDGE = 12.dp
 
-/** Above and below each row (two hidden events end up 8dp apart). */
-private val ROW_GAP = 4.dp
+/**
+ * Above each row only, as messages space themselves (their gap is at their top): so a hidden event
+ * sits 8dp from what's above it and from a message below it, and two of them 8dp apart.
+ */
+private val ROW_GAP = 8.dp
