@@ -17,7 +17,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -26,10 +25,8 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
@@ -69,25 +66,14 @@ internal fun senderText(label: SenderLabel): AnnotatedString {
     }
 }
 
-/** Moves the content up by [by], taking the same height out of the layout. */
-internal fun Modifier.raise(by: TextUnit): Modifier =
-    layout { measurable, constraints ->
-        val placeable = measurable.measure(constraints)
-        val shift = by.roundToPx().coerceAtMost(placeable.height)
-        layout(placeable.width, placeable.height - shift) { placeable.place(0, -shift) }
-    }
-
-/** Google Sans Flex's space above its ascenders, as a fraction of the font size (measured). */
-internal const val ASCENT_GAP = 0.23f
-
-/** Avatar and name, their tops on the same line. */
+/** Avatar and name, the name centred on the avatar. */
 @Composable
 internal fun Header(
     message: TimelineItem.Message,
     resolver: MediaResolver,
     actions: TimelineActions,
 ) {
-    Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(bottom = 4.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
         Box {
             RoomAvatar(
                 message.label.shownName,
@@ -115,15 +101,10 @@ internal fun Header(
             }
         }
         Spacer(Modifier.width(8.dp))
-        // No leading above the line, and the font's own room above its ascenders taken back.
-        val nameStyle =
-            MaterialTheme.typography.labelLarge.copy(
-                lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Top, LineHeightStyle.Trim.FirstLineTop),
-            )
         SenderName(
             message.label,
-            nameStyle,
-            Modifier.raise(nameStyle.fontSize * ASCENT_GAP).clickable { actions.openUser(message.sender) },
+            MaterialTheme.typography.labelLarge,
+            Modifier.clickable { actions.openUser(message.sender) },
         )
     }
 }
