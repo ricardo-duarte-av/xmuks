@@ -7,6 +7,7 @@ import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import pt.aguiarvieira.xmuks.core.network.AuthApi
 import pt.aguiarvieira.xmuks.core.network.AuthResult
 import pt.aguiarvieira.xmuks.core.network.Credentials
+import pt.aguiarvieira.xmuks.core.network.isOnLocalNetwork
 import pt.aguiarvieira.xmuks.core.network.parseServerUrl
 
 sealed interface LoginResult {
@@ -62,6 +63,18 @@ class SessionRepository(
                 LoginResult.Failed(result.cause.message ?: result.cause.javaClass.simpleName)
             }
         }
+    }
+
+    /** Whether [server], as typed, is on the local network (see [LocalNetworkPermission]). */
+    suspend fun isLocalServer(server: String): Boolean {
+        val url = parseServerUrl(server) ?: return false
+        return withContext(io) { url.isOnLocalNetwork() }
+    }
+
+    /** The same, for the server we're logged in to. */
+    suspend fun isLocalServer(): Boolean {
+        val url = store.credentials()?.serverUrl ?: return false
+        return withContext(io) { url.isOnLocalNetwork() }
     }
 
     /** Forgets the account and everything cached for it. Flipping [loggedIn] stops the stream first. */

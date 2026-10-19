@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    A self-hosted gomuks may use a self-signed certificate or a private CA: install it under
+    Settings › Security › Encryption & credentials › Install a certificate › CA certificate,
+    and xmuks trusts it. Verification itself is never switched off.
+-->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates
+                src="user"
+                tools:ignore="AcceptsUserCertificates" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

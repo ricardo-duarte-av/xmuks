@@ -39,6 +39,7 @@ import androidx.navigation3.ui.NavDisplay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import pt.aguiarvieira.xmuks.R
+import pt.aguiarvieira.xmuks.core.data.auth.LocalNetworkPermission
 import pt.aguiarvieira.xmuks.core.data.links.LinkTarget
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalAnimatedVisibilityScope
 import pt.aguiarvieira.xmuks.core.designsystem.component.LocalSharedTransitionScope
@@ -195,6 +196,8 @@ fun XmuksNavHost(
     /** A call screen to open (from a call notification, or an answered ring). */
     openCall: CallRequest? = null,
     onOpenCallConsume: () -> Unit = {},
+    /** Whether the logged-in server is on the local network, so Android 17+ must allow reaching it. */
+    isLocalServer: suspend () -> Boolean = { false },
     links: LinkViewModel = hiltViewModel(),
 ) {
     val backStack = rememberNavBackStack(HomeKey)
@@ -222,7 +225,7 @@ fun XmuksNavHost(
             }
         }
     }
-    NotificationPermission()
+    StartupPermissions(isLocalServer)
     val consumed by rememberUpdatedState(onLinkConsume)
     LaunchedEffect(link) {
         if (link != null) {
@@ -541,15 +544,26 @@ private const val THREAD_SCOPE = "thread"
 /** Rooms opened from a link have no list row to fly from. */
 private const val LINK_SCOPE = "link"
 
-/** Asked once logged in (Android 13+): without it, no notifications. Android stops asking after two no's. */
+/**
+ * Asked once logged in, in one go (two requests at once would clash): notifications (Android 13+),
+ * without which none show, and, for a server on the local network, that access (Android 17+), without
+ * which nothing connects. Android stops asking after two no's.
+ */
 @Composable
-private fun NotificationPermission() {
+private fun StartupPermissions(isLocalServer: suspend () -> Boolean) {
     val context = LocalContext.current
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
+    val localServer by rememberUpdatedState(isLocalServer)
     LaunchedEffect(Unit) {
-        val granted =
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-                PackageManager.PERMISSION_GRANTED
-        if (!granted) ask.launch(Manifest.permission.POST_NOTIFICATIONS)
+        val missing =
+            buildList {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    add(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                if (LocalNetworkPermission.missing(context) && localServer()) add(LocalNetworkPermission.NAME)
+            }
+        if (missing.isNotEmpty()) ask.launch(missing.toTypedArray())
     }
 }

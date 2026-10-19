@@ -11,5 +11,6 @@
     <string name="login_error_url">That doesn\'t look like a server address.</string>
     <string name="login_error_insecure">Only HTTPS servers are supported, so your password never travels unencrypted.</string>
     <string name="login_error_credentials">Wrong username or password.</string>
+    <string name="login_error_local_network">This server is on your local network: allow xmuks \"Nearby devices\" access (in its app settings, if Android stops asking).</string>
     <string name="login_error_other">Couldn\'t connect: %1$s</string>
 </resources>

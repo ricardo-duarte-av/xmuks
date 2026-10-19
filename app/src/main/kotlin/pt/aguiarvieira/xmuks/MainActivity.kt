@@ -81,6 +81,7 @@ class MainActivity : ComponentActivity() {
                             onShareConsume = { share.value = null },
                             openCall = callRoom,
                             onOpenCallConsume = { call.value = null },
+                            isLocalServer = { session.isLocalServer() },
                         )
                     } else {
                         LoginRoute()

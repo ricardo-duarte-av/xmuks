@@ -1,5 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.login
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +45,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentType
@@ -53,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.drop
+import pt.aguiarvieira.xmuks.core.data.auth.LocalNetworkPermission
 import pt.aguiarvieira.xmuks.core.designsystem.R as DesignR
 
 @Composable
@@ -61,6 +65,21 @@ fun LoginRoute(
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val status by viewModel.status.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val ask =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) viewModel.connect() else viewModel.localNetworkDenied()
+        }
+    LaunchedEffect(status.askLocalNetwork) {
+        if (status.askLocalNetwork) {
+            if (LocalNetworkPermission.missing(context)) {
+                viewModel.localNetworkAsked()
+                ask.launch(LocalNetworkPermission.NAME)
+            } else {
+                viewModel.connect()
+            }
+        }
+    }
     LoginScreen(
         form = viewModel.form,
         status = status,
@@ -239,5 +258,6 @@ private fun errorText(error: LoginError): String =
         LoginError.InvalidUrl -> stringResource(R.string.login_error_url)
         LoginError.InsecureUrl -> stringResource(R.string.login_error_insecure)
         LoginError.BadCredentials -> stringResource(R.string.login_error_credentials)
+        LoginError.LocalNetworkDenied -> stringResource(R.string.login_error_local_network)
         is LoginError.Other -> stringResource(R.string.login_error_other, error.detail)
     }

@@ -17,6 +17,8 @@ import javax.inject.Inject
 data class LoginStatus(
     val busy: Boolean = false,
     val error: LoginError? = null,
+    /** The server is on the local network: the screen asks for that permission, then calls [LoginViewModel.connect]. */
+    val askLocalNetwork: Boolean = false,
 )
 
 class LoginForm(
@@ -34,6 +36,8 @@ sealed interface LoginError {
     data object InsecureUrl : LoginError
 
     data object BadCredentials : LoginError
+
+    data object LocalNetworkDenied : LoginError
 
     data class Other(
         val detail: String,
@@ -55,6 +59,25 @@ class LoginViewModel
 
         fun submit() {
             if (_status.value.busy || !form.isComplete) return
+            _status.value = LoginStatus(busy = true)
+            viewModelScope.launch {
+                if (session.isLocalServer(form.server.text.toString())) {
+                    _status.value = LoginStatus(busy = true, askLocalNetwork = true)
+                } else {
+                    connect()
+                }
+            }
+        }
+
+        /** The local network question is up: not asked again (on rotation, say) while it's answered. */
+        fun localNetworkAsked() = _status.update { it.copy(askLocalNetwork = false) }
+
+        /** The local network permission was refused: connecting would only fail. */
+        fun localNetworkDenied() {
+            _status.value = LoginStatus(error = LoginError.LocalNetworkDenied)
+        }
+
+        fun connect() {
             _status.value = LoginStatus(busy = true)
             viewModelScope.launch {
                 val result =
