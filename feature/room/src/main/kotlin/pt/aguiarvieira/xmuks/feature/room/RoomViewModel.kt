@@ -240,7 +240,15 @@ class RoomViewModel
 
         /** Reacting, stickers, recent emoji and pack subscriptions. */
         val emoji =
-            EmojiActions(viewModelScope, session, WHILE_VISIBLE, { features.value }, limited::show) { target.reply() }
+            EmojiActions(
+                viewModelScope,
+                session,
+                WHILE_VISIBLE,
+                { features.value },
+                limited::show,
+                replyTo = { target.reply() },
+                onSent = { if (modes.mode.value is ComposeMode.Reply) modes.cancel() },
+            )
 
         /** Whether the next send is a new message, a reply or an edit. */
         val modes = ComposeModes(draft)

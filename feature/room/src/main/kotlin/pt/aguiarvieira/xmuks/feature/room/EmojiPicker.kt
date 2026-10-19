@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -74,6 +75,8 @@ internal fun EmojiPickerSheet(
     onPick: (Picked) -> Unit,
     onSubscribe: (ImagePack, Boolean) -> Unit,
     onDismiss: () -> Unit,
+    /** A reaction (any text will do); else the composer's picker grown to the whole screen. */
+    forReaction: Boolean = true,
     /** What the bridged network won't take as a reaction: dimmed (picking it says why). */
     blocked: (Picked) -> Boolean = { false },
 ) {
@@ -89,8 +92,9 @@ internal fun EmojiPickerSheet(
             resolver,
             onPick,
             onSubscribe,
-            Modifier.height(PICKER_HEIGHT),
-            allowFreeform = true,
+            if (forReaction) Modifier.height(PICKER_HEIGHT) else Modifier.fillMaxHeight(),
+            allowFreeform = forReaction,
+            focusSearch = false,
             blocked = blocked,
         )
     }
@@ -110,6 +114,8 @@ internal fun EmojiPicker(
     allowFreeform: Boolean = false,
     /** The search field; the composer's panel hides it until asked (it takes rows of emoji). */
     showSearch: Boolean = true,
+    /** Search shown at once takes the keyboard; in a sheet it waits to be tapped. */
+    focusSearch: Boolean = true,
     /** Shown dimmed: what the bridged network won't take (still picked, to say why). */
     blocked: (Picked) -> Boolean = { false },
 ) {
@@ -117,7 +123,7 @@ internal fun EmojiPicker(
     val q by remember(showSearch) { derivedStateOf { if (showSearch) query.text.toString().trim() else "" } }
     val focus = remember { FocusRequester() }
     // Asked for: straight into it, keyboard up.
-    LaunchedEffect(showSearch) { if (showSearch && !allowFreeform) focus.requestFocus() }
+    LaunchedEffect(showSearch) { if (showSearch && focusSearch) focus.requestFocus() }
     val sections = remember(mode, packs, recent, q) { sections(mode, packs, recent, q) }
     val grid = rememberLazyGridState()
     val scope = rememberCoroutineScope()

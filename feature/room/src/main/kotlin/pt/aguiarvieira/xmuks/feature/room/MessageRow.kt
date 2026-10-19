@@ -192,12 +192,31 @@ private fun BubbleRow(
     ) {
         Column(horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
             if (message.content.isBare()) {
+                message.reply?.let { reply -> BareReply(reply) { actions.jumpTo(reply.eventId) } }
                 Content(message, resolver, MaterialTheme.colorScheme.onSurface, open, actions)
                 Footer(message, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(horizontal = 4.dp))
             } else {
                 Bubble(message) { color -> BubbleContent(message, resolver, color, open, actions) }
             }
         }
+    }
+}
+
+/**
+ * What a sticker or big emoji answers: with no bubble to sit in, the quote gets a tonal card of
+ * its own, the colour of others' bubbles, just above.
+ */
+@Composable
+private fun BareReply(
+    reply: ReplyPreview,
+    onClick: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(BARE_REPLY_RADIUS),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.padding(bottom = 4.dp),
+    ) {
+        Box(Modifier.padding(4.dp)) { Reply(reply, MaterialTheme.colorScheme.onSurface, onClick) }
     }
 }
 
@@ -597,6 +616,7 @@ private val RECEIPT_GAP = 6.dp
 private val GROUP_GAP = 8.dp
 private val MESSAGE_GAP = 4.dp
 private val BUBBLE_PADDING_V = 6.dp
+private val BARE_REPLY_RADIUS = 12.dp
 
 /** Bubbles leave the far side free, so whose message it is stays obvious. */
 private const val BUBBLE_FRACTION = 0.86f

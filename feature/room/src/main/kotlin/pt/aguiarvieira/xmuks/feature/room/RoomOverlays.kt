@@ -79,6 +79,8 @@ internal class OverlayState {
 internal class PickerRequest(
     val mode: PickerMode,
     val reactTo: TimelineItem.Message? = null,
+    /** The composer's picker grown from the keyboard's place into a full-height sheet. */
+    val expanded: Boolean = false,
 )
 
 /** The room's sheets and dialogs: message menu, emoji/sticker picker, delete, history, unsent. */
@@ -93,14 +95,45 @@ internal fun RoomOverlays(
     pins: PinsUi = PinsUi(),
 ) {
     state.menuFor?.let { message -> MessageMenuFor(message, state, composer, onSaveMedia, onOpenThread, pins) }
-    // The composer's pickers live in place of the keyboard (ComposerPanel); reactions get a sheet.
-    state.picker?.takeIf { it.reactTo != null }?.let { request ->
+    PickerSheet(state, composer, resolver)
+    state.deleting?.let { message -> DeleteFor(message, state, composer) }
+    composer.history?.let { MessageHistorySheet(it, resolver, actions, composer.onHideHistory) }
+    composer.reactions?.let { ReactionsSheet(it, resolver, actions.openUser, composer.onHideReactions) }
+    ComposerOverlays(state, composer, resolver)
+    state.unsent?.let { message ->
+        val id = message.localId ?: return@let
+        UnsentDialog(
+            message,
+            onResend = {
+                composer.onResend(id)
+                state.unsent = null
+            },
+            onDiscard = {
+                composer.onDiscard(id)
+                state.unsent = null
+            },
+            onDismiss = { state.unsent = null },
+        )
+    }
+}
+
+/** The emoji/sticker picker as a sheet: for a reaction, or the composer's grown to full height. */
+@Composable
+private fun PickerSheet(
+    state: OverlayState,
+    composer: ComposerActions,
+    resolver: MediaResolver,
+) {
+    // The composer's pickers live in place of the keyboard (ComposerPanel); reactions get a sheet,
+    // and so does a composer picker grown to full height.
+    state.picker?.takeIf { it.reactTo != null || it.expanded }?.let { request ->
         EmojiPickerSheet(
             mode = request.mode,
             packs = composer.emoji.packs,
             recent = composer.emoji.recent,
             resolver = resolver,
-            blocked = { picked -> reactionLimit(composer, picked) != null },
+            forReaction = request.reactTo != null,
+            blocked = { picked -> request.reactTo != null && reactionLimit(composer, picked) != null },
             onPick = { picked ->
                 val target = request.reactTo
                 when {
@@ -122,25 +155,6 @@ internal fun RoomOverlays(
             },
             onSubscribe = composer.emoji.onSubscribe,
             onDismiss = { state.picker = null },
-        )
-    }
-    state.deleting?.let { message -> DeleteFor(message, state, composer) }
-    composer.history?.let { MessageHistorySheet(it, resolver, actions, composer.onHideHistory) }
-    composer.reactions?.let { ReactionsSheet(it, resolver, actions.openUser, composer.onHideReactions) }
-    ComposerOverlays(state, composer, resolver)
-    state.unsent?.let { message ->
-        val id = message.localId ?: return@let
-        UnsentDialog(
-            message,
-            onResend = {
-                composer.onResend(id)
-                state.unsent = null
-            },
-            onDiscard = {
-                composer.onDiscard(id)
-                state.unsent = null
-            },
-            onDismiss = { state.unsent = null },
         )
     }
 }
@@ -190,6 +204,7 @@ internal fun ComposerPanel(
     resolver: MediaResolver,
     keyboardHeight: Dp,
     onModeChange: (PickerMode) -> Unit,
+    onExpand: () -> Unit,
     onClose: () -> Unit,
 ) {
     BackHandler(onBack = onClose)
@@ -227,6 +242,12 @@ internal fun ComposerPanel(
                                 )
                             },
                         )
+                    }
+                }
+                // Stickers are big: a few rows in the keyboard's place is not enough to choose from.
+                if (request.mode == PickerMode.Sticker) {
+                    IconButton(onClick = onExpand) {
+                        Icon(painterResource(R.drawable.ic_fullscreen), stringResource(R.string.fullscreen))
                     }
                 }
                 IconButton(onClick = { searching = !searching }) {
@@ -306,13 +327,14 @@ internal fun ComposerArea(
     if (ime > nav) keyboardHeight = with(density) { (ime - nav).toDp() }
     Column(Modifier.windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))) {
         box()
-        overlays.picker?.takeIf { it.reactTo == null }?.let { request ->
+        overlays.picker?.takeIf { it.reactTo == null && !it.expanded }?.let { request ->
             ComposerPanel(
                 request,
                 composer,
                 resolver,
                 keyboardHeight,
                 onModeChange = { overlays.picker = PickerRequest(it) },
+                onExpand = { overlays.picker = PickerRequest(request.mode, expanded = true) },
             ) { overlays.picker = null }
         }
     }

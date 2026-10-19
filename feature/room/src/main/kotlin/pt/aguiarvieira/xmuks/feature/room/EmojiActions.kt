@@ -48,6 +48,8 @@ class EmojiActions(
     private val onLimit: (Limit) -> Unit = {},
     /** Where a sticker goes: a reply, or into the thread shown. */
     private val replyTo: () -> ReplyTarget? = { null },
+    /** A sticker went out: the reply it answered is done with. */
+    private val onSent: () -> Unit = {},
 ) {
     val packs: StateFlow<List<ImagePack>> = session.emoji.packs.stateIn(scope, started, emptyList())
     val recent: StateFlow<List<String>> = session.emoji.recent.stateIn(scope, started, emptyList())
@@ -123,6 +125,7 @@ class EmojiActions(
 
     fun sendSticker(image: PackImage) {
         val replyTo = replyTo()
+        onSent()
         scope.launch { session.writer.sendSticker(image, replyTo) }
     }
 
