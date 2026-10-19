@@ -105,6 +105,8 @@ class WatchAccount
                 is AuthResult.Success -> {
                     store.saveLogin(credentials, result.token)
                     settings.edit { it[SEND_READ_RECEIPTS] = handoff.sendReadReceipts }
+                    // The phone's push gateway: the watch has no settings of its own to choose one.
+                    registrar.setGateway(handoff.pushGateway)
                     registrar.ensureRegistered(force = true)
                     applyBridging()
                     SignIn.Ok

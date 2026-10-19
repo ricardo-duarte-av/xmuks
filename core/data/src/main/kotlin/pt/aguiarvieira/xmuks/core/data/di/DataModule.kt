@@ -191,6 +191,7 @@ object DataModule {
         PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("push") },
         KeystoreSecretCipher("xmuks-push"),
         tokens,
+        appId = context.packageName,
     )
 
     @Provides @Singleton

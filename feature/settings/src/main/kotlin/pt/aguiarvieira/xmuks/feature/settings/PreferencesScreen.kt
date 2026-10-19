@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -177,26 +178,32 @@ internal fun PrefList(
     scope: PrefScope,
     edits: PrefEdits,
     plain: Boolean = false,
+    /** More sections after the preferences' own (xmuks settings that aren't preferences). */
+    more: LazyListScope.() -> Unit = {},
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
         shown.groupBy { it.section }.forEach { (section, entries) ->
-            stickyHeader(key = section.name, contentType = "heading") {
-                Text(
-                    stringResource(section.title),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface)
-                            .padding(horizontal = 20.dp, vertical = 8.dp),
-                )
-            }
+            stickyHeader(key = section.name, contentType = "heading") { SectionTitle(section.title) }
             items(entries, key = { it.pref.key }, contentType = { it.pref::class }) { entry ->
                 PrefRow(entry, layers, scope, edits, plain)
             }
         }
+        more()
     }
+}
+
+@Composable
+internal fun SectionTitle(title: Int) {
+    Text(
+        stringResource(title),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+    )
 }
 
 internal fun scopeName(scope: PrefScope) =

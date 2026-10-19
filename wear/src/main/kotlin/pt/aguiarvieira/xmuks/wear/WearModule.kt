@@ -137,6 +137,7 @@ object WearModule {
                     }
                 }
             },
+            appId = context.packageName,
         )
 
     /**

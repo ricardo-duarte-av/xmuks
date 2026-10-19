@@ -28,6 +28,12 @@
     <string name="section_media">Media and emoji</string>
     <string name="section_room_list">Room list</string>
     <string name="section_appearance">Appearance</string>
+    <string name="section_notifications">Notifications</string>
+    <string name="push_gateway">Push gateway</string>
+    <string name="push_gateway_desc">Where gomuks sends this device\'s notifications</string>
+    <string name="push_gateway_default">Default</string>
+    <string name="push_gateway_help">Leave empty for gomuks\' own gateway (push.gomuks.app). A gateway of your own must be your gomuks\' fcm_gateway, or in its fcm_gateway_whitelist, or notifications stop.</string>
+    <string name="push_gateway_use_default">Use default</string>
     <string name="pref_room_avatar_colors">Room colours from avatars</string>
     <string name="pref_room_avatar_colors_desc">A room with an avatar takes its colours from it, instead of the system\'s</string>
 
