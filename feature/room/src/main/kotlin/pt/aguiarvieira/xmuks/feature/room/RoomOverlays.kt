@@ -154,7 +154,8 @@ private fun PickerSheet(
                 if (target != null || request.mode == PickerMode.Sticker) state.picker = null
             },
             onSubscribe = composer.emoji.onSubscribe,
-            onDismiss = { state.picker = null },
+            // Grown from the composer's panel: back (or a swipe down) shrinks it to that again.
+            onDismiss = { state.picker = if (request.expanded) PickerRequest(request.mode) else null },
         )
     }
 }
@@ -244,11 +245,9 @@ internal fun ComposerPanel(
                         )
                     }
                 }
-                // Stickers are big: a few rows in the keyboard's place is not enough to choose from.
-                if (request.mode == PickerMode.Sticker) {
-                    IconButton(onClick = onExpand) {
-                        Icon(painterResource(R.drawable.ic_fullscreen), stringResource(R.string.fullscreen))
-                    }
+                // A few rows in the keyboard's place is not much to choose from.
+                IconButton(onClick = onExpand) {
+                    Icon(painterResource(R.drawable.ic_fullscreen), stringResource(R.string.fullscreen))
                 }
                 IconButton(onClick = { searching = !searching }) {
                     Icon(
@@ -327,7 +326,8 @@ internal fun ComposerArea(
     if (ime > nav) keyboardHeight = with(density) { (ime - nav).toDp() }
     Column(Modifier.windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))) {
         box()
-        overlays.picker?.takeIf { it.reactTo == null && !it.expanded }?.let { request ->
+        // Stays under its full-screen sheet, so shrinking back finds it as it was.
+        overlays.picker?.takeIf { it.reactTo == null }?.let { request ->
             ComposerPanel(
                 request,
                 composer,
