@@ -12,9 +12,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * A bridged network (its logo, or its initial) as it is, transparency and all. Over another avatar
- * (the room list's, a sender's) it's [ringed] in the surface colour so it reads; on its own (the
- * room header's) it isn't.
+ * A bridged network (its logo, or its initial). Over another avatar (the room list's, a sender's)
+ * it's [ringed] in the surface colour, on the usual backdrop, so it reads; on its own (the room
+ * header's) it's the logo alone, its transparency showing.
  */
 @Composable
 fun NetworkBadge(
@@ -28,7 +28,7 @@ fun NetworkBadge(
         if (ringed) modifier.background(MaterialTheme.colorScheme.surface, CircleShape).padding(RING) else modifier,
         contentAlignment = Alignment.Center,
     ) {
-        RoomAvatar(protocol, protocol, logoUrl, size = if (ringed) size - RING * 2 else size, backdrop = false)
+        RoomAvatar(protocol, protocol, logoUrl, size = if (ringed) size - RING * 2 else size, backdrop = ringed)
     }
 }
 

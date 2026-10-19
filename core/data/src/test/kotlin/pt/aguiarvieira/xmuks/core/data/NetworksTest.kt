@@ -4,6 +4,7 @@ import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import pt.aguiarvieira.xmuks.core.data.timeline.SenderNetwork
+import pt.aguiarvieira.xmuks.core.data.timeline.bridgeNetworkOf
 import pt.aguiarvieira.xmuks.core.data.timeline.networksOf
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
@@ -29,5 +30,17 @@ class NetworksTest {
                 content = GomuksJson.parseToJsonElement(content).jsonObject,
             )
         assertEquals(mapOf("whatsapp" to SenderNetwork("WhatsApp", "mxc://maunium.net/wa")), networksOf(listOf(bridge)))
+    }
+
+    @Test
+    fun `a bridged user's global profile names their network`() {
+        // A WhatsApp ghost's profile, as get_profile returns it.
+        val profile =
+            """
+            {"avatar_url": "mxc://matrixbridg.es/zkbyxcPUwIywGOIAvzoMoIsD", "com.beeper.bridge.identifiers": [""],
+             "com.beeper.bridge.network": "whatsapp", "com.beeper.bridge.remote_id": "lid-65180625039608",
+             "com.beeper.bridge.service": "whatsapp", "displayname": "Thalita Santos"}
+            """.trimIndent()
+        assertEquals("whatsapp", bridgeNetworkOf(GomuksJson.parseToJsonElement(profile).jsonObject))
     }
 }
