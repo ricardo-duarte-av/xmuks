@@ -633,7 +633,12 @@ private fun HeaderCard(
                     onAvatarClick = { resolver.image(room?.avatarMxc, room?.name)?.let(onOpenMedia) },
                     onTitleClick = onRoomInfo,
                     // A notch under the app bar's usual title: long room names fit better.
-                    titleStyle = MaterialTheme.typography.titleLarge.let { it.copy(fontSize = (it.fontSize.value - 2).sp) },
+                    titleStyle =
+                        MaterialTheme.typography.titleLarge.let {
+                            it.copy(
+                                fontSize = (it.fontSize.value - 2).sp
+                            )
+                        },
                 )
             },
             actions = {
