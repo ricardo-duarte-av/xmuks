@@ -6,12 +6,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,33 +46,52 @@ internal fun AttachSheet(
     onLimit: (Limit) -> Unit = {},
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        FlowRow(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 32.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            maxItemsInEachRow = PER_ROW,
-        ) {
-            available.forEach { attachment ->
+        val options =
+            available.map { attachment ->
                 val limit = limitOf(attachment)
-                AttachOption(
-                    attachment.icon,
-                    stringResource(attachment.label),
-                    onClick = {
-                        onDismiss()
-                        if (limit != null) onLimit(limit) else onPick(attachment)
-                    },
-                    modifier = Modifier.limited(limit),
-                )
-            }
-            if (onSendAs != null) {
-                AttachOption(R.drawable.ic_person, stringResource(R.string.send_as_title), onClick = {
+                Option(attachment.icon, stringResource(attachment.label), limit) {
                     onDismiss()
-                    onSendAs()
-                })
+                    if (limit != null) onLimit(limit) else onPick(attachment)
+                }
+            } +
+                listOfNotNull(
+                    onSendAs?.let { sendAs ->
+                        Option(R.drawable.ic_person, stringResource(R.string.send_as_title)) {
+                            onDismiss()
+                            sendAs()
+                        }
+                    },
+                )
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 32.dp)) {
+            // Equal columns across the whole width: as many as fit, never fewer than four (a phone's
+            // two even rows of eight), nor more than there are options.
+            val columns = (maxWidth / MIN_CELL).toInt().coerceIn(MIN_COLUMNS, maxOf(MIN_COLUMNS, options.size))
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                options.chunked(columns).forEach { row ->
+                    Row(Modifier.fillMaxWidth()) {
+                        row.forEach { option ->
+                            AttachOption(
+                                option.icon,
+                                option.label,
+                                option.onClick,
+                                Modifier.weight(1f).limited(option.limit),
+                            )
+                        }
+                        // A short last row keeps the columns above it.
+                        repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
             }
         }
     }
 }
+
+private class Option(
+    @param:DrawableRes val icon: Int,
+    val label: String,
+    val limit: Limit? = null,
+    val onClick: () -> Unit,
+)
 
 @Composable
 private fun AttachOption(
@@ -83,9 +103,7 @@ private fun AttachOption(
     Column(
         modifier =
             modifier
-                .width(
-                    OPTION_WIDTH
-                ).clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .clickable(onClick = onClick)
                 .padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -101,5 +119,5 @@ private fun AttachOption(
     }
 }
 
-private const val PER_ROW = 4
-private val OPTION_WIDTH = 80.dp
+private const val MIN_COLUMNS = 4
+private val MIN_CELL = 88.dp
