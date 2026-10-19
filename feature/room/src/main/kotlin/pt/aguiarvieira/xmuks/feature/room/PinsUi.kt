@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -49,18 +50,31 @@ class PinsUi(
     val items: List<TimelineItem>? = null,
     val onToggle: (eventId: String) -> Unit = {},
     val onLoad: () -> Unit = {},
-)
+    /** The bar under the header is up (not closed since the last pin). */
+    val barShown: Boolean = pins.eventIds.isNotEmpty(),
+    val onCloseBar: () -> Unit = {},
+) {
+    /** How many the room menu lists: none in a thread, which has no pins of its own. */
+    fun menuCount(inThread: Boolean): Int = if (inThread) 0 else pins.eventIds.size
 
-/** Under the header when anything's pinned: how many, opening the list. */
+    /** How many the bar under the header says: none while it's closed. */
+    fun barCount(inThread: Boolean): Int = if (barShown) menuCount(inThread) else 0
+}
+
+/**
+ * Under the header when anything's pinned: how many, opening the list, and closing the bar (the
+ * room menu still opens the list).
+ */
 @Composable
 internal fun PinnedBar(
     count: Int,
     onOpen: () -> Unit,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     ScreenCard(modifier.padding(horizontal = ScreenCards.Gap).padding(bottom = ScreenCards.Gap)) {
         Row(
-            Modifier.fillMaxWidth().tapOrHold(onClick = onOpen).padding(horizontal = 20.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().tapOrHold(onClick = onOpen).padding(start = 20.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -74,7 +88,16 @@ internal fun PinnedBar(
                 pluralStringResource(R.plurals.pinned_count, count, count),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f),
             )
+            IconButton(onClick = onClose) {
+                Icon(
+                    painterResource(R.drawable.ic_close),
+                    stringResource(R.string.close_pinned_bar),
+                    Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -167,7 +190,7 @@ private fun pinnedAt(timestamp: Long): String =
 
 @Composable
 private fun UnpinButton(onClick: () -> Unit) {
-    androidx.compose.material3.IconButton(onClick = onClick) {
+    IconButton(onClick = onClick) {
         Icon(painterResource(R.drawable.ic_pin_off), stringResource(R.string.unpin))
     }
 }

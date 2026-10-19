@@ -1,5 +1,8 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
@@ -26,6 +29,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 
 /**
@@ -92,7 +96,8 @@ internal class UnreadJumpState {
 /**
  * "↑ N new messages" at the top of the timeline while the start of what's unread is above the
  * screen (or not loaded yet). [onJump] gets the divider's index when it's loaded, null when not.
- * It's there once: tapped, or once the divider has been on screen, it's [UnreadJumpState.done].
+ * It's there once: tapped, once the divider has been on screen, or after [UNREAD_JUMP_MS] up,
+ * it's [UnreadJumpState.done] (and fades out).
  */
 @Composable
 internal fun BoxScope.UnreadJump(
@@ -114,14 +119,29 @@ internal fun BoxScope.UnreadJump(
         }
     }
     LaunchedEffect(above) { if (!above) state.done = true }
-    if (state.done || !above) return
-    ExtendedFloatingActionButton(
-        onClick = {
+    val shown = !state.done && above
+    LaunchedEffect(shown) {
+        if (shown) {
+            delay(UNREAD_JUMP_MS)
             state.done = true
-            onJump(divider.takeIf { it >= 0 })
-        },
-        icon = { Icon(painterResource(R.drawable.ic_arrow_up), null) },
-        text = { Text(pluralStringResource(R.plurals.unread_jump, unread.count, unread.count)) },
+        }
+    }
+    AnimatedVisibility(
+        shown,
         modifier = Modifier.align(Alignment.TopCenter).padding(12.dp),
-    )
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        ExtendedFloatingActionButton(
+            onClick = {
+                state.done = true
+                onJump(divider.takeIf { it >= 0 })
+            },
+            icon = { Icon(painterResource(R.drawable.ic_arrow_up), null) },
+            text = { Text(pluralStringResource(R.plurals.unread_jump, unread.count, unread.count)) },
+        )
+    }
 }
+
+/** How long the "N new messages" chip stays up untouched. */
+private const val UNREAD_JUMP_MS = 5_000L

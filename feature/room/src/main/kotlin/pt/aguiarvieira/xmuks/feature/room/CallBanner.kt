@@ -108,9 +108,10 @@ internal fun UnderHeader(
     onCall: ((video: Boolean) -> Unit)?,
     pinned: Int,
     onOpenPins: () -> Unit,
+    onClosePins: () -> Unit,
 ) {
     if (call != null && onCall != null) CallBanner(call, onCall)
-    if (pinned > 0) PinnedBar(pinned, onOpenPins)
+    if (pinned > 0) PinnedBar(pinned, onOpenPins, onClosePins)
 }
 
 /** Under the header while the room has a call: what it is, how long it has run, and ways in. */

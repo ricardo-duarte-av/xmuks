@@ -2,6 +2,11 @@ package pt.aguiarvieira.xmuks.feature.room
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -32,6 +37,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -39,6 +45,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -60,6 +67,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -150,6 +158,7 @@ fun RoomRoute(
     val prefs by viewModel.prefs.collectAsStateWithLifecycle()
     val pins by viewModel.pins.pins.collectAsStateWithLifecycle()
     val pinnedItems by viewModel.pins.items.collectAsStateWithLifecycle()
+    val pinBarShown by viewModel.pins.barShown.collectAsStateWithLifecycle()
     val refusal by viewModel.refusal.value.collectAsStateWithLifecycle()
     val resolver =
         remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media, viewModel.mediaImages) }
@@ -225,7 +234,15 @@ fun RoomRoute(
             onOpenThread = if (threadRoot == null) onOpenThread else null,
             compactThreads = prefs.get(Prefs.smallThreads),
             inThread = threadRoot != null,
-            pins = PinsUi(pins, pinnedItems, viewModel.pins::toggle, viewModel.pins::load),
+            pins =
+                PinsUi(
+                    pins,
+                    pinnedItems,
+                    viewModel.pins::toggle,
+                    viewModel.pins::load,
+                    pinBarShown,
+                    viewModel.pins::closeBar,
+                ),
             onShowContext = viewModel::showContext,
             onLeaveContext = viewModel::leaveContext,
             focusEvent = focus,
@@ -519,11 +536,16 @@ fun RoomScreen(
                     onCallNotifyRoom,
                     callAllowed,
                     onNetworkLimits = composer.features?.let { { limitsShown = true } },
+                    pinned = pins.menuCount(inThread),
+                    onPins = { overlays.pinsShown = true },
                 )
-                UnderHeader(call, onCall, pinned = if (inThread) 0 else pins.pins.eventIds.size) {
-                    overlays.pinsShown =
-                        true
-                }
+                UnderHeader(
+                    call,
+                    onCall,
+                    pinned = pins.barCount(inThread),
+                    onOpenPins = { overlays.pinsShown = true },
+                    onClosePins = pins.onCloseBar,
+                )
             }
         },
         bottomBar = {
@@ -605,6 +627,9 @@ private fun HeaderCard(
     callAllowed: Boolean = true,
     /** What the bridged network supports, in a sheet; null when the room isn't bridged. */
     onNetworkLimits: (() -> Unit)? = null,
+    /** How many messages are pinned: the menu lists them when there are any. */
+    pinned: Int = 0,
+    onPins: () -> Unit = {},
 ) {
     var menu by remember { mutableStateOf(false) }
     var startSheet by remember { mutableStateOf(false) }
@@ -662,6 +687,7 @@ private fun HeaderCard(
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.room_info)) },
+                        leadingIcon = { Icon(painterResource(R.drawable.ic_info), null) },
                         onClick = {
                             menu = false
                             onRoomInfo()
@@ -669,14 +695,26 @@ private fun HeaderCard(
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.search_room)) },
+                        leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
                         onClick = {
                             menu = false
                             onSearch()
                         },
                     )
+                    if (pinned > 0) {
+                        DropdownMenuItem(
+                            text = { Text(pluralStringResource(R.plurals.pinned_menu, pinned, pinned)) },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_pin), null) },
+                            onClick = {
+                                menu = false
+                                onPins()
+                            },
+                        )
+                    }
                     if (!inThread) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.room_mentions)) },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_mention), null) },
                             onClick = {
                                 menu = false
                                 onMentions()
@@ -686,6 +724,7 @@ private fun HeaderCard(
                     if (onNetworkLimits != null) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.network_limits)) },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_tune), null) },
                             onClick = {
                                 menu = false
                                 onNetworkLimits()
@@ -729,6 +768,7 @@ private fun LiveTimeline(
                 FollowNewest(items, list, followNext)
                 LoadOlderNearTop(list, timeline, onLoadOlder)
                 Timeline(items, list, resolver, actions, highlighted, loadingOlder = timeline.loadingOlder)
+                ScrollToNewest(list, Modifier.align(Alignment.BottomEnd))
                 val scope = rememberCoroutineScope()
                 UnreadJump(items, list, timeline.unread, unreadJump) { divider ->
                     if (divider != null) {
@@ -829,6 +869,39 @@ private fun MarkReadAtBottom(
     }
 }
 
+/**
+ * Bottom right while the list is scrolled away from its newest messages (no longer following
+ * them, see [FollowNewest]): back down, following again.
+ */
+@Composable
+private fun ScrollToNewest(
+    list: LazyListState,
+    modifier: Modifier = Modifier,
+) {
+    val detached by remember(list) { derivedStateOf { list.firstVisibleItemIndex > 1 } }
+    val scope = rememberCoroutineScope()
+    AnimatedVisibility(
+        detached,
+        modifier = modifier.padding(16.dp),
+        enter = fadeIn() + scaleIn(),
+        exit = fadeOut() + scaleOut(),
+    ) {
+        SmallFloatingActionButton(
+            onClick = {
+                scope.launch {
+                    // From far up, jump most of the way: animating through every row takes ages.
+                    if (list.firstVisibleItemIndex > FAR_FROM_NEWEST) list.scrollToItem(FAR_FROM_NEWEST)
+                    list.animateScrollToItem(0)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ) {
+            Icon(painterResource(R.drawable.ic_arrow_down), stringResource(R.string.scroll_to_newest))
+        }
+    }
+}
+
 /** Set when we send: the next new message is ours, so the list follows it wherever it was. */
 private class FollowRequest {
     var requested = false
@@ -902,6 +975,7 @@ private fun DayRow(
 }
 
 private const val PREFETCH_DISTANCE = 10
+private const val FAR_FROM_NEWEST = 20
 private const val HIGHLIGHT_MS = 1_600L
 
 internal const val DISABLED_ALPHA = 0.38f

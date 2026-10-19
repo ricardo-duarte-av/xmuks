@@ -70,6 +70,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.CodeThemes
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
+import pt.aguiarvieira.xmuks.core.data.timeline.PinBarStore
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomGallery
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineStore
@@ -165,10 +166,11 @@ object DataModule {
         timelines: TimelineStore,
         outbox: Outbox,
         drafts: DraftStore,
+        pinBars: PinBarStore,
         uploads: MediaSender,
         push: PushRegistrar,
         preferences: PreferenceStore,
-    ): Set<AccountScoped> = setOf(ingestor, stats, timelines, outbox, drafts, uploads, push, preferences)
+    ): Set<AccountScoped> = setOf(ingestor, stats, timelines, outbox, drafts, pinBars, uploads, push, preferences)
 
     @Provides @Singleton
     fun preferenceStore(
@@ -211,6 +213,12 @@ object DataModule {
         @ApplicationContext context: Context,
         scope: CoroutineScope,
     ) = DraftStore(PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("drafts") }, scope)
+
+    @Provides @Singleton
+    fun pinBarStore(
+        @ApplicationContext context: Context,
+        scope: CoroutineScope,
+    ) = PinBarStore(PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("pin-bar") }, scope)
 
     /** Session-only timelines, paged from gomuks with `paginate` and kept live by the stream. */
     @Provides @Singleton

@@ -141,6 +141,12 @@
         <item quantity="one">%1$d pinned message</item>
         <item quantity="other">%1$d pinned messages</item>
     </plurals>
+    <plurals name="pinned_menu">
+        <item quantity="one">%1$d pinned</item>
+        <item quantity="other">%1$d pinned</item>
+    </plurals>
+    <string name="close_pinned_bar">Hide pinned messages bar</string>
+    <string name="scroll_to_newest">Scroll to newest</string>
     <string name="search_room">Search</string>
     <string name="room_mentions">Mentions</string>
     <string name="voice_call">Voice call</string>

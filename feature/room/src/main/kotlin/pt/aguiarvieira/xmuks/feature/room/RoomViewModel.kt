@@ -50,6 +50,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.CodeThemes
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
 import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
+import pt.aguiarvieira.xmuks.core.data.timeline.PinBarStore
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
@@ -67,6 +68,7 @@ class RoomViewModel
         rooms: RoomListRepository,
         private val sessions: RoomSessions,
         drafts: DraftStore,
+        pinBars: PinBarStore,
         profiles: ProfileRepository,
         preparer: MediaPreparer,
         private val uploads: MediaSender,
@@ -234,7 +236,7 @@ class RoomViewModel
             )
 
         /** Pinned messages: which, the list, pinning and unpinning. */
-        val pins = PinActions(viewModelScope, session, WHILE_VISIBLE)
+        val pins = PinActions(viewModelScope, session, pinBars, WHILE_VISIBLE)
 
         val polls = pollActions(viewModelScope, session.polls)
 
