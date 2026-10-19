@@ -29,12 +29,13 @@ fun RoomAvatar(
     avatarUrl: String?,
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
-    /** The neutral disc behind a loaded image; off for logos meant to show through (networks). */
-    backdrop: Boolean = true,
+    /** A neutral disc behind a loaded image (network logos on a ring); else its transparency shows. */
+    backdrop: Boolean = false,
 ) {
-    // Initials sit under the image until it has loaded. Then a light neutral replaces them, in both
-    // themes: transparent logos are nearly always dark glyphs made for light pages, so they stay
-    // legible in dark mode, and no initials colour shows through as a ring (seen on-device).
+    // Initials sit under the image until it has loaded, then go: a transparent avatar shows what's
+    // behind it, and no initials colour shows through as a ring (seen on-device). With [backdrop], a
+    // light neutral takes their place in both themes: transparent logos are nearly always dark
+    // glyphs made for light pages.
     var loaded by remember(avatarUrl) { mutableStateOf(false) }
     Box(
         modifier =
