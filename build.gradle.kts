@@ -33,6 +33,10 @@ dependencies {
     detektPlugins(libs.compose.rules.detekt)
 }
 
+// detekt and ktlint (in spotless) each start an embedded Kotlin compiler. Started together in one
+// Gradle daemon they can clash, and detekt then fails to start (CI saw it twice on 2026-10-19).
+tasks.named("detekt") { mustRunAfter(tasks.matching { it.name.startsWith("spotless") }) }
+
 spotless {
     kotlin {
         target("**/src/**/*.kt")
