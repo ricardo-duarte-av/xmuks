@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -214,6 +215,8 @@ private fun RichText(
     lastLine: LastLine? = null,
 ) {
     val spoilers = rememberSpoilers(text, color)
+    val pills = remember(text) { pillRanges(text) }
+    val pillColor = htmlColors().mentionBackground
     val ids =
         remember(text) {
             text
@@ -277,18 +280,27 @@ private fun RichText(
             spoilers.layout = it
             lastLine?.update(it)
         },
-        modifier = spoilers.covers,
+        modifier =
+            Modifier
+                .then(
+                    if (pills.isEmpty()) {
+                        Modifier
+                    } else {
+                        Modifier.drawBehind { spoilers.layout?.let { drawPills(it, pills, pillColor) } }
+                    },
+                ).then(spoilers.covers),
     )
 }
 
 @Composable
 internal fun htmlColors(): HtmlColors {
     val c = MaterialTheme.colorScheme
-    return remember(c) {
+    val pill = LocalPillColors.current ?: PillColors(c.secondaryContainer, c.onSecondaryContainer)
+    return remember(c, pill) {
         HtmlColors(
             c.primary,
-            c.onSecondaryContainer,
-            c.secondaryContainer,
+            pill.content,
+            pill.container,
             c.surfaceContainerHighest,
             c.onSurfaceVariant
         )

@@ -5,12 +5,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withAnnotation
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.em
@@ -72,7 +74,7 @@ data class HtmlColors(
  * Parses gomuks' sanitised message HTML (`local_content.sanitized_html`) into blocks of annotated
  * text. Inline images (custom emoji) become inline-content placeholders keyed `img:<src>` with
  * their alternate text. Mentions (gomuks rewrites matrix.to links to `matrix:` URIs with the
- * `hicli-matrix-uri-*` classes) render as tinted pills.
+ * `hicli-matrix-uri-*` classes) render as pills ([PILL_TAG]).
  */
 class HtmlParser(
     private val colors: HtmlColors,
@@ -265,14 +267,20 @@ class HtmlParser(
         val href = el.attr("href")
         val mention = el.classNames().any { it.startsWith("hicli-matrix-uri") }
         if (mention) {
-            withStyle(
-                SpanStyle(
-                    color = colors.mention,
-                    background = colors.mentionBackground,
-                    fontWeight = FontWeight.SemiBold
-                )
-            ) {
-                withLink(LinkAnnotation.Url(href)) { children(el) }
+            // A pill, drawn behind the text (see [drawPills]); narrow no-break spaces inside its ends
+            // give the text room from the pill's rounded edges without letting a line break there.
+            withAnnotation(PILL_TAG, href) {
+                val pill = SpanStyle(color = colors.mention, fontWeight = FontWeight.SemiBold)
+                withStyle(pill) {
+                    // Its own styles: a link's default ones (primary, underlined) would win over the pill's.
+                    withLink(
+                        LinkAnnotation.Url(href, TextLinkStyles(pill.copy(textDecoration = TextDecoration.None)))
+                    ) {
+                        ws.verbatim(this, PILL_PAD)
+                        children(el)
+                        ws.verbatim(this, PILL_PAD)
+                    }
+                }
             }
         } else if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("mailto:")) {
             withStyle(SpanStyle(color = colors.link, textDecoration = TextDecoration.Underline)) {
@@ -373,6 +381,12 @@ class HtmlParser(
 
         /** A spoiler's text is annotated with this tag (see [spoilerRanges]); drawn hidden until tapped. */
         const val SPOILER_TAG = "spoiler"
+
+        /** A mention's text (padding included) is annotated with this tag: drawn as a pill. */
+        const val PILL_TAG = "pill"
+
+        /** Inside a pill's ends: a narrow no-break space. */
+        internal const val PILL_PAD = "\u202F"
 
         /** A sized picture: `pic:<width>x<height>:<mxc>`, in dp. */
         const val PICTURE_PREFIX = "pic:"

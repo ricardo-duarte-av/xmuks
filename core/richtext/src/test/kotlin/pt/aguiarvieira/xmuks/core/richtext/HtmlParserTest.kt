@@ -28,7 +28,8 @@ class HtmlParserTest {
     fun `mentions are pills, javascript links are not links`() {
         val text = para("""<a href="matrix:u/bob:x" class="hicli-matrix-uri hicli-matrix-uri-user">Bob</a> <a href="javascript:alert(1)">x</a>""")
         assertEquals(1, text.getLinkAnnotations(0, text.length).size)
-        assertTrue(text.spanStyles.any { it.item.background == Color.LightGray })
+        val pill = pillRanges(text).single()
+        assertEquals("\u202FBob\u202F", text.text.substring(pill.start, pill.end))
     }
 
     @Test
@@ -101,7 +102,7 @@ class HtmlParserTest {
         val snippet = snippetOf(parser.parse(html), colors)
         assertTrue(snippet.getLinkAnnotations(0, snippet.length).isEmpty())
         assertTrue(snippet.spanStyles.any { it.item.textDecoration != null && snippet.text.substring(it.start, it.end) == "x.org" })
-        assertTrue(snippet.spanStyles.any { it.item.background != Color.Unspecified && snippet.text.substring(it.start, it.end) == "Bob" })
+        assertTrue(snippet.spanStyles.any { it.item.background != Color.Unspecified && snippet.text.substring(it.start, it.end).trim('\u202F') == "Bob" })
     }
 
     @Test

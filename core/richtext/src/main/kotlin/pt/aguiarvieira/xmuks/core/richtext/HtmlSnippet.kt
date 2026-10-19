@@ -49,6 +49,10 @@ internal fun snippetOf(
                 is Line.Text -> {
                     val start = length
                     append(line.text.withoutLinks())
+                    // Too small to draw as pills: mentions keep a plain tint.
+                    pillRanges(line.text).forEach {
+                        addStyle(SpanStyle(background = colors.mentionBackground), start + it.start, start + it.end)
+                    }
                     // Too small to tap: a quoted spoiler stays a solid block.
                     spoilerRanges(line.text).forEach {
                         addStyle(

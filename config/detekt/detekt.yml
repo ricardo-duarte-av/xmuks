@@ -51,4 +51,5 @@ Compose:
   CompositionLocalAllowlist:
     active: true
     # Navigation hands shared-element scopes to destinations; see component/SharedElements.kt.
-    allowedCompositionLocals: ['LocalSharedTransitionScope', 'LocalAnimatedVisibilityScope', 'LocalSenderColors', 'LocalRichTextOptions', 'LocalMediaDisplay', 'LocalRoomListDisplay', 'LocalMessageHold', 'LocalCallClock']
+    # LocalPillColors: a bubble picks its mention pills' colours for the rich text inside it.
+    allowedCompositionLocals: ['LocalSharedTransitionScope', 'LocalAnimatedVisibilityScope', 'LocalSenderColors', 'LocalRichTextOptions', 'LocalMediaDisplay', 'LocalRoomListDisplay', 'LocalMessageHold', 'LocalCallClock', 'LocalPillColors']

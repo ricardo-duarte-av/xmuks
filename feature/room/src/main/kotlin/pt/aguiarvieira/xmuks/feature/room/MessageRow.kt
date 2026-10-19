@@ -76,6 +76,8 @@ import pt.aguiarvieira.xmuks.core.richtext.HtmlContent
 import pt.aguiarvieira.xmuks.core.richtext.HtmlSnippet
 import pt.aguiarvieira.xmuks.core.richtext.LastLine
 import pt.aguiarvieira.xmuks.core.richtext.LocalMessageHold
+import pt.aguiarvieira.xmuks.core.richtext.LocalPillColors
+import pt.aguiarvieira.xmuks.core.richtext.PillColors
 import pt.aguiarvieira.xmuks.core.richtext.PlainContent
 import java.text.DateFormat
 import java.util.Date
@@ -263,11 +265,18 @@ private fun Bubble(
             mention -> colors.onSecondaryContainer
             else -> colors.onSurface
         }
+    // Mention pills: tertiary on ours, the highest neutral on everyone else's.
+    val pills =
+        if (mine) {
+            PillColors(colors.tertiaryContainer, colors.onTertiaryContainer)
+        } else {
+            PillColors(colors.surfaceContainerHighest, colors.onSurface)
+        }
     Surface(
         shape = shape,
         color = container,
         modifier = if (mention) Modifier.mentionPulse(shape) else Modifier,
-    ) { content(onContainer) }
+    ) { CompositionLocalProvider(LocalPillColors provides pills) { content(onContainer) } }
 }
 
 @Composable
