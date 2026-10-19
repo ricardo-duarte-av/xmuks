@@ -44,8 +44,12 @@ class RoomPinning(
         val pinned = events.mapTo(HashSet()) { it.eventId }
         val answered =
             events
-                .mapNotNull { it.effectiveContent.obj("m.relates_to")?.obj("m.in_reply_to")?.str("event_id") }
-                .distinct()
+                .mapNotNull {
+                    it.effectiveContent
+                        .obj("m.relates_to")
+                        ?.obj("m.in_reply_to")
+                        ?.str("event_id")
+                }.distinct()
                 .filter { it !in pinned }
                 .mapNotNull { getEvent(it) }
         var standIn = -1L
