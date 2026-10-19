@@ -60,6 +60,8 @@ class RoomSession(
     prefs: PreferenceStore? = null,
     /** Rooms whose state a sync changed: this room's is fetched again when it's among them. */
     private val stateChanges: Flow<String> = emptyFlow(),
+    /** Bridged users' networks from their global profiles, shared by every room. */
+    private val bridgedUsers: BridgedUsers = BridgedUsers(exec, scope),
 ) {
     private val dao = database.roomListDao()
 
@@ -188,12 +190,14 @@ class RoomSession(
     fun itemsOf(snapshots: Flow<TimelineSnapshot>): Flow<List<TimelineItem>> =
         combine(
             snapshots,
-            profiles,
+            combine(profiles, bridgedUsers.networks, ::withNetworks),
             dao.meta().map { it?.userId }.distinctUntilChanged(),
             preferences.map(TimelineOptions::of).distinctUntilChanged(),
             state.map(::networksOf).distinctUntilChanged(),
         ) { snap, known, me, options, networks ->
             resolveMissing(snap, known)
+            // In a bridged room, a sender's member event may not say what network they're on.
+            if (networks.isNotEmpty()) bridgedUsers.request(snap.events.map { it.sender }, known, me)
             TimelineItemBuilder(me, options).build(snap, known, networks)
         }.flowOn(Dispatchers.Default)
 
@@ -390,7 +394,10 @@ class RoomSessions(
     private val prefs: PreferenceStore? = null,
     private val stateChanges: Flow<String> = emptyFlow(),
 ) {
-    fun open(roomId: String) = RoomSession(roomId, store, exec, database, outbox, uploads, scope, prefs, stateChanges)
+    private val bridgedUsers = BridgedUsers(exec, scope)
+
+    fun open(roomId: String) =
+        RoomSession(roomId, store, exec, database, outbox, uploads, scope, prefs, stateChanges, bridgedUsers)
 
     /** Stops our typing notification in [roomId], outliving whoever asked. */
     fun stopTyping(roomId: String) {
