@@ -29,6 +29,8 @@ fun RoomAvatar(
     avatarUrl: String?,
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
+    /** The neutral disc behind a loaded image; off for logos meant to show through (networks). */
+    backdrop: Boolean = true,
 ) {
     // Initials sit under the image until it has loaded. Then a light neutral replaces them, in both
     // themes: transparent logos are nearly always dark glyphs made for light pages, so they stay
@@ -38,12 +40,17 @@ fun RoomAvatar(
         modifier =
             modifier.size(size).clip(AvatarShape),
     ) {
-        if (loaded) {
-            val colors = MaterialTheme.colorScheme
-            val dark = colors.surface.luminance() < HALF
-            Box(Modifier.size(size).background(if (dark) colors.inverseSurface else colors.surfaceContainerHighest))
-        } else {
-            InitialsAvatar(name = name, id = id, size = size)
+        when {
+            !loaded -> {
+                InitialsAvatar(name = name, id = id, size = size)
+            }
+
+            // Without the backdrop nothing is behind it: the image's own transparency shows.
+            backdrop -> {
+                val colors = MaterialTheme.colorScheme
+                val dark = colors.surface.luminance() < HALF
+                Box(Modifier.size(size).background(if (dark) colors.inverseSurface else colors.surfaceContainerHighest))
+            }
         }
         if (avatarUrl != null) {
             AsyncImage(

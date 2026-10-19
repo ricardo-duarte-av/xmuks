@@ -26,6 +26,7 @@ internal fun BridgeBadge(
         bridge.protocol,
         resolver.avatar(bridge.protocolAvatarMxc),
         size = 32.dp,
+        ringed = false,
         modifier =
             modifier
                 .padding(horizontal = 4.dp)
