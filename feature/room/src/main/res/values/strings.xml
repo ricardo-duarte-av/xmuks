@@ -105,6 +105,7 @@
     <string name="location_send">Send this location</string>
     <string name="location_open">Open in maps</string>
     <string name="fullscreen">Full screen</string>
+    <string name="fullscreen_exit">Half screen</string>
     <string name="new_messages">New messages</string>
     <plurals name="unread_jump">
         <item quantity="one">%1$d new message</item>

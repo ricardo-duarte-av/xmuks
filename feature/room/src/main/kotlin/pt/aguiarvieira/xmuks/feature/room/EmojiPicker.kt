@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -75,8 +74,6 @@ internal fun EmojiPickerSheet(
     onPick: (Picked) -> Unit,
     onSubscribe: (ImagePack, Boolean) -> Unit,
     onDismiss: () -> Unit,
-    /** A reaction (any text will do); else the composer's picker grown to the whole screen. */
-    forReaction: Boolean = true,
     /** What the bridged network won't take as a reaction: dimmed (picking it says why). */
     blocked: (Picked) -> Boolean = { false },
 ) {
@@ -92,8 +89,8 @@ internal fun EmojiPickerSheet(
             resolver,
             onPick,
             onSubscribe,
-            if (forReaction) Modifier.height(PICKER_HEIGHT) else Modifier.fillMaxHeight(),
-            allowFreeform = forReaction,
+            Modifier.height(PICKER_HEIGHT),
+            allowFreeform = true,
             focusSearch = false,
             blocked = blocked,
         )

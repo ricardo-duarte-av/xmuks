@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
@@ -15,11 +16,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -124,40 +129,26 @@ private fun PickerSheet(
     composer: ComposerActions,
     resolver: MediaResolver,
 ) {
-    // The composer's pickers live in place of the keyboard (ComposerPanel); reactions get a sheet,
-    // and so does a composer picker grown to full height.
-    state.picker?.takeIf { it.reactTo != null || it.expanded }?.let { request ->
-        EmojiPickerSheet(
-            mode = request.mode,
-            packs = composer.emoji.packs,
-            recent = composer.emoji.recent,
-            resolver = resolver,
-            forReaction = request.reactTo != null,
-            blocked = { picked -> request.reactTo != null && reactionLimit(composer, picked) != null },
-            onPick = { picked ->
-                val target = request.reactTo
-                when {
-                    target != null -> {
-                        composer.emoji.onReact(target, picked)
-                    }
-
-                    request.mode == PickerMode.Sticker -> {
-                        (picked as? Picked.Custom)?.let { composer.emoji.onSticker(it.image) }
-                    }
-
-                    else -> {
-                        composer.draft.insertAtCursor(picked.asText())
-                        composer.emoji.onUsed(picked)
-                    }
-                }
-                // Inserting into the composer keeps the state.picker open for more; the rest close it.
-                if (target != null || request.mode == PickerMode.Sticker) state.picker = null
-            },
-            onSubscribe = composer.emoji.onSubscribe,
-            // Grown from the composer's panel: back (or a swipe down) shrinks it to that again.
-            onDismiss = { state.picker = if (request.expanded) PickerRequest(request.mode) else null },
-        )
+    val request = state.picker ?: return
+    val target = request.reactTo
+    if (target == null) {
+        // The composer's pickers live in place of the keyboard (ComposerPanel); grown, in a sheet.
+        if (request.expanded) ExpandedPicker(request, state, composer, resolver)
+        return
     }
+    EmojiPickerSheet(
+        mode = request.mode,
+        packs = composer.emoji.packs,
+        recent = composer.emoji.recent,
+        resolver = resolver,
+        blocked = { picked -> reactionLimit(composer, picked) != null },
+        onPick = { picked ->
+            composer.emoji.onReact(target, picked)
+            state.picker = null
+        },
+        onSubscribe = composer.emoji.onSubscribe,
+        onDismiss = { state.picker = null },
+    )
 }
 
 /**
@@ -178,131 +169,6 @@ private fun reactionLimit(
     composer: ComposerActions,
     picked: Picked,
 ): Limit? = composer.features?.reactionBlock(picked.key, picked is Picked.Custom)
-
-/** Emoji into the draft: Unicode as is, custom ones as `:shortcode:` (expanded when sent). */
-private fun Picked.asText(): String =
-    when (this) {
-        is Picked.Unicode -> emoji
-        is Picked.Custom -> ":${image.shortcode}:"
-    }
-
-private fun TextFieldState.insertAtCursor(text: String) {
-    edit { replace(selection.min, selection.max, text) }
-}
-
-private const val QUICK_REACTIONS = 6
-
-/**
- * The emoji/sticker picker in place of the keyboard, under the message box, so the box and the
- * timeline move up exactly as they do for the keyboard. It takes the keyboard's last height (or a
- * shorter one while its own search field has the keyboard up).
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun ComposerPanel(
-    request: PickerRequest,
-    composer: ComposerActions,
-    resolver: MediaResolver,
-    keyboardHeight: Dp,
-    onModeChange: (PickerMode) -> Unit,
-    onExpand: () -> Unit,
-    onClose: () -> Unit,
-) {
-    BackHandler(onBack = onClose)
-    val searching = WindowInsets.isImeVisible
-    ScreenCard(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap)
-            // The card's bottom margin counts against the keyboard's height, so the box doesn't move.
-            .height(if (searching) SEARCHING_HEIGHT else (keyboardHeight - ScreenCards.Gap).coerceAtLeast(MIN_PANEL)),
-    ) {
-        var searching by remember(request.mode) { mutableStateOf(false) }
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                PrimaryTabRow(
-                    selectedTabIndex = request.mode.ordinal,
-                    containerColor = Color.Transparent,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    PickerMode.entries.forEach { mode ->
-                        Tab(
-                            selected = request.mode == mode,
-                            onClick = { onModeChange(mode) },
-                            text = {
-                                Text(
-                                    stringResource(
-                                        if (mode ==
-                                            PickerMode.Emoji
-                                        ) {
-                                            R.string.emoji
-                                        } else {
-                                            R.string.sticker_button
-                                        }
-                                    )
-                                )
-                            },
-                        )
-                    }
-                }
-                // A few rows in the keyboard's place is not much to choose from.
-                IconButton(onClick = onExpand) {
-                    Icon(painterResource(R.drawable.ic_fullscreen), stringResource(R.string.fullscreen))
-                }
-                IconButton(onClick = { searching = !searching }) {
-                    Icon(
-                        painterResource(if (searching) R.drawable.ic_close else R.drawable.ic_search),
-                        stringResource(
-                            if (request.mode ==
-                                PickerMode.Sticker
-                            ) {
-                                R.string.search_stickers
-                            } else {
-                                R.string.search_emoji
-                            }
-                        ),
-                    )
-                }
-            }
-            PickerContent(request, composer, resolver, searching, onClose)
-        }
-    }
-}
-
-@Composable
-private fun PickerContent(
-    request: PickerRequest,
-    composer: ComposerActions,
-    resolver: MediaResolver,
-    searching: Boolean,
-    onClose: () -> Unit,
-) {
-    // Keyed by mode: switching tabs starts a fresh search and scroll.
-    key(request.mode) {
-        EmojiPicker(
-            mode = request.mode,
-            packs = composer.emoji.packs,
-            recent = composer.emoji.recent,
-            resolver = resolver,
-            onPick = { picked ->
-                if (request.mode == PickerMode.Sticker) {
-                    (picked as? Picked.Custom)?.let { composer.emoji.onSticker(it.image) }
-                    onClose()
-                } else {
-                    // Stays open for more.
-                    composer.draft.insertAtCursor(picked.asText())
-                    composer.emoji.onUsed(picked)
-                }
-            },
-            onSubscribe = composer.emoji.onSubscribe,
-            modifier = Modifier.padding(top = 8.dp),
-            showSearch = searching,
-        )
-    }
-}
-
-private val MIN_PANEL = 280.dp
-private val SEARCHING_HEIGHT = 200.dp
 
 /**
  * The message box, with the composer's emoji/sticker panel under it when open: together they ride
@@ -536,3 +402,5 @@ private fun MessageMenuFor(
         onDismiss = { state.menuFor = null },
     )
 }
+
+private const val QUICK_REACTIONS = 6
