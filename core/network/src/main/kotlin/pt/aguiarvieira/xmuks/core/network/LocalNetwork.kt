@@ -15,8 +15,10 @@ fun isLocalNetwork(address: InetAddress): Boolean {
     return when (address) {
         // 100.64.0.0/10: carrier-grade NAT, and what Tailscale-style VPNs hand out.
         is Inet4Address -> bytes[0].toInt() == CGNAT_FIRST && (bytes[1].toInt() and CGNAT_MASK) == CGNAT_SECOND
+
         // fc00::/7: unique local addresses.
         is Inet6Address -> (bytes[0].toInt() and ULA_MASK) == ULA_PREFIX
+
         else -> false
     }
 }
