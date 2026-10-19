@@ -16,6 +16,8 @@ import androidx.compose.ui.text.withStyle
 /**
  * A formatted message in a few lines (a reply's quote): its blocks run together as text, keeping
  * inline styling and code's monospace, never the markdown that made them. Images show their alt.
+ * Links and mentions look as they do in the message but aren't tappable: a tap on a snippet is
+ * for what holds it (the room list row opens the room, a quote jumps to the original).
  */
 @Composable
 fun HtmlSnippet(
@@ -46,7 +48,7 @@ internal fun snippetOf(
             when (line) {
                 is Line.Text -> {
                     val start = length
-                    append(line.text)
+                    append(line.text.withoutLinks())
                     // Too small to tap: a quoted spoiler stays a solid block.
                     spoilerRanges(line.text).forEach {
                         addStyle(
@@ -64,6 +66,13 @@ internal fun snippetOf(
                 }
             }
         }
+    }
+
+/** The same text and styling (spoilers' annotations included) without its link annotations. */
+private fun AnnotatedString.withoutLinks(): AnnotatedString =
+    buildAnnotatedString {
+        append(AnnotatedString(text, spanStyles, paragraphStyles))
+        getStringAnnotations(0, text.length).forEach { addStringAnnotation(it.tag, it.item, it.start, it.end) }
     }
 
 private sealed interface Line {

@@ -96,6 +96,15 @@ class HtmlParserTest {
     }
 
     @Test
+    fun `snippets show links and mentions styled but not tappable`() {
+        val html = """see <a href="https://x.org">x.org</a> and <a class="hicli-matrix-uri" href="matrix:u/bob:x">Bob</a>"""
+        val snippet = snippetOf(parser.parse(html), colors)
+        assertTrue(snippet.getLinkAnnotations(0, snippet.length).isEmpty())
+        assertTrue(snippet.spanStyles.any { it.item.textDecoration != null && snippet.text.substring(it.start, it.end) == "x.org" })
+        assertTrue(snippet.spanStyles.any { it.item.background != Color.Unspecified && snippet.text.substring(it.start, it.end) == "Bob" })
+    }
+
+    @Test
     fun `block elements inside inline ones keep their own lines`() {
         val blocks = parser.parse("""<div>Intro.<a href="https://x.org"><h2>Matrix APIs</h2></a>After</div>""")
         val text = (blocks.single() as HtmlBlock.Paragraph).text
