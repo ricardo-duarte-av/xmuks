@@ -1,12 +1,15 @@
 package pt.aguiarvieira.xmuks.core.data.rooms
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.transform
@@ -17,10 +20,16 @@ import pt.aguiarvieira.xmuks.core.database.SpaceSummaryRow
 import pt.aguiarvieira.xmuks.core.database.TabUnreadRow
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 
-/** Room-list data straight from the database: every emission reflects the last committed sync. */
+/**
+ * Room-list data straight from the database: every emission reflects the last committed sync.
+ * With [muteLowPriority] (gomuks' mute_low_priority preference), low-priority rooms' plain unread
+ * messages count nowhere (their row, spaces, tabs), as in gomuks web; notifications, mentions and
+ * marked-unread still do. Visual only: notifications aren't touched.
+ */
 class RoomListRepository(
     database: XmuksDatabase,
     private val media: MediaUrls,
+    private val muteLowPriority: Flow<Boolean> = flowOf(false),
 ) {
     private val dao = database.roomListDao()
     private val me: Flow<String?> = dao.meta().map { it?.userId }.distinctUntilChanged()
@@ -35,14 +44,18 @@ class RoomListRepository(
 
     fun chats(): Flow<List<RoomSummary>> = rooms(dao.chats())
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun tabBadges(): Flow<TabBadges> =
-        combine(
-            dao.tabUnread(dmsOnly = false),
-            dao.tabUnread(dmsOnly = true),
-            dao.spacesTabUnread()
-        ) { chats, dms, spaces ->
-            TabBadges(chats.toUnread(), dms.toUnread(), spaces.toUnread())
-        }.distinctUntilChanged()
+        muteLowPriority
+            .flatMapLatest { mute ->
+                combine(
+                    dao.tabUnread(dmsOnly = false, muteLowPriority = mute),
+                    dao.tabUnread(dmsOnly = true, muteLowPriority = mute),
+                    dao.spacesTabUnread(mute),
+                ) { chats, dms, spaces ->
+                    TabBadges(chats.toUnread(), dms.toUnread(), spaces.toUnread())
+                }
+            }.distinctUntilChanged()
             .throttleLatest(UI_THROTTLE_MS)
             .flowOn(Dispatchers.Default)
 
@@ -56,8 +69,9 @@ class RoomListRepository(
         combine(
             dao.roomSummary(roomId),
             me,
-            callRooms
-        ) { row, me, calls -> row?.toSummary(me)?.copy(call = calls[roomId]) }
+            callRooms,
+            muteLowPriority,
+        ) { row, me, calls, mute -> row?.toSummary(me, mute)?.copy(call = calls[roomId]) }
 
     /** Rooms with a call going on (expiry checked whenever the list changes anyway). */
     private val callRooms: Flow<Map<String, CallBadge>> =
@@ -76,19 +90,19 @@ class RoomListRepository(
     /** Those of [roomIds] we're in (once, not live), most recently active first. */
     suspend fun rooms(roomIds: List<String>): List<RoomSummary> {
         val ownId = me.first()
+        val mute = muteLowPriority.first()
         // SQLite caps a query's parameters: a long list goes in slices.
         return roomIds
             .chunked(MAX_IDS_PER_QUERY)
             .flatMap { dao.roomSummaries(it) }
             .sortedByDescending { it.sortingTs }
-            .map { it.toSummary(ownId) }
+            .map { it.toSummary(ownId, mute) }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun topLevelSpaces(): Flow<List<SpaceSummary>> =
-        dao.topLevelSpaceSummaries().map { rows ->
-            rows.map {
-                it.toSummary()
-            }
+        muteLowPriority.flatMapLatest { mute ->
+            dao.topLevelSpaceSummaries(mute).map { rows -> rows.map { it.toSummary() } }
         }
 
     fun subspaces(spaceId: String): Flow<List<SpaceSummary>> =
@@ -101,37 +115,45 @@ class RoomListRepository(
      * thread, drop identical results, and emit at most every [UI_THROTTLE_MS] (always the latest).
      */
     private fun rooms(source: Flow<List<RoomSummaryRow>>) =
-        combine(source, me, callRooms) { rows, me, calls ->
-            rows.map { it.toSummary(me).copy(call = calls[it.roomId]) }
+        combine(source, me, callRooms, muteLowPriority) { rows, me, calls, mute ->
+            rows.map { it.toSummary(me, mute).copy(call = calls[it.roomId]) }
         }.distinctUntilChanged()
             .throttleLatest(UI_THROTTLE_MS)
             .flowOn(Dispatchers.Default)
 
-    private fun RoomSummaryRow.toSummary(me: String?) =
-        RoomSummary(
-            roomId = roomId,
-            name = name ?: roomId,
-            avatarUrl = media.avatar(avatar),
-            avatarMxc = avatar,
-            isDirect = dmUserId != null,
-            dmUserId = dmUserId,
-            encrypted = encrypted,
-            // Without the sender's member state, `@alice:example.org` reads better as `alice`.
-            previewSender = previewSenderName?.takeIf { it.isNotBlank() } ?: previewSender?.let(::localpart),
-            previewFromMe = previewSender != null && previewSender == me,
-            preview =
-                when {
-                    previewType == null -> Preview.None
-                    previewType == "m.sticker" -> Preview.Sticker
-                    previewType == "m.room.encrypted" -> Preview.Encrypted
-                    !previewText.isNullOrBlank() -> Preview.Text(previewText!!, previewHtml)
-                    else -> Preview.None
-                },
-            timestamp = maxOf(sortingTs, previewTs ?: 0),
-            unread = Unread(unreadMessages, unreadNotifications, unreadHighlights, markedUnread),
-            bridgeProtocol = bridgeProtocol,
-            bridgeAvatarUrl = media.avatar(bridgeAvatar),
-        )
+    private fun RoomSummaryRow.toSummary(
+        me: String?,
+        muteLowPriority: Boolean,
+    ) = RoomSummary(
+        roomId = roomId,
+        name = name ?: roomId,
+        avatarUrl = media.avatar(avatar),
+        avatarMxc = avatar,
+        isDirect = dmUserId != null,
+        dmUserId = dmUserId,
+        encrypted = encrypted,
+        // Without the sender's member state, `@alice:example.org` reads better as `alice`.
+        previewSender = previewSenderName?.takeIf { it.isNotBlank() } ?: previewSender?.let(::localpart),
+        previewFromMe = previewSender != null && previewSender == me,
+        preview =
+            when {
+                previewType == null -> Preview.None
+                previewType == "m.sticker" -> Preview.Sticker
+                previewType == "m.room.encrypted" -> Preview.Encrypted
+                !previewText.isNullOrBlank() -> Preview.Text(previewText!!, previewHtml)
+                else -> Preview.None
+            },
+        timestamp = maxOf(sortingTs, previewTs ?: 0),
+        unread =
+            Unread(
+                if (muteLowPriority && lowPriority) 0 else unreadMessages,
+                unreadNotifications,
+                unreadHighlights,
+                markedUnread,
+            ),
+        bridgeProtocol = bridgeProtocol,
+        bridgeAvatarUrl = media.avatar(bridgeAvatar),
+    )
 
     private fun SpaceSummaryRow.toSummary() =
         SpaceSummary(

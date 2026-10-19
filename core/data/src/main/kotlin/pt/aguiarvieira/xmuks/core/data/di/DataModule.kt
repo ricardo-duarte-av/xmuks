@@ -51,6 +51,7 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
+import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.profile.Contacts
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.profile.RoomProfiles
@@ -297,7 +298,12 @@ object DataModule {
     fun roomListRepository(
         database: XmuksDatabase,
         media: MediaUrls,
-    ) = RoomListRepository(database, media)
+        preferences: PreferenceStore,
+    ) = RoomListRepository(
+        database,
+        media,
+        preferences.layers().map { it.get(Prefs.muteLowPriority) }.distinctUntilChanged(),
+    )
 
     @Provides @Singleton
     fun mediaDownloads(

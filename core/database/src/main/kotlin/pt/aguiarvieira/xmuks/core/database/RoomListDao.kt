@@ -35,6 +35,8 @@ data class RoomSummaryRow(
     /** The network the room is bridged to, and its logo (`mxc://`); null when not (or not known). */
     val bridgeProtocol: String? = null,
     val bridgeAvatar: String? = null,
+    /** Tagged `m.lowpriority`: with gomuks' mute_low_priority, its plain unread count doesn't show. */
+    val lowPriority: Boolean = false,
 )
 
 /**
@@ -126,7 +128,7 @@ interface RoomListDao {
             e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
              WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
-            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
+            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar, $LOW_PRIORITY AS lowPriority
         FROM rooms r LEFT JOIN events e ON e.rowId = r.previewEventRowId
             LEFT JOIN room_bridges b ON b.roomId = r.roomId
         WHERE r.isSpace = 0
@@ -143,7 +145,7 @@ interface RoomListDao {
             e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
              WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
-            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
+            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar, $LOW_PRIORITY AS lowPriority
         FROM rooms r LEFT JOIN events e ON e.rowId = r.previewEventRowId
             LEFT JOIN room_bridges b ON b.roomId = r.roomId
         WHERE r.dmUserId IS NOT NULL AND r.isSpace = 0
@@ -169,7 +171,7 @@ interface RoomListDao {
             e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
              WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
-            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
+            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar, $LOW_PRIORITY AS lowPriority
         FROM rooms r LEFT JOIN events e ON e.rowId = r.previewEventRowId
             LEFT JOIN room_bridges b ON b.roomId = r.roomId
         WHERE r.isSpace = 0 AND r.roomId IN (SELECT id FROM tree)
@@ -199,7 +201,7 @@ interface RoomListDao {
         totals AS (
             SELECT t.root AS root,
                 COUNT(r.roomId) AS rooms,
-                SUM(CASE WHEN r.unreadMessages > 0 OR r.markedUnread THEN 1 ELSE 0 END) AS unreadRooms,
+                SUM(CASE WHEN $UNREAD THEN 1 ELSE 0 END) AS unreadRooms,
                 SUM(CASE WHEN r.unreadNotifications > 0 OR r.unreadHighlights > 0 THEN 1 ELSE 0 END) AS unreadNotifications,
                 SUM(CASE WHEN r.unreadHighlights > 0 THEN 1 ELSE 0 END) AS unreadHighlights
             FROM tree t JOIN rooms r ON r.roomId = t.id AND r.isSpace = 0
@@ -213,7 +215,7 @@ interface RoomListDao {
         ORDER BY p.position
         """
     )
-    fun topLevelSpaceSummaries(): Flow<List<SpaceSummaryRow>>
+    fun topLevelSpaceSummaries(muteLowPriority: Boolean): Flow<List<SpaceSummaryRow>>
 
     @Query(
         """
@@ -223,7 +225,7 @@ interface RoomListDao {
             e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
              WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
-            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
+            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar, $LOW_PRIORITY AS lowPriority
         FROM rooms r LEFT JOIN events e ON e.rowId = r.previewEventRowId
             LEFT JOIN room_bridges b ON b.roomId = r.roomId
         WHERE r.roomId = :roomId
@@ -240,7 +242,7 @@ interface RoomListDao {
             e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
             (SELECT json_extract(m.content, '$.displayname') FROM room_state s JOIN events m ON m.rowId = s.eventRowId
              WHERE s.roomId = r.roomId AND s.type = 'm.room.member' AND s.stateKey = e.sender) AS previewSenderName,
-            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar
+            b.protocol AS bridgeProtocol, b.avatar AS bridgeAvatar, $LOW_PRIORITY AS lowPriority
         FROM rooms r LEFT JOIN events e ON e.rowId = r.previewEventRowId
             LEFT JOIN room_bridges b ON b.roomId = r.roomId
         WHERE r.roomId IN (:roomIds)
@@ -252,13 +254,16 @@ interface RoomListDao {
     @Query(
         """
         SELECT
-            COALESCE(SUM(CASE WHEN unreadMessages > 0 OR markedUnread THEN 1 ELSE 0 END), 0) AS unreadRooms,
+            COALESCE(SUM(CASE WHEN $UNREAD THEN 1 ELSE 0 END), 0) AS unreadRooms,
             COALESCE(SUM(CASE WHEN unreadNotifications > 0 OR unreadHighlights > 0 THEN 1 ELSE 0 END), 0) AS notifyingRooms,
             COALESCE(SUM(CASE WHEN unreadHighlights > 0 THEN 1 ELSE 0 END), 0) AS mentionRooms
-        FROM rooms WHERE isSpace = 0 AND (:dmsOnly = 0 OR dmUserId IS NOT NULL)
+        FROM rooms r WHERE isSpace = 0 AND (:dmsOnly = 0 OR dmUserId IS NOT NULL)
         """
     )
-    fun tabUnread(dmsOnly: Boolean): Flow<TabUnreadRow>
+    fun tabUnread(
+        dmsOnly: Boolean,
+        muteLowPriority: Boolean,
+    ): Flow<TabUnreadRow>
 
     /** Unread room counts over every room reachable from a top-level space, each counted once. */
     @Query(
@@ -269,13 +274,13 @@ interface RoomListDao {
             SELECT e.childId FROM space_edges e JOIN tree t ON e.spaceId = t.id
         )
         SELECT
-            COALESCE(SUM(CASE WHEN unreadMessages > 0 OR markedUnread THEN 1 ELSE 0 END), 0) AS unreadRooms,
+            COALESCE(SUM(CASE WHEN $UNREAD THEN 1 ELSE 0 END), 0) AS unreadRooms,
             COALESCE(SUM(CASE WHEN unreadNotifications > 0 OR unreadHighlights > 0 THEN 1 ELSE 0 END), 0) AS notifyingRooms,
             COALESCE(SUM(CASE WHEN unreadHighlights > 0 THEN 1 ELSE 0 END), 0) AS mentionRooms
-        FROM rooms WHERE isSpace = 0 AND roomId IN (SELECT id FROM tree)
+        FROM rooms r WHERE isSpace = 0 AND roomId IN (SELECT id FROM tree)
         """
     )
-    fun spacesTabUnread(): Flow<TabUnreadRow>
+    fun spacesTabUnread(muteLowPriority: Boolean): Flow<TabUnreadRow>
 
     /** Member events we already hold for [roomId] (preview senders): the seed for sender names. */
     @Query(
@@ -315,3 +320,17 @@ interface RoomListDao {
     @Query("SELECT * FROM call_members WHERE roomId = :roomId")
     fun callMembers(roomId: String): Flow<List<CallMemberEntity>>
 }
+
+/** Room `r` is tagged low priority (its `m.tag` room account data). */
+private const val LOW_PRIORITY =
+    "EXISTS (SELECT 1 FROM account_data a WHERE a.roomId = r.roomId AND a.type = 'm.tag'" +
+        " AND json_extract(a.content, '\$.tags.\"m.lowpriority\"') IS NOT NULL)"
+
+/**
+ * Room `r` counts as unread in totals: unread messages (not in a low-priority room while the query's
+ * `:muteLowPriority` is set, as gomuks web does), anything notifying or mentioning (whatever the
+ * room's priority), or marked unread.
+ */
+private const val UNREAD =
+    "((r.unreadMessages > 0 AND NOT (:muteLowPriority AND $LOW_PRIORITY))" +
+        " OR r.unreadNotifications > 0 OR r.unreadHighlights > 0 OR r.markedUnread)"

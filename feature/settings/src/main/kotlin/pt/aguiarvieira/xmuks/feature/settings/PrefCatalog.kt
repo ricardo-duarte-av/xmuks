@@ -187,7 +187,6 @@ internal val ENTRIES: List<PrefEntry> =
             R.string.pref_mute_low_priority,
             R.string.pref_mute_low_priority_desc,
             Section.RoomList,
-            inXmuks = false
         ),
         PrefEntry(
             Prefs.alphabeticalOrder,

@@ -12,6 +12,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
+import pt.aguiarvieira.xmuks.core.database.AccountDataEntity
 import pt.aguiarvieira.xmuks.core.database.TabUnreadRow
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.protocol.Event
@@ -123,7 +124,7 @@ class RoomListQueriesTest {
     @Test
     fun `space unread totals count rooms, each once`() {
         spaces()
-        val top = runBlocking { dao.topLevelSpaceSummaries().first() }.single()
+        val top = runBlocking { dao.topLevelSpaceSummaries(muteLowPriority = false).first() }.single()
         assertEquals(2, top.rooms)
         assertEquals("rooms with anything unread", 2, top.unreadRooms)
         assertEquals("rooms needing attention", 2, top.unreadNotifications)
@@ -133,10 +134,37 @@ class RoomListQueriesTest {
     @Test
     fun `tab badges count rooms per tab, spaces through every level once`() {
         spaces()
-        val chats = runBlocking { dao.tabUnread(dmsOnly = false).first() }
+        val chats = runBlocking { dao.tabUnread(dmsOnly = false, muteLowPriority = false).first() }
         assertEquals(TabUnreadRow(unreadRooms = 3, notifyingRooms = 3, mentionRooms = 1), chats)
-        assertEquals(TabUnreadRow(1, 1, 0), runBlocking { dao.tabUnread(dmsOnly = true).first() })
-        assertEquals(TabUnreadRow(2, 2, 1), runBlocking { dao.spacesTabUnread().first() })
+        assertEquals(TabUnreadRow(1, 1, 0), runBlocking { dao.tabUnread(dmsOnly = true, muteLowPriority = false).first() })
+        assertEquals(TabUnreadRow(2, 2, 1), runBlocking { dao.spacesTabUnread(muteLowPriority = false).first() })
+    }
+
+    @Test
+    fun `muted low priority rooms count unread only for notifications and mentions`() {
+        spaces()
+        // !a (2 unread, notifying) and !c (1 unread, quiet) become low priority.
+        apply(
+            SyncComplete(
+                rooms =
+                    mapOf(
+                        "!c" to SyncRoom(meta = room("!c", ts = 9).copy(unreadMessages = 1)),
+                    ),
+            ),
+        )
+        runBlocking {
+            db.syncDao().upsertAccountData(
+                listOf("!a", "!c").map { AccountDataEntity(it, "m.tag", """{"tags":{"m.lowpriority":{}}}""", 0) },
+            )
+        }
+        val rows = runBlocking { dao.chats().first() }.associateBy { it.roomId }
+        assertEquals(true, rows.getValue("!c").lowPriority)
+        assertEquals(false, rows.getValue("!b").lowPriority)
+        // !c's quiet unread no longer counts; !a still notifies, so it still does.
+        val muted = runBlocking { dao.tabUnread(dmsOnly = false, muteLowPriority = true).first() }
+        assertEquals(TabUnreadRow(unreadRooms = 3, notifyingRooms = 3, mentionRooms = 1), muted)
+        val unmuted = runBlocking { dao.tabUnread(dmsOnly = false, muteLowPriority = false).first() }
+        assertEquals(TabUnreadRow(unreadRooms = 4, notifyingRooms = 3, mentionRooms = 1), unmuted)
     }
 
     @Test
