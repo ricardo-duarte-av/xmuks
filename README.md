@@ -65,9 +65,17 @@ while you're looking, and gets notifications through gomuks' push when you're no
 
 - `GET /_gomuks/sse` (jsonl + zstd) for live data while the app is open, resuming with `last_server_ts`
 - `POST /_gomuks/exec/{command}` for everything outbound, with `txn_id` idempotency
-- FCM pushes (via the gomuks push gateway) while it is closed, encrypted end to end with a key only the app holds
+- FCM pushes while it is closed, through xmuks' push gateway (`push.aguiarvieira.pt`), encrypted end to end with a key only the app holds
 
-You need a running gomuks (with its web API reachable over HTTPS) and its username and password.
+You need a running gomuks (with its web API reachable over HTTPS) and its username and password. For
+notifications, gomuks must allow xmuks' push gateway (gomuks' own, `push.gomuks.app`, can't deliver to
+xmuks: it sends for another Firebase project). In gomuks' `config.yaml`:
+
+```yaml
+push:
+  fcm_gateway_whitelist:
+    - push.aguiarvieira.pt
+```
 
 ## Building
 

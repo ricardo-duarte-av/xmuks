@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -178,8 +177,6 @@ internal fun PrefList(
     scope: PrefScope,
     edits: PrefEdits,
     plain: Boolean = false,
-    /** More sections after the preferences' own (xmuks settings that aren't preferences). */
-    more: LazyListScope.() -> Unit = {},
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
         shown.groupBy { it.section }.forEach { (section, entries) ->
@@ -188,7 +185,6 @@ internal fun PrefList(
                 PrefRow(entry, layers, scope, edits, plain)
             }
         }
-        more()
     }
 }
 

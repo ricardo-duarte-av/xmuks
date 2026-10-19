@@ -37,10 +37,8 @@ fun SettingsRoute(
     modifier: Modifier = Modifier,
     viewModel: PreferencesViewModel =
         hiltViewModel<PreferencesViewModel, PreferencesViewModel.Factory>(key = "settings") { it.create(null) },
-    push: PushGatewayViewModel = hiltViewModel(),
 ) {
     val layers by viewModel.layers.collectAsStateWithLifecycle()
-    val gateway by push.gateway.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val edits =
         remember(viewModel) {
@@ -51,16 +49,7 @@ fun SettingsRoute(
                 clear = viewModel::clear,
             )
         }
-    SettingsScreen(
-        layers ?: PrefLayers.EMPTY,
-        edits,
-        error,
-        viewModel::errorShown,
-        onBack,
-        modifier,
-        gateway = gateway,
-        onGateway = push::set,
-    )
+    SettingsScreen(layers ?: PrefLayers.EMPTY, edits, error, viewModel::errorShown, onBack, modifier)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -72,9 +61,6 @@ fun SettingsScreen(
     onErrorShow: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    /** This device's push gateway (a host); null for gomuks' default. */
-    gateway: String? = null,
-    onGateway: (String?) -> Unit = {},
 ) {
     val snackbar = remember { SnackbarHostState() }
     val failed = error?.let { stringResource(R.string.action_failed, it) }
@@ -111,12 +97,7 @@ fun SettingsScreen(
                 .navigationBarsPadding()
                 .fillMaxSize(),
         ) {
-            PrefList(ENTRIES.filter { it.own }, layers, PrefScope.Device, edits, plain = true) {
-                stickyHeader(key = "notifications", contentType = "heading") {
-                    SectionTitle(R.string.section_notifications)
-                }
-                item(key = "push_gateway") { PushGatewayRow(gateway, onGateway) }
-            }
+            PrefList(ENTRIES.filter { it.own }, layers, PrefScope.Device, edits, plain = true)
         }
     }
 }

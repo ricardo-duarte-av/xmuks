@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import pt.aguiarvieira.xmuks.core.account.LoginHandoff
-import pt.aguiarvieira.xmuks.core.account.PushRegistrar
 import pt.aguiarvieira.xmuks.core.account.WatchLink
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
@@ -23,8 +22,6 @@ class WatchLinkService : WearableListenerService() {
     @Inject lateinit var store: CredentialStore
 
     @Inject lateinit var preferences: PreferenceStore
-
-    @Inject lateinit var push: PushRegistrar
 
     override fun onRequest(
         nodeId: String,
@@ -42,7 +39,6 @@ class WatchLinkService : WearableListenerService() {
                         username = credentials.username,
                         password = credentials.password,
                         sendReadReceipts = receipts,
-                        pushGateway = push.gateway.first(),
                     ),
                 )
             }

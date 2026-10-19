@@ -35,6 +35,4 @@ data class LoginHandoff(
     val password: String,
     /** The phone's choice: public read receipts, or private ones. */
     @SerialName("send_read_receipts") val sendReadReceipts: Boolean = true,
-    /** The phone's push gateway (a host); null for gomuks' default. */
-    @SerialName("push_gateway") val pushGateway: String? = null,
 )
