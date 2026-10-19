@@ -35,13 +35,31 @@ class RoomPinning(
         return exec.exec("set_state", params, ExecMode.Write) is ExecResult.Ok
     }
 
-    /** The pinned messages themselves, newest pin first (whichever gomuks can get). */
+    /**
+     * The pinned messages themselves, newest pin first (whichever gomuks can get), with the
+     * messages they reply to fetched too, so each shows what it answered.
+     */
     suspend fun pinnedItems(eventIds: List<String>): List<TimelineItem> {
         val events = eventIds.asReversed().mapNotNull { getEvent(it) }
+        val pinned = events.mapTo(HashSet()) { it.eventId }
+        val answered =
+            events
+                .mapNotNull { it.effectiveContent.obj("m.relates_to")?.obj("m.in_reply_to")?.str("event_id") }
+                .distinct()
+                .filter { it !in pinned }
+                .mapNotNull { getEvent(it) }
         var standIn = -1L
-        val keyed = events.map { if (it.rowId != 0L) it else it.copy(rowId = standIn--) }
+        val key = { e: Event -> if (e.rowId != 0L) e else e.copy(rowId = standIn--) }
+        val keyed = events.map(key)
+        // Only in the lookup: what was answered is quoted, not listed.
+        val related = answered.map(key)
         val snapshot =
-            TimelineSnapshot(roomId, events = keyed, eventsByRowId = keyed.associateBy { it.rowId }, loaded = true)
+            TimelineSnapshot(
+                roomId,
+                events = keyed,
+                eventsByRowId = (related + keyed).associateBy { it.rowId },
+                loaded = true,
+            )
         return items(snapshot)
     }
 }

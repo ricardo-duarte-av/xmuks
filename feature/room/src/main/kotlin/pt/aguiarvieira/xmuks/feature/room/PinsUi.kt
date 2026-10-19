@@ -2,6 +2,7 @@ package pt.aguiarvieira.xmuks.feature.room
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -114,7 +115,13 @@ internal fun PinnedSheet(
                             )
                         },
                         supportingContent = {
-                            Text(summaryOf(message.content), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                // A reply: what it answered, quoted above it as in the timeline.
+                                message.reply?.takeIf { it.sender != null }?.let { reply ->
+                                    Reply(reply, MaterialTheme.colorScheme.onSurfaceVariant) { onShow(reply.eventId) }
+                                }
+                                Text(summaryOf(message.content), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
                         },
                         trailingContent =
                             if (pins.pins.canPin) {
