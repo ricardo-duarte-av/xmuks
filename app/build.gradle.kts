@@ -1,4 +1,5 @@
 import java.util.Properties
+import javax.inject.Inject
 
 plugins {
     alias(libs.plugins.xmuks.android.application)
@@ -106,4 +107,46 @@ dependencies {
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.play.services.wearable)
+}
+
+// The JVM unit tests (Robolectric) start the real app, whose database driver loads SQLite's native
+// library (System.loadLibrary("sqliteJni")). Android's artifact only has Android's builds of it, so
+// the background database work at launch crashed a test whenever it ran before the test ended. The
+// driver's desktop artifact carries the same library for this machine: unpacked onto the tests'
+// library path (AGP adds a Test task's java.library.path to the one it builds).
+val sqliteNatives: Configuration by configurations.creating { isTransitive = false }
+
+dependencies {
+    sqliteNatives(libs.androidx.sqlite.bundled.jvm)
+}
+
+interface ArchiveServices {
+    @get:Inject val archives: ArchiveOperations
+}
+
+val nativePlatform =
+    run {
+        val os = System.getProperty("os.name").lowercase()
+        val arm = System.getProperty("os.arch").let { it == "aarch64" || it == "arm64" }
+        when {
+            "linux" in os -> if (arm) "linux_arm64" else "linux_x64"
+            "mac" in os -> "osx_arm64"
+            else -> "windows_x64"
+        }
+    }
+val sqliteNativesDir = layout.buildDirectory.dir("sqlite-natives")
+val unpackSqliteNatives =
+    tasks.register<Sync>("unpackSqliteNatives") {
+        val archives = objects.newInstance<ArchiveServices>().archives
+        from(sqliteNatives.elements.map { jars -> jars.map { archives.zipTree(it.asFile) } }) {
+            include("natives/$nativePlatform/*")
+            eachFile { relativePath = RelativePath(true, name) }
+        }
+        includeEmptyDirs = false
+        into(sqliteNativesDir)
+    }
+
+tasks.withType<Test>().configureEach {
+    dependsOn(unpackSqliteNatives)
+    systemProperty("java.library.path", sqliteNativesDir.get().asFile.absolutePath)
 }

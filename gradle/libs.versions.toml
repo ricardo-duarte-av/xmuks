@@ -113,6 +113,8 @@ androidx-room3-runtime = { group = "androidx.room3", name = "room3-runtime", ver
 androidx-room3-compiler = { group = "androidx.room3", name = "room3-compiler", version.ref = "room3" }
 androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqlite" }
 androidx-sqlite-framework = { group = "androidx.sqlite", name = "sqlite-framework", version.ref = "sqlite" }
+# Only for its desktop native library, which JVM unit tests of the whole app need (see app/build.gradle.kts).
+androidx-sqlite-bundled-jvm = { group = "androidx.sqlite", name = "sqlite-bundled-jvm", version.ref = "sqlite" }
 
 # Compose (the alpha BOM aligns runtime/ui/foundation/animation; material3 pinned for Expressive)
 androidx-compose-bom-alpha = { group = "androidx.compose", name = "compose-bom-alpha", version.ref = "composeBomAlpha" }
