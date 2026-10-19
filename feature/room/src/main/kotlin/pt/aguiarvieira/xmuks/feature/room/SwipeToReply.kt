@@ -35,7 +35,7 @@ import kotlin.math.roundToInt
 /**
  * Drag [content] towards the end (right, in left-to-right) past a threshold and let go: [onReply].
  * Horizontal only, and only once the finger has clearly moved sideways, so the timeline's vertical
- * scroll, taps and long presses behave as before. With [enabled] false, just [content].
+ * scroll, taps and long presses behave as before. With [enabled] false, it doesn't move.
  */
 @Composable
 internal fun SwipeToReply(
@@ -44,10 +44,6 @@ internal fun SwipeToReply(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    if (!enabled) {
-        Box(modifier) { content() }
-        return
-    }
     val haptics = LocalHapticFeedback.current
     val threshold = with(LocalDensity.current) { SWIPE_THRESHOLD.toPx() }
     var drag by remember { mutableFloatStateOf(0f) }
@@ -64,6 +60,7 @@ internal fun SwipeToReply(
         modifier.draggable(
             state = state,
             orientation = Orientation.Horizontal,
+            enabled = enabled,
             reverseDirection = LocalLayoutDirection.current == LayoutDirection.Rtl,
             onDragStopped = {
                 if (armed) reply()
