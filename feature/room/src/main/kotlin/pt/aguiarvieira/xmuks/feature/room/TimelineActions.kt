@@ -78,6 +78,8 @@ class TimelineActions(
     val joinCall: ((video: Boolean) -> Unit)? = null,
     /** The room has a call going on now (the newest call card may offer to join). */
     val callOngoing: Boolean = false,
+    /** A message swiped sideways: answer it. Null where swiping doesn't reply. */
+    val onSwipeReply: ((TimelineItem.Message) -> Unit)? = null,
 )
 
 /** Briefly tints the row a jump landed on, so the eye finds it. */

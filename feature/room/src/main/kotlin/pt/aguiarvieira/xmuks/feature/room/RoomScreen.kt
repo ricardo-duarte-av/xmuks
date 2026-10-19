@@ -62,6 +62,7 @@ import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -432,9 +433,11 @@ fun RoomScreen(
     val shown by rememberUpdatedState(if (context != null) context.items else timeline.items)
     val list by rememberUpdatedState(if (context != null) contextList else liveList)
     val showContext by rememberUpdatedState(onShowContext)
+    val currentComposer by rememberUpdatedState(composer)
     val actions =
         remember(onOpenMedia, onOpenUser, player, onSaveMedia, onOpenThread, compactThreads, onCall, call != null) {
             TimelineActions(
+                onSwipeReply = { currentComposer.replyOrSayWhy(it) },
                 joinCall = onCall,
                 callOngoing = call != null,
                 saveMedia = onSaveMedia,
@@ -629,6 +632,8 @@ private fun HeaderCard(
                     subtitle = if (inThread) stringResource(R.string.thread) else null,
                     onAvatarClick = { resolver.image(room?.avatarMxc, room?.name)?.let(onOpenMedia) },
                     onTitleClick = onRoomInfo,
+                    // A notch under the app bar's usual title: long room names fit better.
+                    titleStyle = MaterialTheme.typography.titleLarge.let { it.copy(fontSize = it.fontSize - 2.sp) },
                 )
             },
             actions = {

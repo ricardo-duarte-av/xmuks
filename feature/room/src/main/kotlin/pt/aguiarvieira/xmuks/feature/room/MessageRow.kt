@@ -115,7 +115,13 @@ fun MessageRow(
             actions.openMedia(viewerMedia(message, media, kind, resolver))
         }
         CompositionLocalProvider(LocalMessageHold provides { actions.onMessageMenu(message) }) {
-            ThreadDecorations(message, actions) { BubbleRow(message, resolver, actions, open) }
+            ThreadDecorations(message, actions) {
+                // Sent messages only: one still in our outbox has nothing to answer yet.
+                val swipeReply = actions.onSwipeReply?.takeIf { message.localId == null }
+                SwipeToReply(enabled = swipeReply != null, onReply = { swipeReply?.invoke(message) }) {
+                    BubbleRow(message, resolver, actions, open)
+                }
+            }
         }
         if (message.reactions.isNotEmpty()) {
             Reactions(
@@ -589,7 +595,7 @@ private const val REPLY_LINES = 2
 private val EDGE = 12.dp
 private val RECEIPT_GAP = 6.dp
 private val GROUP_GAP = 8.dp
-private val MESSAGE_GAP = 2.dp
+private val MESSAGE_GAP = 4.dp
 private val BUBBLE_PADDING_V = 6.dp
 
 /** Bubbles leave the far side free, so whose message it is stays obvious. */

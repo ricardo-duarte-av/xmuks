@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -28,6 +29,7 @@ fun HeaderTitle(
     onAvatarClick: (() -> Unit)? = null,
     /** Tapping the name (and subtitle): a room's header opens its info. */
     onTitleClick: (() -> Unit)? = null,
+    titleStyle: TextStyle = MaterialTheme.typography.titleLarge,
 ) {
     Row(
         modifier = modifier,
@@ -61,7 +63,7 @@ fun HeaderTitle(
         ) {
             Text(
                 text = name,
-                style = MaterialTheme.typography.titleLarge,
+                style = titleStyle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.sharedElement(SharedKeys.title(id, sharedScope)),
