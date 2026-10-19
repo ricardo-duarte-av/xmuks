@@ -1,5 +1,8 @@
 package pt.aguiarvieira.xmuks.core.data.timeline
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.JsonArray
@@ -40,7 +43,7 @@ class RoomPinning(
      * messages they reply to fetched too, so each shows what it answered.
      */
     suspend fun pinnedItems(eventIds: List<String>): List<TimelineItem> {
-        val events = eventIds.asReversed().mapNotNull { getEvent(it) }
+        val events = fetchAll(eventIds.asReversed())
         val pinned = events.mapTo(HashSet()) { it.eventId }
         val answered =
             events
@@ -51,7 +54,7 @@ class RoomPinning(
                         ?.str("event_id")
                 }.distinct()
                 .filter { it !in pinned }
-                .mapNotNull { getEvent(it) }
+                .let { fetchAll(it) }
         var standIn = -1L
         val key = { e: Event -> if (e.rowId != 0L) e else e.copy(rowId = standIn--) }
         val keyed = events.map(key)
@@ -66,4 +69,8 @@ class RoomPinning(
             )
         return items(snapshot)
     }
+
+    /** [eventIds]' events, all asked for at once (in their order; those gomuks can't get left out). */
+    private suspend fun fetchAll(eventIds: List<String>): List<Event> =
+        coroutineScope { eventIds.map { async { getEvent(it) } }.awaitAll().filterNotNull() }
 }
