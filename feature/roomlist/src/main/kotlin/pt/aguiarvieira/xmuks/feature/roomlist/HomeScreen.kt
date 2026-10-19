@@ -168,7 +168,7 @@ fun HomeScreen(
                             )
                         },
                         actions = {
-                            AccountMenu(state, onAccountClick, onOpenNotifications, onSearchMessages)
+                            AccountChip(state, onAccountClick)
                         },
                         windowInsets = WindowInsets(0),
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
@@ -222,7 +222,13 @@ fun HomeScreen(
                     val tab = HomeTab.entries[page]
                     val query = search.of(tab)
                     Column {
-                        SearchField(query, stringResource(tab.searchHint))
+                        FilterBar(
+                            query,
+                            stringResource(tab.searchHint),
+                            onMentions = onOpenNotifications,
+                            onSearch = onSearchMessages,
+                            onOptions = onAccountClick,
+                        )
                         val searching = query.text.isNotBlank()
                         when (tab) {
                             HomeTab.Chats -> {
@@ -268,70 +274,50 @@ fun HomeScreen(
 }
 
 /**
- * Our display name and Matrix ID beside our avatar; tapping any of it opens a menu, like a room's:
- * options (our profile, and the account), mentions, and search.
+ * Our display name and Matrix ID beside our avatar; tapping any of it opens the options, as the
+ * bar's gear does (mentions and search are on the bar too).
  */
 @Composable
-private fun AccountMenu(
+private fun AccountChip(
     state: HomeUiState,
     onOptions: () -> Unit,
-    onMentions: () -> Unit,
-    onSearch: () -> Unit,
 ) {
-    var menu by remember { mutableStateOf(false) }
-    Box {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier =
-                Modifier
-                    .padding(end = 4.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .clickable(onClickLabel = stringResource(R.string.account_menu), role = Role.Button) { menu = true }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-        ) {
-            state.profile?.let { profile ->
-                Column(horizontalAlignment = Alignment.End, modifier = Modifier.widthIn(max = 200.dp)) {
-                    Text(
-                        profile.displayName,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        profile.userId,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            RoomAvatar(
-                name = state.profile?.displayName ?: state.account,
-                id = state.profile?.userId ?: state.account,
-                avatarUrl = state.profile?.avatarUrl,
-                size = 32.dp,
-            )
-        }
-        // Anchored at our avatar's corner, so it opens against the right edge, as a room's menu does.
-        Box(Modifier.align(Alignment.BottomEnd)) {
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                listOf(
-                    R.string.account_options to onOptions,
-                    R.string.account_mentions to onMentions,
-                    R.string.account_search to onSearch,
-                ).forEach { (label, action) ->
-                    DropdownMenuItem(
-                        text = { Text(stringResource(label)) },
-                        onClick = {
-                            menu = false
-                            action()
-                        },
-                    )
-                }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier =
+            Modifier
+                .padding(end = 4.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .clickable(
+                    onClickLabel = stringResource(R.string.account_options),
+                    role = Role.Button,
+                    onClick = onOptions
+                ).padding(horizontal = 8.dp, vertical = 4.dp),
+    ) {
+        state.profile?.let { profile ->
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.widthIn(max = 200.dp)) {
+                Text(
+                    profile.displayName,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    profile.userId,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
+        RoomAvatar(
+            name = state.profile?.displayName ?: state.account,
+            id = state.profile?.userId ?: state.account,
+            avatarUrl = state.profile?.avatarUrl,
+            size = 32.dp,
+        )
     }
 }
 
