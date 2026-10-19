@@ -791,7 +791,7 @@ private fun Timeline(
             when (item) {
                 is TimelineItem.Message -> MessageRow(item, resolver, actions, Modifier.animateItem(), lit)
                 is TimelineItem.StateChange -> StateChangeRow(item, resolver, actions, Modifier.animateItem(), lit)
-                is TimelineItem.Hidden -> HiddenRow(item, Modifier.animateItem())
+                is TimelineItem.Hidden -> HiddenRow(item, resolver, Modifier.animateItem())
                 is TimelineItem.DaySeparator -> DayRow(item.day, Modifier.animateItem())
                 is TimelineItem.Call -> CallRow(item, actions, Modifier.animateItem(), lit)
                 TimelineItem.UnreadSeparator -> UnreadRow(Modifier.animateItem())

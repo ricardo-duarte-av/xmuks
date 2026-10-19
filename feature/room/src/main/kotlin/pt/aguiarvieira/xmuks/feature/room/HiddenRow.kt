@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
+import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
 
 /**
@@ -22,6 +23,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
 @Composable
 internal fun HiddenRow(
     item: TimelineItem.Hidden,
+    resolver: MediaResolver,
     modifier: Modifier = Modifier,
 ) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -30,14 +32,20 @@ internal fun HiddenRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            item.senderName,
-            color = senderColor(item.sender),
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
-        )
+        Row(
+            Modifier.weight(1f, fill = false),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RoomAvatar(item.senderName, item.sender, resolver.avatar(item.senderAvatarMxc), size = AVATAR_SIZE)
+            Text(
+                item.senderName,
+                color = senderColor(item.sender),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Text(
             "{ \"type\": \"${item.type}\" }",
             color = muted,
@@ -49,3 +57,5 @@ internal fun HiddenRow(
         Text(rememberTime(item.timestamp), color = muted, style = MaterialTheme.typography.labelSmall)
     }
 }
+
+private val AVATAR_SIZE = 16.dp

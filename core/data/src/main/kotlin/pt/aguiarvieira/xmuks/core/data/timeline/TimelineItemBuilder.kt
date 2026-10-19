@@ -121,6 +121,7 @@ class TimelineItemBuilder(
         senderName = members[event.sender]?.displayName ?: localpart(event.sender),
         type = event.effectiveType,
         timestamp = event.timestamp,
+        senderAvatarMxc = members[event.sender]?.avatarMxc,
     )
 
     private fun callItem(

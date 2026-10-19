@@ -102,6 +102,7 @@ sealed interface TimelineItem {
         val senderName: String,
         val type: String,
         val timestamp: Long,
+        val senderAvatarMxc: String? = null,
     ) : TimelineItem
 
     data class DaySeparator(
