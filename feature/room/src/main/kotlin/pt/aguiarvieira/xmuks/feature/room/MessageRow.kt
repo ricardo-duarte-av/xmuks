@@ -265,12 +265,14 @@ private fun Bubble(
             mention -> colors.onSecondaryContainer
             else -> colors.onSurface
         }
-    // Mention pills: tertiary on ours, the highest neutral on everyone else's.
+    // Mention pills: tertiary on ours; on everyone else's a primary tint over whatever is beneath
+    // (the bubble, or a quote inside it), so it stands apart from any neutral or mention bubble in
+    // either theme, where a neutral one tone up was barely visible in the dark.
     val pills =
         if (mine) {
             PillColors(colors.tertiaryContainer, colors.onTertiaryContainer)
         } else {
-            PillColors(colors.surfaceContainerHighest, colors.onSurface)
+            PillColors(colors.primary.copy(alpha = PILL_TINT), colors.primary)
         }
     Surface(
         shape = shape,
@@ -639,3 +641,6 @@ private const val MAX_RATIO = 3f
 private const val FOOTER_ALPHA = 0.7f
 private const val NOTICE_ALPHA = 0.75f
 private const val REPLY_BG_ALPHA = 0.08f
+
+/** Others' mention pills: primary over the bubble, a touch stronger than M3's dragged state layer (16%). */
+private const val PILL_TINT = 0.2f

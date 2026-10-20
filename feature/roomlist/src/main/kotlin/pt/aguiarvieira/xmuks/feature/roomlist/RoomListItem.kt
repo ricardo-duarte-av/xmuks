@@ -37,6 +37,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.UnreadLevel
 import pt.aguiarvieira.xmuks.core.designsystem.component.sharedElement
 import pt.aguiarvieira.xmuks.core.designsystem.util.ListTimestamps
 import pt.aguiarvieira.xmuks.core.richtext.rememberHtmlSnippet
+import pt.aguiarvieira.xmuks.core.richtext.rememberPills
 
 @Composable
 fun RoomListItem(
@@ -121,18 +122,22 @@ fun RoomListItem(
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val inCall = room.call != null
+                val line =
+                    when {
+                        inCall -> AnnotatedString(stringResource(R.string.call_in_progress))
+                        display.showPreview -> previewLine(room)
+                        else -> AnnotatedString("")
+                    }
+                // Mentions in the preview are drawn as the timeline draws them.
+                val pills = rememberPills(line)
                 Text(
-                    text =
-                        when {
-                            inCall -> AnnotatedString(stringResource(R.string.call_in_progress))
-                            display.showPreview -> previewLine(room)
-                            else -> AnnotatedString("")
-                        },
+                    text = line,
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (inCall) colors.primary else colors.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+                    onTextLayout = { pills.layout = it },
+                    modifier = Modifier.weight(1f).then(pills.modifier),
                 )
                 val (level, count) = room.unread.level()
                 UnreadBadge(level, count)

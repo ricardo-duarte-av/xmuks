@@ -28,10 +28,22 @@ fun HtmlSnippet(
     modifier: Modifier = Modifier,
 ) {
     val text = rememberHtmlSnippet(html)
-    Text(text, color = color, style = style, maxLines = maxLines, overflow = TextOverflow.Ellipsis, modifier = modifier)
+    val pills = rememberPills(text)
+    Text(
+        text,
+        color = color,
+        style = style,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = { pills.layout = it },
+        modifier = modifier.then(pills.modifier),
+    )
 }
 
-/** [HtmlSnippet]'s text, for callers that put it in a line of their own (a room list preview). */
+/**
+ * [HtmlSnippet]'s text, for callers that put it in a line of their own (a room list preview); its
+ * mentions keep their [HtmlParser.PILL_TAG] annotations, for [rememberPills] to draw.
+ */
 @Composable
 fun rememberHtmlSnippet(html: String): AnnotatedString {
     val colors = htmlColors()
@@ -49,10 +61,6 @@ internal fun snippetOf(
                 is Line.Text -> {
                     val start = length
                     append(line.text.withoutLinks())
-                    // Too small to draw as pills: mentions keep a plain tint.
-                    pillRanges(line.text).forEach {
-                        addStyle(SpanStyle(background = colors.mentionBackground), start + it.start, start + it.end)
-                    }
                     // Too small to tap: a quoted spoiler stays a solid block.
                     spoilerRanges(line.text).forEach {
                         addStyle(

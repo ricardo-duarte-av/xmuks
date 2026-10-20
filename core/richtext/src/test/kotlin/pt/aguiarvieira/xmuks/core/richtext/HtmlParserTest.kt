@@ -102,7 +102,8 @@ class HtmlParserTest {
         val snippet = snippetOf(parser.parse(html), colors)
         assertTrue(snippet.getLinkAnnotations(0, snippet.length).isEmpty())
         assertTrue(snippet.spanStyles.any { it.item.textDecoration != null && snippet.text.substring(it.start, it.end) == "x.org" })
-        assertTrue(snippet.spanStyles.any { it.item.background != Color.Unspecified && snippet.text.substring(it.start, it.end).trim('\u202F') == "Bob" })
+        val pill = pillRanges(snippet).single()
+        assertEquals("\u202FBob\u202F", snippet.text.substring(pill.start, pill.end))
     }
 
     @Test
