@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -26,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -46,8 +48,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.aguiarvieira.xmuks.core.data.roominfo.MembershipAction
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 
 @Composable
 fun RoomMembersRoute(
@@ -114,7 +118,7 @@ fun RoomMembersScreen(
         containerColor = ScreenCards.ground,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+            ScreenHeader {
                 Column {
                     TopAppBar(
                         windowInsets = WindowInsets(0),
@@ -139,10 +143,9 @@ fun RoomMembersScreen(
             }
         },
     ) { padding ->
-        ScreenCard(
+        ScreenBody(
             Modifier
                 .padding(padding)
-                .padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap)
                 .navigationBarsPadding()
                 .fillMaxSize(),
         ) {
@@ -163,11 +166,13 @@ fun RoomMembersScreen(
 
 @Composable
 private fun SearchField(search: TextFieldState) {
-    OutlinedTextField(
+    TextField(
         state = search,
         placeholder = { Text(stringResource(R.string.members_search)) },
         leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
         lineLimits = TextFieldLineLimits.SingleLine,
+        shape = CircleShape,
+        colors = ScreenCards.pillColors,
         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
     )
 }

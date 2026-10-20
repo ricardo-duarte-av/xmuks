@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
@@ -34,6 +35,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -61,8 +63,10 @@ import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.media.MediaKind
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 
 /**
  * Something shared to xmuks from another app: pick a room (unless it was shared straight to
@@ -121,24 +125,25 @@ private fun RoomPicker(
         modifier = modifier,
         containerColor = ScreenCards.ground,
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+            ScreenHeader {
                 Column {
                     TopBar(stringResource(R.string.share_to), onBack)
-                    OutlinedTextField(
+                    TextField(
                         state = search,
                         placeholder = { Text(stringResource(R.string.share_search)) },
                         leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
                         lineLimits = TextFieldLineLimits.SingleLine,
+                        shape = CircleShape,
+                        colors = ScreenCards.pillColors,
                         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                     )
                 }
             }
         },
     ) { padding ->
-        ScreenCard(
+        ScreenBody(
             Modifier
                 .padding(padding)
-                .padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap)
                 .imePadding()
                 .navigationBarsPadding()
                 .fillMaxSize(),
@@ -221,7 +226,7 @@ internal fun CaptionScreen(
         modifier = modifier,
         containerColor = ScreenCards.ground,
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+            ScreenHeader {
                 Column {
                     TopBar(room?.name.orEmpty(), onBack)
                     RoomLine(room, items?.size, onChangeRoom)

@@ -57,6 +57,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -146,7 +147,7 @@ fun InviteScreen(
         containerColor = ScreenCards.ground,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+            ScreenHeader {
                 TopAppBar(
                     windowInsets = WindowInsets(0),
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),

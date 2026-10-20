@@ -42,6 +42,7 @@ import pt.aguiarvieira.xmuks.core.data.push.RoomNotifications
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 
 @Composable
@@ -157,7 +158,7 @@ fun RoomInfoScreen(
         containerColor = ScreenCards.ground,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+            ScreenHeader {
                 Column {
                     TopAppBar(
                         windowInsets = WindowInsets(0),

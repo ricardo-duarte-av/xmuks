@@ -28,8 +28,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 
 @Composable
 fun SearchRoute(
@@ -78,7 +80,7 @@ fun SearchScreen(
         modifier = modifier,
         containerColor = ScreenCards.ground,
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+            ScreenHeader {
                 Column(Modifier.padding(vertical = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = onBack, modifier = Modifier.padding(start = 4.dp)) {
@@ -97,10 +99,9 @@ fun SearchScreen(
             }
         },
     ) { padding ->
-        ScreenCard(
+        ScreenBody(
             Modifier
                 .padding(padding)
-                .padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap)
                 .navigationBarsPadding()
                 .fillMaxSize(),
         ) {

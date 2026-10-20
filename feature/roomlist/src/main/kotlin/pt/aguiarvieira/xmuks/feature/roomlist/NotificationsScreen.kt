@@ -59,8 +59,10 @@ import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvent
 import pt.aguiarvieira.xmuks.core.data.rooms.MentionKind
 import pt.aguiarvieira.xmuks.core.data.rooms.Mentions
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
 import pt.aguiarvieira.xmuks.core.designsystem.util.ListTimestamps
 
@@ -182,7 +184,7 @@ fun NotificationsScreen(
         modifier = modifier,
         containerColor = ScreenCards.ground,
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+            ScreenHeader {
                 Column {
                     TopAppBar(
                         windowInsets = WindowInsets(0),
@@ -214,10 +216,9 @@ fun NotificationsScreen(
             }
         },
     ) { padding ->
-        ScreenCard(
+        ScreenBody(
             Modifier
                 .padding(padding)
-                .padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap)
                 .navigationBarsPadding()
                 .fillMaxSize(),
         ) {

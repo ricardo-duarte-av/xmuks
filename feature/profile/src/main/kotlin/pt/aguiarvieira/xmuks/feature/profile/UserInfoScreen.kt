@@ -63,6 +63,7 @@ import pt.aguiarvieira.xmuks.core.data.profile.UserProfile
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.core.designsystem.theme.senderColor
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
@@ -236,7 +237,7 @@ fun UserInfoScreen(
         containerColor = ScreenCards.ground,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+            ScreenHeader {
                 Column {
                     TopAppBar(
                         windowInsets = WindowInsets(0),

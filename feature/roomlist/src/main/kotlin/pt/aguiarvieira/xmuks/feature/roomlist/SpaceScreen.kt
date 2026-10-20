@@ -34,8 +34,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 
 @Composable
 fun SpaceRoute(
@@ -85,7 +87,7 @@ fun SpaceScreen(
         modifier = modifier,
         containerColor = ScreenCards.ground,
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+            ScreenHeader {
                 Column {
                     TopAppBar(
                         windowInsets = WindowInsets(0),
@@ -124,10 +126,9 @@ fun SpaceScreen(
             }
         },
     ) { padding ->
-        ScreenCard(
+        ScreenBody(
             Modifier
                 .padding(padding)
-                .padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap)
                 .fillMaxSize(),
         ) {
             RoomList(rooms, now, R.string.empty_space, SharedScopes.space(spaceId), onOpenRoom)

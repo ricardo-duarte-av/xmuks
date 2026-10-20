@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.room
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.content.contentReceiver
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,12 +9,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
@@ -23,6 +26,7 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -77,9 +81,8 @@ internal fun ComposerCard(
 ) {
     val colors = MaterialTheme.colorScheme
     val mediaReceiver = rememberMediaReceiver(onSendMedia)
-    ScreenCard(
-        modifier.padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap),
-    ) {
+    // A bar on the ground along the bottom, as the room list's tab bar: its height, its tint.
+    Surface(modifier, color = ScreenCards.ground) {
         Column {
             ModeBanner(mode, onCancelMode)
             SendingAsBanner(personas, state, avatarUrl, onChoosePersona, onOpenPersonas)
@@ -87,7 +90,10 @@ internal fun ComposerCard(
             MentionHints(mentions)
             ComposerLinkPreviews(previews)
             Row(
-                modifier = Modifier.padding(start = 4.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                modifier =
+                    Modifier
+                        .heightIn(min = ScreenCards.BarHeight)
+                        .padding(start = 4.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 // Drawn close together: each keeps its full touch target, overlapping a little.
@@ -117,13 +123,16 @@ internal fun ComposerCard(
                         ),
                     modifier =
                         Modifier
-                            .weight(
-                                1f
-                            ).padding(vertical = 12.dp)
+                            .weight(1f)
+                            // The field in a pill, as the room list's search on its bar; as tall as
+                            // the buttons beside it, so the bar keeps the tab bar's height.
+                            .heightIn(min = FIELD_HEIGHT)
+                            .background(ScreenCards.pill, RoundedCornerShape(FIELD_RADIUS))
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
                             .contentReceiver(mediaReceiver)
                             .onFocusChanged { if (it.isFocused) onFocus() },
                     decorator = { field ->
-                        Box {
+                        Box(contentAlignment = Alignment.CenterStart) {
                             if (state.text.isEmpty()) {
                                 Text(
                                     when {
@@ -293,6 +302,8 @@ internal fun DeleteDialog(
 }
 
 private const val MAX_LINES = 6
+private val FIELD_RADIUS = 24.dp
+private val FIELD_HEIGHT = 48.dp
 
 /** The count shows from 90% of the network's limit. */
 private const val COUNT_FROM_TENTHS = 10

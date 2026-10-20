@@ -91,8 +91,9 @@ import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.Typist
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
-import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.core.richtext.CodeTheme
 import pt.aguiarvieira.xmuks.core.richtext.LocalRichTextOptions
@@ -578,13 +579,8 @@ fun RoomScreen(
             }
         },
     ) { padding ->
-        ScreenCard(
-            Modifier
-                .padding(
-                    padding
-                ).padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap)
-                .fillMaxSize()
-        ) {
+        // Edge to edge between the header and the composer's bar, as the room list's tabs.
+        ScreenBody(Modifier.padding(padding).fillMaxSize()) {
             if (context != null) {
                 ContextTimeline(context, contextList, resolver, actions, highlighted, onLeaveContext)
             } else {
@@ -642,7 +638,7 @@ private fun HeaderCard(
             onCall(video)
         }) { startSheet = false }
     }
-    ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+    ScreenHeader {
         TopAppBar(
             windowInsets = WindowInsets(0),
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),

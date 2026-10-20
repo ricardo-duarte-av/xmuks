@@ -9,7 +9,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
@@ -34,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -42,21 +44,19 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -71,7 +71,6 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.TabBadges
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
-import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.UnreadLevel
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
@@ -156,13 +155,14 @@ fun HomeScreen(
     onSearchMessages: () -> Unit = {},
     onOpenInvite: (roomId: String) -> Unit = {},
 ) {
-    // Three cards on a tinted ground, like the room: header, the tab's content, the tab bar.
+    // The header (with the tab's filter in it, as a search app bar) and the tab bar on the tinted
+    // ground, edge to edge; the tab's content between, on the surface. The room's header matches.
     Scaffold(
         modifier = modifier,
-        containerColor = ScreenCards.ground,
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
-                Column {
+            Surface(color = ScreenCards.ground) {
+                Column(Modifier.statusBarsPadding()) {
                     TopAppBar(
                         title = {
                             Text(
@@ -178,26 +178,34 @@ fun HomeScreen(
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                     )
                     ConnectionIndicator(state.connection)
+                    FilterBar(
+                        search.of(state.tab),
+                        stringResource(state.tab.searchHint),
+                        onMentions = onOpenNotifications,
+                        onSearch = onSearchMessages,
+                    )
                 }
             }
         },
         bottomBar = {
-            ScreenCard(Modifier.navigationBarsPadding().padding(ScreenCards.Gap)) {
-                ShortNavigationBar(containerColor = Color.Transparent, windowInsets = WindowInsets(0)) {
-                    HomeTab.entries.forEach { tab ->
-                        ShortNavigationBarItem(
-                            selected = tab == state.tab,
-                            onClick = { onTabChange(tab) },
-                            icon = { TabIcon(tab, state.badges) },
-                            label = { Text(stringResource(tab.label)) },
-                        )
-                    }
+            // Held to the bar height, so the room's composer bar matches it exactly.
+            ShortNavigationBar(
+                modifier = Modifier.height(ScreenCards.BarHeight + navigationBarHeight()),
+                containerColor = ScreenCards.ground,
+            ) {
+                HomeTab.entries.forEach { tab ->
+                    ShortNavigationBarItem(
+                        selected = tab == state.tab,
+                        onClick = { onTabChange(tab) },
+                        icon = { TabIcon(tab, state.badges) },
+                        label = { Text(stringResource(tab.label)) },
+                    )
                 }
             }
         },
     ) { padding ->
         val pullState = rememberPullToRefreshState()
-        ScreenCard(Modifier.padding(padding).padding(horizontal = ScreenCards.Gap).fillMaxSize()) {
+        Box(Modifier.padding(padding).fillMaxSize()) {
             PullToRefreshBox(
                 isRefreshing = state.refreshing,
                 onRefresh = onRefresh,
@@ -215,26 +223,20 @@ fun HomeScreen(
                 // page change instead of rebuilding a grid of avatars. Measured on a OnePlus 7: entering
                 // Spaces cost a ~45-90 ms frame when the grid was recomposed from scratch.
                 val pager = rememberPagerState(initialPage = state.tab.ordinal) { HomeTab.entries.size }
-                LaunchedEffect(state.tab) { pager.scrollToPage(state.tab.ordinal) }
+                val fade = rememberFadeThrough()
+                LaunchedEffect(state.tab) {
+                    if (pager.currentPage != state.tab.ordinal) fade.run { pager.scrollToPage(state.tab.ordinal) }
+                }
                 HorizontalPager(
                     state = pager,
                     userScrollEnabled = false,
                     beyondViewportPageCount = HomeTab.entries.size - 1,
                     key = { HomeTab.entries[it] },
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().fadeThrough(fade),
                 ) { page ->
                     val tab = HomeTab.entries[page]
                     val query = search.of(tab)
-                    var scrolled by remember { mutableStateOf(false) }
                     Column {
-                        FilterBar(
-                            query,
-                            stringResource(tab.searchHint),
-                            onMentions = onOpenNotifications,
-                            onSearch = onSearchMessages,
-                            onOptions = onAccountClick,
-                            scrolledUnder = scrolled,
-                        )
                         val searching = query.text.isNotBlank()
                         when (tab) {
                             HomeTab.Chats -> {
@@ -246,7 +248,6 @@ fun HomeScreen(
                                     onOpenRoom,
                                     invites = state.invites.filterUnless(searching) { !it.isSpace },
                                     onOpenInvite = onOpenInvite,
-                                    onScrolledChange = { scrolled = it },
                                 )
                             }
 
@@ -259,7 +260,6 @@ fun HomeScreen(
                                     onOpenRoom,
                                     invites = state.invites.filterUnless(searching) { it.isDirect && !it.isSpace },
                                     onOpenInvite = onOpenInvite,
-                                    onScrolledChange = { scrolled = it },
                                 )
                             }
 
@@ -271,7 +271,6 @@ fun HomeScreen(
                                     invites = state.invites.filterUnless(searching) { it.isSpace },
                                     now = now,
                                     onOpenInvite = onOpenInvite,
-                                    onScrolledChange = { scrolled = it },
                                 )
                             }
                         }
@@ -328,18 +327,6 @@ private fun AccountChip(
             size = 32.dp,
         )
     }
-}
-
-/** Tells [onChange] whether [scrolled] holds, as it changes; false once the list is gone. */
-@Composable
-private fun ReportScrolled(
-    onChange: (Boolean) -> Unit,
-    scrolled: () -> Boolean,
-) {
-    val report by rememberUpdatedState(onChange)
-    val read by rememberUpdatedState(scrolled)
-    LaunchedEffect(Unit) { snapshotFlow { read() }.collect { report(it) } }
-    DisposableEffect(Unit) { onDispose { report(false) } }
 }
 
 /** A tab's invites ([keep]); none while searching, which looks for rooms. */
@@ -419,8 +406,6 @@ internal fun RoomList(
     /** Waiting for an answer: listed above the rooms. */
     invites: List<InviteRow> = emptyList(),
     onOpenInvite: (roomId: String) -> Unit = {},
-    /** Whether rows have scrolled up under what's above the list. */
-    onScrolledChange: (Boolean) -> Unit = {},
 ) {
     when {
         rooms == null -> {
@@ -435,7 +420,6 @@ internal fun RoomList(
             val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
             // Invites go above the rooms: arriving while the list is at its top, they show there.
             val list = rememberTopAnchoredState(remember(rooms, invites) { rooms to invites })
-            ReportScrolled(onScrolledChange) { list.canScrollBackward }
             var menuFor by remember { mutableStateOf<RoomSummary?>(null) }
             LazyColumn(
                 modifier = modifier.fillMaxSize(),
@@ -480,7 +464,6 @@ private fun SpaceGrid(
     invites: List<InviteRow> = emptyList(),
     now: Long = 0,
     onOpenInvite: (roomId: String) -> Unit = {},
-    onScrolledChange: (Boolean) -> Unit = {},
 ) {
     when {
         spaces == null -> {
@@ -494,7 +477,6 @@ private fun SpaceGrid(
         else -> {
             val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
             val grid = rememberLazyGridState()
-            ReportScrolled(onScrolledChange) { grid.canScrollBackward }
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 104.dp),
                 state = grid,
@@ -543,6 +525,9 @@ fun rememberNow(): Long {
 }
 
 private const val MINUTE_MS = 60_000L
+
+@Composable
+private fun navigationBarHeight() = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
 
 private val HomeTab.title
     get() =

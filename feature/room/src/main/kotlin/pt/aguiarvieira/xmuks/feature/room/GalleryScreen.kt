@@ -64,8 +64,10 @@ import coil3.compose.AsyncImage
 import pt.aguiarvieira.xmuks.core.data.timeline.GalleryItem
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.core.designsystem.util.Blurhash
 import java.text.DateFormat
@@ -158,7 +160,7 @@ fun GalleryScreen(
         modifier = modifier,
         containerColor = ScreenCards.ground,
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+            ScreenHeader {
                 Column {
                     TopAppBar(
                         windowInsets = WindowInsets(0),
@@ -185,10 +187,9 @@ fun GalleryScreen(
             }
         },
     ) { padding ->
-        ScreenCard(
+        ScreenBody(
             Modifier
                 .padding(padding)
-                .padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap)
                 .navigationBarsPadding()
                 .fillMaxSize(),
         ) {

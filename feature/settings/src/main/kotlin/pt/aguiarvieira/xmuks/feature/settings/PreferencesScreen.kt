@@ -44,8 +44,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.aguiarvieira.xmuks.core.data.prefs.Pref
 import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
 import pt.aguiarvieira.xmuks.core.data.prefs.PrefScope
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 
 /** gomuks' preferences: the global ones ([roomId] null) or one room's. */
 @Composable
@@ -111,7 +113,7 @@ fun PreferencesScreen(
         containerColor = ScreenCards.ground,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+            ScreenHeader {
                 Column {
                     TopAppBar(
                         windowInsets = WindowInsets(0),
@@ -132,10 +134,9 @@ fun PreferencesScreen(
             }
         },
     ) { padding ->
-        ScreenCard(
+        ScreenBody(
             Modifier
                 .padding(padding)
-                .padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap)
                 .navigationBarsPadding()
                 .fillMaxSize(),
         ) {

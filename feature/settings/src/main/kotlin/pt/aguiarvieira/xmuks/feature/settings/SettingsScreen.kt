@@ -27,8 +27,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
 import pt.aguiarvieira.xmuks.core.data.prefs.PrefScope
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 
 /** xmuks' own settings: this device's, global (gomuks' preferences are [PreferencesRoute]'s). */
 @Composable
@@ -76,7 +78,7 @@ fun SettingsScreen(
         containerColor = ScreenCards.ground,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            ScreenCard(Modifier.statusBarsPadding().padding(ScreenCards.Gap)) {
+            ScreenHeader {
                 TopAppBar(
                     windowInsets = WindowInsets(0),
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
@@ -90,10 +92,9 @@ fun SettingsScreen(
             }
         },
     ) { padding ->
-        ScreenCard(
+        ScreenBody(
             Modifier
                 .padding(padding)
-                .padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap)
                 .navigationBarsPadding()
                 .fillMaxSize(),
         ) {

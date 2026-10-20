@@ -3,7 +3,6 @@ package pt.aguiarvieira.xmuks.feature.roomlist
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
@@ -36,10 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -52,6 +48,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import java.text.Normalizer
 
 /** The search queries of the three tabs; each tab keeps its own. */
@@ -62,7 +59,7 @@ class SearchQueries(
 )
 
 /**
- * The home tabs' bar: the filter field, then mentions, message search and options. Tapping the
+ * The home tabs' bar, in the app bar: the filter field, then mentions and message search. Tapping the
  * field grows it over the whole bar, pushing the three out; back (or closing the keyboard) brings
  * them back, the filter kept.
  */
@@ -73,9 +70,6 @@ internal fun FilterBar(
     placeholder: String,
     onMentions: () -> Unit,
     onSearch: () -> Unit,
-    onOptions: () -> Unit,
-    /** The list has scrolled up under the bar: it takes a tone of its own, so the edge reads. */
-    scrolledUnder: Boolean = false,
 ) {
     var typing by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
@@ -84,26 +78,9 @@ internal fun FilterBar(
     LaunchedEffect(ime) { if (!ime) focus.clearFocus() }
     BackHandler(enabled = typing) { focus.clearFocus() }
     val end by animateDpAsState(if (typing) 16.dp else 4.dp, label = "filterEnd")
-    // Scrolled under: a tone of its own and a hairline beneath, as an app bar takes when content
-    // scrolls under it, so the bar's edge reads in both themes.
-    val colors = MaterialTheme.colorScheme
-    val tone by animateColorAsState(
-        if (scrolledUnder) colors.surfaceContainerLow else Color.Transparent,
-        label = "filterTone"
-    )
-    val line by animateColorAsState(
-        if (scrolledUnder) colors.outlineVariant else Color.Transparent,
-        label = "filterLine"
-    )
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier =
-            Modifier
-                .drawBehind {
-                    drawRect(tone)
-                    val stroke = 1.dp.toPx()
-                    drawRect(line, Offset(0f, size.height - stroke), Size(size.width, stroke))
-                }.padding(bottom = 4.dp),
+        modifier = Modifier.padding(bottom = 4.dp),
     ) {
         SearchField(
             state,
@@ -121,7 +98,6 @@ internal fun FilterBar(
                 listOf(
                     Triple(R.drawable.ic_mention, R.string.account_mentions, onMentions),
                     Triple(R.drawable.ic_search, R.string.account_search, onSearch),
-                    Triple(R.drawable.ic_settings, R.string.account_options, onOptions),
                 ).forEach { (icon, label, action) ->
                     IconButton(onClick = action) { Icon(painterResource(icon), stringResource(label)) }
                 }
@@ -130,7 +106,7 @@ internal fun FilterBar(
     }
 }
 
-/** A pill-shaped filter field under the app bar. */
+/** A pill-shaped search field, on an app bar's tint. */
 @Composable
 fun SearchField(
     state: TextFieldState,
@@ -158,13 +134,7 @@ fun SearchField(
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         onKeyboardAction = { focus.clearFocus() },
         shape = CircleShape,
-        colors =
-            TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-            ),
+        colors = ScreenCards.pillColors,
         modifier = modifier.fillMaxWidth().padding(padding),
     )
 }
