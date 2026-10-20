@@ -10,4 +10,14 @@
     <string name="phone_signed_out">xmuks on the phone isn\'t signed in.</string>
     <string name="login_failed">gomuks didn\'t accept the login.</string>
     <string name="no_network">Couldn\'t reach gomuks.</string>
+    <string name="inbox_all">Notifications</string>
+    <string name="inbox_mentions">Mentions</string>
+    <string name="show_mentions">Mentions only</string>
+    <string name="show_all">All notifications</string>
+    <string name="inbox_empty">Nothing yet.</string>
+    <string name="load_more">Load more</string>
+    <string name="retry">Couldn\'t load. Retry</string>
+    <string name="account">Account</string>
+    <string name="mark_read">Mark as read</string>
+    <string name="mark_read_failed">Didn\'t go through. Retry</string>
 </resources>

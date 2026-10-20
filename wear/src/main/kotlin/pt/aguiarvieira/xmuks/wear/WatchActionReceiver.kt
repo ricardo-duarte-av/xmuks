@@ -25,7 +25,7 @@ class WatchActionReceiver : BroadcastReceiver() {
 
     @Inject lateinit var notifier: RoomNotifier
 
-    @Inject lateinit var account: WatchAccount
+    @Inject lateinit var actions: WatchActions
 
     @Inject lateinit var scope: CoroutineScope
 
@@ -41,7 +41,7 @@ class WatchActionReceiver : BroadcastReceiver() {
             try {
                 when (intent.action) {
                     Actions.REPLY -> Actions.replyText(intent)?.let { reply(roomId, it) }
-                    Actions.MARK_READ -> markRead(roomId, eventId)
+                    Actions.MARK_READ -> actions.markRead(roomId, eventId)
                 }
             } finally {
                 pending.finish()
@@ -61,21 +61,6 @@ class WatchActionReceiver : BroadcastReceiver() {
             }
         val result = exec.exec("send_message", params, ExecMode.Write)
         Log.d(TAG, "Reply sent: ${result::class.simpleName}")
-    }
-
-    private suspend fun markRead(
-        roomId: String,
-        eventId: String?,
-    ) {
-        notifier.clear(roomId)
-        if (eventId == null) return
-        val params =
-            buildJsonObject {
-                put("room_id", JsonPrimitive(roomId))
-                put("event_id", JsonPrimitive(eventId))
-                put("receipt_type", JsonPrimitive(account.receiptType()))
-            }
-        exec.exec("mark_read", params, ExecMode.Write)
     }
 
     private companion object {

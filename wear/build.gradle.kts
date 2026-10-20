@@ -8,7 +8,8 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
-// The watch app: notifications only, pushed straight to the watch (it may be far from the phone).
+// The watch app: notifications pushed straight to the watch (it may be far from the phone), and a
+// list of past ones fetched from gomuks.
 // Same application ID as the phone app, so it shares its Firebase app, push gateway and Data Layer.
 
 // Release signing as in :app (the Data Layer only links apps signed with the same key).
@@ -81,6 +82,7 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.core.ktx)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.coil.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
 }

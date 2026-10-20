@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.wear
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -28,16 +29,27 @@ import androidx.wear.compose.material3.CircularProgressIndicator
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
+import coil3.ImageLoader
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import javax.inject.Inject
 
-/** The watch app's only screen: signed in (and as whom), or a button to sign in from the phone. */
+/** Signed in, the past notifications (the inbox); signed out, a button to sign in from the phone. */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var account: WatchAccount
 
+    @Inject lateinit var inbox: Inbox
+
+    @Inject lateinit var images: ImageLoader
+
+    @Inject lateinit var store: CredentialStore
+
     private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    /** Signed in or out on the account screen meanwhile: looked at again on every return. */
+    private var signedIn by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,55 +58,91 @@ class MainActivity : ComponentActivity() {
         ) {
             askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        setContent { MaterialTheme { AccountScreen(account) } }
+        signedIn = account.signedInAs() != null
+        setContent {
+            MaterialTheme {
+                AppScaffold {
+                    if (signedIn) {
+                        InboxScreen(
+                            inbox,
+                            images,
+                            store.credentials()?.serverUrl,
+                            onOpen = { startActivity(MessageActivity.intent(this, it.message.eventId)) },
+                            onAccount = { startActivity(Intent(this, AccountActivity::class.java)) },
+                        )
+                    } else {
+                        AccountScreen(account, onChange = { signedIn = account.signedInAs() != null })
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        signedIn = account.signedInAs() != null
+    }
+}
+
+/** Who the watch is signed in as, and signing out. */
+@AndroidEntryPoint
+class AccountActivity : ComponentActivity() {
+    @Inject lateinit var account: WatchAccount
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent { MaterialTheme { AppScaffold { AccountScreen(account, onChange = ::finish) } } }
     }
 }
 
 @Composable
-private fun AccountScreen(account: WatchAccount) {
+private fun AccountScreen(
+    account: WatchAccount,
+    onChange: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
     var user by remember { mutableStateOf(account.signedInAs()) }
     var busy by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<WatchAccount.SignIn?>(null) }
-    AppScaffold {
-        ScreenScaffold {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                val text =
-                    when {
-                        busy -> stringResource(R.string.signing_in)
-                        user != null -> stringResource(R.string.signed_in_as, user.orEmpty())
-                        else -> problem?.let { stringResource(it.message()) } ?: stringResource(R.string.signed_out)
-                    }
-                Text(text, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
+    ScreenScaffold {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            val text =
                 when {
-                    busy -> {
-                        CircularProgressIndicator()
-                    }
+                    busy -> stringResource(R.string.signing_in)
+                    user != null -> stringResource(R.string.signed_in_as, user.orEmpty())
+                    else -> problem?.let { stringResource(it.message()) } ?: stringResource(R.string.signed_out)
+                }
+            Text(text, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
+            when {
+                busy -> {
+                    CircularProgressIndicator()
+                }
 
-                    user != null -> {
-                        Button(onClick = {
-                            scope.launch {
-                                account.signOut()
-                                user = null
-                            }
-                        }) { Text(stringResource(R.string.sign_out)) }
-                    }
+                user != null -> {
+                    Button(onClick = {
+                        scope.launch {
+                            account.signOut()
+                            user = null
+                            onChange()
+                        }
+                    }) { Text(stringResource(R.string.sign_out)) }
+                }
 
-                    else -> {
-                        Button(onClick = {
-                            busy = true
-                            scope.launch {
-                                val result = account.signInFromPhone()
-                                problem = result.takeUnless { it == WatchAccount.SignIn.Ok }
-                                user = account.signedInAs()
-                                busy = false
-                            }
-                        }) { Text(stringResource(R.string.sign_in)) }
-                    }
+                else -> {
+                    Button(onClick = {
+                        busy = true
+                        scope.launch {
+                            val result = account.signInFromPhone()
+                            problem = result.takeUnless { it == WatchAccount.SignIn.Ok }
+                            user = account.signedInAs()
+                            busy = false
+                            if (user != null) onChange()
+                        }
+                    }) { Text(stringResource(R.string.sign_in)) }
                 }
             }
         }
