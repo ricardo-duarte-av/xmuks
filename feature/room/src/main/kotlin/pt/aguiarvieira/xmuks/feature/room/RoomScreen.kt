@@ -628,7 +628,7 @@ private fun HeaderCard(
     callNotifyRoom: Boolean = true,
     onCallNotifyRoom: (Boolean) -> Unit = {},
     callAllowed: Boolean = true,
-    /** What the bridged network supports, in a sheet; null when the room isn't bridged. */
+    /** What the bridged network supports, in a sheet; null when the room isn't bridged or its bridge doesn't say. */
     onNetworkLimits: (() -> Unit)? = null,
     /** How many messages are pinned: the menu lists them when there are any. */
     pinned: Int = 0,
@@ -670,7 +670,7 @@ private fun HeaderCard(
                 )
             },
             actions = {
-                bridge?.let { BridgeBadge(it, resolver, roomId, sharedScope) }
+                bridge?.let { BridgeBadge(it, resolver, roomId, sharedScope, onNetworkLimits) }
                 if (onCall != null && call != null) {
                     CallPill(call, onCall)
                 } else if (onCall != null) {

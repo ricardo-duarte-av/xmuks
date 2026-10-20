@@ -235,6 +235,7 @@
     <string name="network_fallback">the bridged network</string>
     <string name="network_limits">Network limits</string>
     <string name="network_limits_intro">What %1$s supports, as its bridge reports it.</string>
+    <string name="network_limits_unavailable">%1$s\'s bridge doesn\'t report its limits</string>
     <string name="limit_edit_unsupported">%1$s doesn\'t support editing messages</string>
     <string name="limit_edit_too_old">%1$s only allows edits within %2$s of sending</string>
     <string name="limit_delete_unsupported">%1$s doesn\'t support deleting messages</string>
