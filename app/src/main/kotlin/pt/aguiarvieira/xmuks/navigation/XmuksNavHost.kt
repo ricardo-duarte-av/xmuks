@@ -293,7 +293,7 @@ fun XmuksNavHost(
                                 Destination {
                                     SpaceRoute(
                                         spaceId = key.spaceId,
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenRoom = backStack::openRoom,
                                     )
                                 }
@@ -305,7 +305,7 @@ fun XmuksNavHost(
                                         sharedScope = key.scope,
                                         jumpTo = key.eventId,
                                         onOpenLink = openLink,
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenMedia = { backStack.add(MediaKey(it)) },
                                         onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                         onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
@@ -324,7 +324,7 @@ fun XmuksNavHost(
                                         sharedScope = THREAD_SCOPE,
                                         threadRoot = key.rootId,
                                         onOpenLink = openLink,
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenMedia = { backStack.add(MediaKey(it)) },
                                         onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                         onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
@@ -336,7 +336,7 @@ fun XmuksNavHost(
                                 Destination(roomId = key.roomId) {
                                     RoomInfoRoute(
                                         roomId = key.roomId,
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenMedia = { backStack.add(MediaKey(it)) },
                                         onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                         onOpenMembers = { backStack.add(RoomMembersKey(key.roomId)) },
@@ -352,7 +352,7 @@ fun XmuksNavHost(
                                 Destination {
                                     InviteRoute(
                                         roomId = key.roomId,
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenRoom = { roomId ->
                                             backStack.remove(key)
                                             backStack.openRoom(roomId, LINK_SCOPE)
@@ -366,7 +366,7 @@ fun XmuksNavHost(
                                     RoomPreviewRoute(
                                         roomIdOrAlias = key.roomIdOrAlias,
                                         via = key.via,
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenRoom = { roomId ->
                                             backStack.remove(key)
                                             backStack.openRoom(roomId, LINK_SCOPE, key.eventId)
@@ -389,19 +389,19 @@ fun XmuksNavHost(
                             }
                             entry<PreferencesKey> { key ->
                                 Destination(roomId = key.roomId) {
-                                    PreferencesRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
+                                    PreferencesRoute(roomId = key.roomId, onBack = { backStack.back(key) })
                                 }
                             }
-                            entry<SettingsKey> {
+                            entry<SettingsKey> { key ->
                                 Destination {
-                                    SettingsRoute(onBack = { backStack.removeLastOrNull() })
+                                    SettingsRoute(onBack = { backStack.back(key) })
                                 }
                             }
                             entry<SearchKey> { key ->
                                 Destination(roomId = key.roomId) {
                                     SearchRoute(
                                         roomId = key.roomId,
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenEvent = {
                                             roomId,
                                             eventId,
@@ -415,7 +415,7 @@ fun XmuksNavHost(
                                 Destination(roomId = key.roomId) {
                                     NotificationsRoute(
                                         roomId = key.roomId,
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenEvent = {
                                             roomId,
                                             eventId,
@@ -425,10 +425,10 @@ fun XmuksNavHost(
                                     )
                                 }
                             }
-                            entry<IgnoredUsersKey> {
+                            entry<IgnoredUsersKey> { key ->
                                 Destination {
                                     IgnoredUsersRoute(
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenUser = { backStack.add(UserKey(it)) },
                                     )
                                 }
@@ -437,21 +437,21 @@ fun XmuksNavHost(
                                 Destination(roomId = key.roomId) {
                                     GalleryRoute(
                                         roomId = key.roomId,
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenMedia = { backStack.add(MediaKey(it)) },
                                     )
                                 }
                             }
                             entry<RoomStateKey> { key ->
                                 Destination(roomId = key.roomId) {
-                                    RoomStateRoute(roomId = key.roomId, onBack = { backStack.removeLastOrNull() })
+                                    RoomStateRoute(roomId = key.roomId, onBack = { backStack.back(key) })
                                 }
                             }
                             entry<RoomPowerLevelsKey> { key ->
                                 Destination(roomId = key.roomId) {
                                     RoomPowerLevelsRoute(
                                         roomId = key.roomId,
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                     )
                                 }
@@ -460,7 +460,7 @@ fun XmuksNavHost(
                                 Destination(roomId = key.roomId) {
                                     RoomMembersRoute(
                                         roomId = key.roomId,
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                     )
                                 }
@@ -475,14 +475,14 @@ fun XmuksNavHost(
                                         onOpenIgnoredUsers = { backStack.add(IgnoredUsersKey) },
                                         onOpenPreferences = { backStack.add(PreferencesKey()) },
                                         onOpenSettings = { backStack.add(SettingsKey) },
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                         onOpenMedia = { backStack.add(MediaKey(it)) },
                                     )
                                 }
                             }
                             entry<MediaKey> { key ->
                                 Destination {
-                                    MediaViewerRoute(media = key.media, onBack = { backStack.removeLastOrNull() })
+                                    MediaViewerRoute(media = key.media, onBack = { backStack.back(key) })
                                 }
                             }
                             entry<CallKey> { key ->
@@ -490,7 +490,7 @@ fun XmuksNavHost(
                                     CallRoute(
                                         roomId = key.roomId,
                                         video = key.video,
-                                        onBack = { backStack.removeLastOrNull() },
+                                        onBack = { backStack.back(key) },
                                     )
                                 }
                             }
@@ -513,6 +513,15 @@ private fun Destination(
     CompositionLocalProvider(LocalAnimatedVisibilityScope provides LocalNavAnimatedContentScope.current) {
         RoomColors(roomId, content = content)
     }
+}
+
+/**
+ * A screen's own way back: off the stack, if it's still on top. A second tap while it animates
+ * away (or a key repeat on its back button) would otherwise take the screen under it too — and
+ * from the first one under home, empty the stack, which NavDisplay can't show.
+ */
+private fun NavBackStack<NavKey>.back(key: NavKey) {
+    if (lastOrNull() == key) removeLastOrNull()
 }
 
 /** Opening a room replaces an open one (on large screens the detail pane swaps, not stacks). */
