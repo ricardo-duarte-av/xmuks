@@ -67,8 +67,8 @@ class MainActivity : ComponentActivity() {
                             inbox,
                             images,
                             store.credentials()?.serverUrl,
-                            onOpen = { startActivity(MessageActivity.intent(this, it.message.eventId)) },
-                            onAccount = { startActivity(Intent(this, AccountActivity::class.java)) },
+                            onOpen = { startActivity(MessageActivity.intent(this@MainActivity, it.message.eventId)) },
+                            onAccount = { startActivity(Intent(this@MainActivity, AccountActivity::class.java)) },
                         )
                     } else {
                         AccountScreen(account, onChange = { signedIn = account.signedInAs() != null })
