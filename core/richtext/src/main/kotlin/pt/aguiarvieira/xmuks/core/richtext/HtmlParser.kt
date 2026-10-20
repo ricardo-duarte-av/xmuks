@@ -267,8 +267,9 @@ class HtmlParser(
         val href = el.attr("href")
         val mention = el.classNames().any { it.startsWith("hicli-matrix-uri") }
         if (mention) {
-            // A pill, drawn behind the text (see [drawPills]); narrow no-break spaces inside its ends
-            // give the text room from the pill's rounded edges without letting a line break there.
+            // A pill, drawn behind the text (see [drawPills]); narrow no-break spaces inside its ends,
+            // widened by letter spacing, keep the text clear of the pill's rounded ends without
+            // letting a line break there.
             withAnnotation(PILL_TAG, href) {
                 val pill = SpanStyle(color = colors.mention, fontWeight = FontWeight.SemiBold)
                 withStyle(pill) {
@@ -276,9 +277,9 @@ class HtmlParser(
                     withLink(
                         LinkAnnotation.Url(href, TextLinkStyles(pill.copy(textDecoration = TextDecoration.None)))
                     ) {
-                        ws.verbatim(this, PILL_PAD)
+                        withStyle(PILL_PAD_STYLE) { ws.verbatim(this, PILL_PAD) }
                         children(el)
-                        ws.verbatim(this, PILL_PAD)
+                        withStyle(PILL_PAD_STYLE) { ws.verbatim(this, PILL_PAD) }
                     }
                 }
             }
@@ -387,6 +388,9 @@ class HtmlParser(
 
         /** Inside a pill's ends: a narrow no-break space. */
         internal const val PILL_PAD = "\u202F"
+
+        /** Room added to each [PILL_PAD]: the pill's round ends would otherwise touch its first and last letters. */
+        private val PILL_PAD_STYLE = SpanStyle(letterSpacing = 0.2.em)
 
         /** A sized picture: `pic:<width>x<height>:<mxc>`, in dp. */
         const val PICTURE_PREFIX = "pic:"
