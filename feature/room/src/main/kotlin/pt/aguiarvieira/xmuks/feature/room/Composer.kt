@@ -126,8 +126,11 @@ internal fun ComposerCard(
                         Box {
                             if (state.text.isEmpty()) {
                                 Text(
-                                    network?.let { stringResource(R.string.composer_hint_network, it) }
-                                        ?: stringResource(R.string.composer_hint),
+                                    when {
+                                        mode.editsCaption -> stringResource(R.string.caption_hint)
+                                        network != null -> stringResource(R.string.composer_hint_network, network)
+                                        else -> stringResource(R.string.composer_hint)
+                                    },
                                     style = style,
                                     color = colors.onSurfaceVariant,
                                 )
@@ -149,7 +152,7 @@ internal fun ComposerCard(
                 // Too long for the network: still tappable, so sending can say why.
                 FilledIconButton(
                     onClick = onSend,
-                    enabled = state.text.isNotBlank(),
+                    enabled = state.text.isNotBlank() || mode.editsCaption,
                     modifier = Modifier.alpha(if (over) DISABLED_ALPHA else 1f),
                 ) {
                     Icon(
@@ -200,7 +203,9 @@ private fun ModeBanner(
         )
         Column(Modifier.weight(1f).padding(start = 10.dp)) {
             Text(
-                if (mode is ComposeMode.Edit) {
+                if (mode.editsCaption) {
+                    stringResource(R.string.editing_caption)
+                } else if (mode is ComposeMode.Edit) {
                     stringResource(R.string.editing)
                 } else {
                     stringResource(R.string.replying_to, message.senderName)
@@ -210,6 +215,15 @@ private fun ModeBanner(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (mode.editsCaption) {
+                Text(
+                    summaryOf(message.content),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             (message.content as? MessageContent.Text)?.let { text ->
                 val html = text.html
                 if (html != null && !text.plainText) {

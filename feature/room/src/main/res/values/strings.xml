@@ -52,6 +52,9 @@
     <string name="copy_text">Copy text</string>
     <string name="replying_to">Replying to %1$s</string>
     <string name="editing">Editing message</string>
+    <string name="editing_caption">Editing caption</string>
+    <string name="replace_file">Replace file</string>
+    <string name="replacing_file">Replacing with %1$s</string>
     <string name="cancel_reply">Cancel</string>
     <string name="view_edits">View edits</string>
     <string name="view_deleted">View deleted content</string>

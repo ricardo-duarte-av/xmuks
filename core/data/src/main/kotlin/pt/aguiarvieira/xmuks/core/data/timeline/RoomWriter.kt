@@ -14,6 +14,7 @@ import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
+import pt.aguiarvieira.xmuks.core.protocol.Galleries
 
 /**
  * What an open room sends. Messages and deletions go through the durable [Outbox] (never lost,
@@ -45,6 +46,19 @@ class RoomWriter(
                 JsonObject(params + ("url_previews" to JsonArray(previews.map { it.json })))
             }
         outbox.sendMessage(roomId, bundled)
+    }
+
+    /**
+     * A new [caption] (markdown; blank removes it) for our media message [eventId], whose content
+     * now reads [current]: the same file(s), as an edit.
+     */
+    suspend fun editCaption(
+        eventId: String,
+        current: JsonObject,
+        caption: String,
+    ) {
+        val (base, extra) = captionEdit(current)
+        outbox.sendMessage(roomId, messageParams(roomId, caption, editing = eventId, baseContent = base, extra = extra))
     }
 
     /**
@@ -227,6 +241,29 @@ class RoomWriter(
 }
 
 private const val COMMAND_KEY = "org.matrix.msc4391.command"
+
+/**
+ * What a caption edit sends for media whose content reads [current]: gomuks' content (`body`
+ * taken by the new caption, the file's name kept in `filename`) and, beside it, every key as it
+ * was (gomuks drops those it doesn't know: gallery items, spoiler marks) but the old caption's.
+ */
+internal fun captionEdit(current: JsonObject): Pair<JsonObject, JsonObject> {
+    val kept = JsonObject(current - CAPTION_KEYS)
+    val named =
+        if (current.str("msgtype") in Galleries.msgtypes) {
+            // A gallery's body is only ever its caption.
+            mapOf("body" to JsonPrimitive(""))
+        } else {
+            // Uncaptioned, the body is the file's name.
+            val filename = JsonPrimitive(current.str("filename") ?: current.str("body").orEmpty())
+            mapOf("body" to filename, "filename" to filename)
+        }
+    return JsonObject(kept + named) to kept
+}
+
+/** The old caption, and what belonged to that message only (whom it mentioned, what it answered). */
+private val CAPTION_KEYS =
+    setOf("body", "format", "formatted_body", "m.mentions", "m.relates_to", "m.new_content", "com.beeper.linkpreviews")
 
 /**
  * `send_message`'s parameters: [text] (markdown, or a caption when there's [baseContent]), an edit

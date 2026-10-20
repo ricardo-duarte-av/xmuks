@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -26,10 +27,12 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +65,9 @@ internal class OverlayState {
     /** A message was opened from the pinned list: back returns to the list. */
     var backToPins by mutableStateOf(false)
     var deleting by mutableStateOf<TimelineItem.Message?>(null)
+
+    /** Our message whose file is being replaced: the photo picker is up for it. */
+    var replacing by mutableStateOf<TimelineItem.Message?>(null)
     var picker by mutableStateOf<PickerRequest?>(null)
 
     /** The + sheet is open. */
@@ -226,6 +232,7 @@ private fun ComposerOverlays(
     resolver: MediaResolver,
 ) {
     val launch = rememberAttachLauncher(composer.onPickMedia, composer.onPickMany)
+    ReplacePicker(state, composer)
     if (state.attaching) {
         AttachSheet(
             available = composer.attachments,
@@ -378,6 +385,13 @@ private fun MessageMenuFor(
             composer.onEdit(message)
             state.menuFor = null
         },
+        onReplace =
+            message.takeIf { it.editSource != null && it.content.replaceable }?.let {
+                {
+                    state.replacing = message
+                    state.menuFor = null
+                }
+            },
         onHistory = {
             composer.onShowHistory(message)
             state.menuFor = null
@@ -402,5 +416,41 @@ private fun MessageMenuFor(
         onDismiss = { state.menuFor = null },
     )
 }
+
+/**
+ * The photo picker for a new file to replace [OverlayState.replacing]'s with; what's picked opens
+ * on the send screen, with the message's caption and spoiler mark to keep or change. The target
+ * is kept across the activity being recreated while the picker is up.
+ */
+@Composable
+private fun ReplacePicker(
+    state: OverlayState,
+    composer: ComposerActions,
+) {
+    var eventId by rememberSaveable { mutableStateOf<String?>(null) }
+    var caption by rememberSaveable { mutableStateOf("") }
+    var spoiler by rememberSaveable { mutableStateOf(false) }
+    val picked: (Uri?) -> Unit = { uri ->
+        val id = eventId
+        if (uri != null && id != null) composer.onPickReplacement(uri, Replacing(id, caption, spoiler))
+        eventId = null
+    }
+    // One file replaces one: the first picked.
+    val launch = rememberAttachLauncher(onPick = picked, onPickMany = { picked(it.firstOrNull()) })
+    val message = state.replacing
+    LaunchedEffect(message) {
+        if (message == null) return@LaunchedEffect
+        eventId = message.eventId
+        caption = message.editSource.orEmpty()
+        spoiler = message.content.media?.spoiler == true
+        // Cleared now: a cancelled pick must not keep the next Replace from opening the picker.
+        state.replacing = null
+        launch(Attachment.Gallery)
+    }
+}
+
+/** A picture or video: its file can be replaced by another (pictures and videos only). */
+private val MessageContent.replaceable: Boolean
+    get() = this is MessageContent.Image || this is MessageContent.Video
 
 private const val QUICK_REACTIONS = 6

@@ -5,6 +5,7 @@ import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 
 /**
@@ -55,3 +56,10 @@ class ComposeModes(
         if (previous.isEmpty()) draft.clearText() else draft.setTextAndPlaceCursorAtEnd(previous)
     }
 }
+
+/** An edit of media with a caption the timeline shows: what's written is its new caption (blank removes it). */
+internal val ComposeMode.editsCaption: Boolean
+    get() =
+        (this as? ComposeMode.Edit)?.message?.content.let {
+            it is MessageContent.Image || it is MessageContent.Video || it is MessageContent.Gallery
+        }

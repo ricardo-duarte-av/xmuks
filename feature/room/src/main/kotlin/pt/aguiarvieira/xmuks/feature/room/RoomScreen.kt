@@ -289,6 +289,7 @@ fun RoomRoute(
                         },
                     mediaDraft = mediaDraft,
                     onPickMedia = viewModel.attach::pick,
+                    onPickReplacement = viewModel.attach::pickReplacement,
                     onPickMany = { uris -> onSendFiles(uris.map { it.toString() }) },
                     onSendNow = viewModel.attach::sendNow,
                     onChooseSize = viewModel.attach::choose,
@@ -343,6 +344,8 @@ class ComposerActions(
     /** A picked attachment waiting on its preview screen. */
     val mediaDraft: MediaDraft? = null,
     val onPickMedia: (android.net.Uri) -> Unit = {},
+    /** A new file for one of our messages, to preview and send as its edit. */
+    val onPickReplacement: (android.net.Uri, Replacing) -> Unit = { _, _ -> },
     /** Several picked together: on to the share screen, one caption each. */
     val onPickMany: (List<android.net.Uri>) -> Unit = {},
     /** From the keyboard: straight to the timeline, no preview. */

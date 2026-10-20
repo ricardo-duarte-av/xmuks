@@ -444,8 +444,17 @@ class TimelineItemBuilderTest {
             }
         val plain = ev(sender = "@me:x", content = """{"msgtype":"m.text","body":"hi"}""")
         val theirs = ev(content = """{"msgtype":"m.text","body":"yo"}""")
-        val image = ev(sender = "@me:x", content = """{"msgtype":"m.image","body":"x.png","url":"mxc://x/y"}""")
-        assertEquals(listOf("/me waves", "hi", null, null), build(mine, plain, theirs, image).messages().map { it.editSource })
+        val file = ev(sender = "@me:x", content = """{"msgtype":"m.file","body":"x.pdf","url":"mxc://x/y"}""")
+        assertEquals(listOf("/me waves", "hi", null, null), build(mine, plain, theirs, file).messages().map { it.editSource })
+    }
+
+    @Test
+    fun `our pictures, videos and galleries edit their caption - empty when they have none`() {
+        val bare = ev(sender = "@me:x", content = """{"msgtype":"m.image","body":"x.png","url":"mxc://x/y"}""")
+        val captioned =
+            ev(sender = "@me:x", content = """{"msgtype":"m.video","body":"look","filename":"v.mp4","url":"mxc://x/v"}""")
+        val theirs = ev(content = """{"msgtype":"m.image","body":"hi","filename":"y.png","url":"mxc://x/z"}""")
+        assertEquals(listOf("", "look", null), build(bare, captioned, theirs).messages().map { it.editSource })
     }
 
     @Test

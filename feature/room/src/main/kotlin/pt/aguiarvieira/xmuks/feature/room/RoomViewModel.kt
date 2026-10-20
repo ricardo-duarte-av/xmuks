@@ -49,13 +49,13 @@ import pt.aguiarvieira.xmuks.core.data.timeline.BridgeInfo
 import pt.aguiarvieira.xmuks.core.data.timeline.CodeThemes
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
 import pt.aguiarvieira.xmuks.core.data.timeline.Limit
-import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.PinBarStore
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.Typist
+import pt.aguiarvieira.xmuks.core.data.timeline.currentContent
 import javax.inject.Named
 
 @HiltViewModel(assistedFactory = RoomViewModel.Factory::class)
@@ -292,9 +292,11 @@ class RoomViewModel
         /** Hands the draft to the outbox (it survives the app dying) and clears the field. */
         fun send() {
             val text = draft.text.toString().trim()
-            if (text.isEmpty()) return
-            if (sendCommand(text)) return
             val mode = modes.mode.value
+            // A caption may go: an empty one is an edit too.
+            val captioned = mode.editsCaption
+            if (text.isEmpty() && !captioned) return
+            if (sendCommand(text)) return
             features.value?.limitOf(mode, text)?.let {
                 limited.show(it)
                 return
@@ -312,7 +314,13 @@ class RoomViewModel
                     }
 
                     is ComposeMode.Edit -> {
-                        session.writer.send(outgoing, editing = mode.message.eventId)
+                        val id = mode.message.eventId
+                        val current = if (captioned) timeline.first().currentContent(id) else null
+                        if (current != null) {
+                            session.writer.editCaption(id, current, outgoing)
+                        } else {
+                            session.writer.send(outgoing, editing = id)
+                        }
                     }
                 }
             }

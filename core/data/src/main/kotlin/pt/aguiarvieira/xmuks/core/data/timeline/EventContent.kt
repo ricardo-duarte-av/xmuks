@@ -112,18 +112,35 @@ internal fun Event.sendState(): SendState =
         else -> SendState.Sent
     }
 
-/** Our own editable (text) messages: gomuks' edit source, else the body. Null for anything else. */
+/**
+ * Our own editable messages: gomuks' edit source, else the body (text) or the caption, empty when
+ * there's none (pictures, videos, galleries). Null for anything else.
+ */
 internal fun TimelineItemBuilder.editSourceOf(
     event: Event,
     local: LocalContent?,
     content: JsonObject,
 ): String? {
     if (event.sender != me || event.redactedBy != null) return null
-    if (content.str("msgtype") !in EDITABLE_MSGTYPES) return null
-    return local?.editSource ?: content.str("body")
+    return when (content.str("msgtype")) {
+        in EDITABLE_MSGTYPES -> local?.editSource ?: content.str("body")
+        in CAPTIONED_MSGTYPES -> local?.editSource ?: caption(content).orEmpty()
+        in Galleries.msgtypes -> local?.editSource ?: content.str("body").orEmpty()
+        else -> null
+    }
 }
 
 private val EDITABLE_MSGTYPES = setOf("m.text", "m.notice", "m.emote")
+
+/** Media whose caption the timeline shows, so it can be edited. */
+private val CAPTIONED_MSGTYPES = setOf("m.image", "m.video")
+
+/** [eventId]'s content as it now reads: its latest edit's, else its own. Null when it isn't held. */
+fun TimelineSnapshot.currentContent(eventId: String): JsonObject? {
+    val event = eventsByRowId.values.firstOrNull { it.eventId == eventId } ?: return null
+    val edit = event.lastEditRowId?.let(eventsByRowId::get)
+    return edit?.effectiveContent?.obj("m.new_content") ?: event.effectiveContent
+}
 
 internal fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
 

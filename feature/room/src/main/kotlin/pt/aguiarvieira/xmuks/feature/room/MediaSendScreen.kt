@@ -88,8 +88,8 @@ private fun MediaSendContent(
     network: String?,
     onLimit: (Limit) -> Unit,
 ) {
-    val caption = rememberTextFieldState()
-    var spoiler by rememberSaveable { mutableStateOf(false) }
+    val caption = rememberTextFieldState(draft.replacing?.caption.orEmpty())
+    var spoiler by rememberSaveable { mutableStateOf(draft.replacing?.spoiler == true) }
     Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
         Column(
             Modifier
@@ -103,7 +103,13 @@ private fun MediaSendContent(
                     Icon(painterResource(R.drawable.ic_close), stringResource(R.string.cancel), tint = Color.White)
                 }
                 Text(
-                    draft.file.name,
+                    if (draft.replacing !=
+                        null
+                    ) {
+                        stringResource(R.string.replacing_file, draft.file.name)
+                    } else {
+                        draft.file.name
+                    },
                     color = Color.White,
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,

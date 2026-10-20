@@ -76,6 +76,8 @@ class MediaSender(
         val job: Job? = null,
         /** Order of sending: messages go out in it, however their uploads race. */
         val seq: Long = 0,
+        /** Our message whose file this replaces (an edit), if any. */
+        val editing: String? = null,
     )
 
     private val sequence = AtomicLong()
@@ -98,6 +100,8 @@ class MediaSender(
         replyTo: ReplyTarget?,
         encrypt: Boolean,
         spoiler: Boolean = false,
+        /** Our message whose file this replaces: sent as its edit. */
+        editing: String? = null,
     ) {
         val part = partOf(media)
         val shown =
@@ -113,7 +117,9 @@ class MediaSender(
                 height = part.height,
                 blurhash = part.blurhash,
             )
-        start(Upload(shown, listOf(media), replyTo, encrypt, spoiler, seq = sequence.incrementAndGet()))
+        start(
+            Upload(shown, listOf(media), replyTo, encrypt, spoiler, seq = sequence.incrementAndGet(), editing = editing)
+        )
     }
 
     /** Several files as one MSC4274 gallery message with one [caption]. */
@@ -190,7 +196,8 @@ class MediaSender(
                 upload.encrypt,
                 upload.spoiler,
                 job,
-                upload.seq
+                upload.seq,
+                upload.editing,
             )
         uploads.update { it + (id to restarted) }
         job.start()
@@ -218,6 +225,7 @@ class MediaSender(
                     roomId,
                     upload.shown.caption,
                     upload.replyTo,
+                    editing = upload.editing,
                     baseContent = contents.single(),
                     extra = extraContent(upload.spoiler),
                 )
@@ -279,7 +287,8 @@ class MediaSender(
                             upload.encrypt,
                             upload.spoiler,
                             upload.job,
-                            upload.seq
+                            upload.seq,
+                            upload.editing,
                         )
                 )
         }

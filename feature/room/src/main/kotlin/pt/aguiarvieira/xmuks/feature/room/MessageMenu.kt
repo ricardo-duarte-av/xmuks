@@ -60,6 +60,8 @@ internal fun MessageMenu(
     onPin: () -> Unit = {},
     /** Ending our poll; null when it isn't one we can end. */
     onEndPoll: (() -> Unit)? = null,
+    /** A new file for our picture or video; null when it isn't one. */
+    onReplace: (() -> Unit)? = null,
 ) {
     @Suppress("DEPRECATION") // The suspend Clipboard API needs ClipEntry plumbing for plain text.
     val clipboard = LocalClipboardManager.current
@@ -68,7 +70,7 @@ internal fun MessageMenu(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
             if (sent) QuickReactions(quickReactions, onReact, onMoreReactions, limits)
-            if (sent) SentItems(message, onReply, onEdit, onHistory, onReactions, limits)
+            if (sent) SentItems(message, onReply, onEdit, onReplace, onHistory, onReactions, limits)
             if (sent) ThreadAndPin(onThread, pinned, onPin, limits)
             if (sent && onEndPoll != null) Item(R.drawable.ic_poll, R.string.poll_end, onEndPoll)
             if (onSave != null && message.uploadProgress == null) Item(R.drawable.ic_download, R.string.save, onSave)
@@ -107,18 +109,23 @@ private fun ThreadAndPin(
     }
 }
 
-/** What only a sent message offers: reply, edit (ours), its edits, what a deletion removed, who reacted. */
+/**
+ * What only a sent message offers: reply, edit and replace its file (ours), its edits, what a
+ * deletion removed, who reacted.
+ */
 @Composable
 private fun SentItems(
     message: TimelineItem.Message,
     onReply: () -> Unit,
     onEdit: () -> Unit,
+    onReplace: (() -> Unit)?,
     onHistory: () -> Unit,
     onReactions: () -> Unit,
     limits: MenuLimits,
 ) {
     Item(R.drawable.ic_reply, R.string.reply, limits.reply, limits.onLimit, onReply)
     if (message.editSource != null) Item(R.drawable.ic_edit, R.string.edit, limits.edit, limits.onLimit, onEdit)
+    if (onReplace != null) Item(R.drawable.ic_replace, R.string.replace_file, limits.edit, limits.onLimit, onReplace)
     if (message.edited) Item(R.drawable.ic_history, R.string.view_edits) { onHistory() }
     if (message.content == MessageContent.Redacted) Item(R.drawable.ic_history, R.string.view_deleted) { onHistory() }
     if (message.reactions.isNotEmpty()) Item(R.drawable.ic_add_reaction, R.string.view_reactions, onReactions)

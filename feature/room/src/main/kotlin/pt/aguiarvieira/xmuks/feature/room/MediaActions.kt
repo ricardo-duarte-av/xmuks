@@ -44,10 +44,19 @@ data class MediaDraft(
     val captionDropped: Boolean = false,
     /** The longest caption the network shows. */
     val maxCaption: Int? = null,
+    /** It replaces the file of one of our messages, rather than going as a new one. */
+    val replacing: Replacing? = null,
 ) {
     /** What stops it reaching the network at all, if anything. */
     val blocked: MediaIssue? get() = issues.firstOrNull { it.blocks }
 }
+
+/** Our message whose file a picked one replaces: its caption and spoiler mark carry over, to change. */
+data class Replacing(
+    val eventId: String,
+    val caption: String,
+    val spoiler: Boolean,
+)
 
 /**
  * The preview-and-send step for attachments: [pick] opens it, sizes are worked out (images, in
@@ -76,11 +85,22 @@ class MediaActions(
     private val resized = HashMap<ImageSize, File>()
     private var sizing: Job? = null
 
-    fun pick(uri: Uri) {
+    fun pick(uri: Uri) = open(uri, replacing = null)
+
+    /** A new file for one of our messages: always previewed, so what replaces it can be seen first. */
+    fun pickReplacement(
+        uri: Uri,
+        replacing: Replacing,
+    ) = open(uri, replacing)
+
+    private fun open(
+        uri: Uri,
+        replacing: Replacing?,
+    ) {
         cancel()
         scope.launch {
             val file = preparer.inspect(uri)
-            if (!showDialog()) {
+            if (replacing == null && !showDialog()) {
                 sendAsPicked(file)
                 return@launch
             }
@@ -90,7 +110,7 @@ class MediaActions(
                     MediaKind.Video -> preparer.videoPreview(file)
                     else -> null
                 }
-            _draft.value = withIssues(MediaDraft(file, preview))
+            _draft.value = withIssues(MediaDraft(file, preview, replacing = replacing))
             if (preparer.resizable(file)) offerSizes(file)
         }
     }
@@ -159,11 +179,21 @@ class MediaActions(
                 val file = if (size == ImageSize.Original) null else resized[size] ?: preparer.resized(draft.file, size)
                 preparer.prepare(draft.file, file)
             }.onSuccess { prepared ->
-                sender.send(roomId, prepared, caption.trim(), replyTo(), encrypted(), spoiler)
+                val editing = draft.replacing?.eventId
+                // An edit answers nothing new: the reply being written stays for the next message.
+                sender.send(
+                    roomId,
+                    prepared,
+                    caption.trim(),
+                    if (editing == null) replyTo() else null,
+                    encrypted(),
+                    spoiler,
+                    editing,
+                )
                 sizing?.cancel()
                 resized.clear()
                 _draft.value = null
-                onSent()
+                if (editing == null) onSent()
             }.onFailure { e ->
                 _draft.update { it?.copy(sending = false, error = e.message ?: e.javaClass.simpleName) }
             }
