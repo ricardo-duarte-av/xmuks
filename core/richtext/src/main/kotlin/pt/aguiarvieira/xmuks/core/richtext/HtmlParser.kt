@@ -12,6 +12,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.withAnnotation
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
@@ -268,8 +269,8 @@ class HtmlParser(
         val mention = el.classNames().any { it.startsWith("hicli-matrix-uri") }
         if (mention) {
             // A pill, drawn behind the text (see [drawPills]); narrow no-break spaces inside its ends,
-            // widened by letter spacing, keep the text clear of the pill's rounded ends without
-            // letting a line break there.
+            // stretched wider, keep the text clear of the pill's rounded ends without letting a line
+            // break there.
             withAnnotation(PILL_TAG, href) {
                 val pill = SpanStyle(color = colors.mention, fontWeight = FontWeight.SemiBold)
                 withStyle(pill) {
@@ -390,10 +391,13 @@ class HtmlParser(
         internal const val PILL_PAD = "\u202F"
 
         /**
-         * Room added to each [PILL_PAD]: the pill's rounded ends would otherwise touch its first and
-         * last letters (tall and deep ones most, where the ends curve in).
+         * Each [PILL_PAD] stretched to about 0.4 em: the pill's rounded ends would otherwise touch its
+         * first and last letters (tall and deep ones most, where the ends curve in). Stretched, not
+         * letter-spaced: Android drops half a character's letter spacing at a line's start and where a
+         * position is measured, so a pill starting a line or ending anywhere lost half its room on
+         * that side.
          */
-        private val PILL_PAD_STYLE = SpanStyle(letterSpacing = 0.3.em)
+        private val PILL_PAD_STYLE = SpanStyle(textGeometricTransform = TextGeometricTransform(scaleX = 3.7f))
 
         /** A sized picture: `pic:<width>x<height>:<mxc>`, in dp. */
         const val PICTURE_PREFIX = "pic:"
