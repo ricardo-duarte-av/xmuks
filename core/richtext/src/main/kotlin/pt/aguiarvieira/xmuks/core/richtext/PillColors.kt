@@ -49,7 +49,7 @@ fun rememberPills(text: AnnotatedString): Pills {
 internal fun pillRanges(text: AnnotatedString): List<AnnotatedString.Range<String>> =
     text.getStringAnnotations(HtmlParser.PILL_TAG, 0, text.length)
 
-/** Each pill in [pills] as a fully rounded shape behind its text, one per line it runs across. */
+/** Each pill in [pills] as a rounded shape behind its text, one per line it runs across. */
 internal fun DrawScope.drawPills(
     layout: TextLayoutResult,
     pills: List<AnnotatedString.Range<String>>,
@@ -86,8 +86,15 @@ private fun DrawScope.drawPillLine(
     if (right <= left) return
     val top = layout.getLineTop(line) + inset
     val height = layout.getLineBottom(line) - inset - top
-    drawRoundRect(color, Offset(left, top), Size(right - left, height), CornerRadius(height / 2))
+    drawRoundRect(color, Offset(left, top), Size(right - left, height), CornerRadius(height * PILL_ROUNDING))
 }
 
 /** Taken off the line's top and bottom, as a fraction of the font size: pills on adjacent lines don't touch. */
 private const val PILL_INSET = 0.08f
+
+/**
+ * The ends' corner radius, as a fraction of the pill's height: short of fully round (0.5), whose ends
+ * curve in so far that ascenders, dots and descenders (`i`, `p`, `j`) at a pill's end reached its
+ * edge while round letters kept their distance, so pills looked lopsided depending on their text.
+ */
+private const val PILL_ROUNDING = 0.38f

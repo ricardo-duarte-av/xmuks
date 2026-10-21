@@ -389,8 +389,11 @@ class HtmlParser(
         /** Inside a pill's ends: a narrow no-break space. */
         internal const val PILL_PAD = "\u202F"
 
-        /** Room added to each [PILL_PAD]: the pill's round ends would otherwise touch its first and last letters. */
-        private val PILL_PAD_STYLE = SpanStyle(letterSpacing = 0.2.em)
+        /**
+         * Room added to each [PILL_PAD]: the pill's rounded ends would otherwise touch its first and
+         * last letters (tall and deep ones most, where the ends curve in).
+         */
+        private val PILL_PAD_STYLE = SpanStyle(letterSpacing = 0.3.em)
 
         /** A sized picture: `pic:<width>x<height>:<mxc>`, in dp. */
         const val PICTURE_PREFIX = "pic:"
