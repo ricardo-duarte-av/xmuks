@@ -336,21 +336,26 @@ private fun MessageMenuFor(
 ) {
     val features = composer.features
     val now = System.currentTimeMillis()
+    val onLimit = { limit: Limit ->
+        state.menuFor = null
+        composer.onLimit(limit)
+    }
     MessageMenu(
         message,
         limits =
-            MenuLimits(
-                edit = features?.editBlock(message.timestamp, now),
-                delete = features?.deleteBlock(message.timestamp, now),
-                reply = features?.replyBlock(),
-                thread = features?.threadBlock(),
-                reaction = { key -> features?.reactionBlock(key, custom = false) },
-                moreReactions = features?.takeUnless { it.reaction.works }?.let { Limit.Unsupported(Action.React) },
-                onLimit = { limit ->
-                    state.menuFor = null
-                    composer.onLimit(limit)
-                },
-            ),
+            if (composer.readOnly) {
+                MenuLimits.preview(onLimit)
+            } else {
+                MenuLimits(
+                    edit = features?.editBlock(message.timestamp, now),
+                    delete = features?.deleteBlock(message.timestamp, now),
+                    reply = features?.replyBlock(),
+                    thread = features?.threadBlock(),
+                    reaction = { key -> features?.reactionBlock(key, custom = false) },
+                    moreReactions = features?.takeUnless { it.reaction.works }?.let { Limit.Unsupported(Action.React) },
+                    onLimit = onLimit,
+                )
+            },
         pinned = if (pins.pins.canPin) message.eventId in pins.pins.eventIds else null,
         onPin = {
             pins.onToggle(message.eventId)

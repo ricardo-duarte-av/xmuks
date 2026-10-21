@@ -103,6 +103,9 @@ sealed interface Limit {
     data class Media(
         val issue: MediaIssue,
     ) : Limit
+
+    /** Not the network: the room is only being previewed, and nothing is sent from a preview. */
+    data object Preview : Limit
 }
 
 /** What a network would make of a file about to be sent. */

@@ -72,7 +72,9 @@ internal fun MessageMenu(
             if (sent) QuickReactions(quickReactions, onReact, onMoreReactions, limits)
             if (sent) SentItems(message, onReply, onEdit, onReplace, onHistory, onReactions, limits)
             if (sent) ThreadAndPin(onThread, pinned, onPin, limits)
-            if (sent && onEndPoll != null) Item(R.drawable.ic_poll, R.string.poll_end, onEndPoll)
+            if (sent && onEndPoll != null) {
+                Item(R.drawable.ic_poll, R.string.poll_end, limits.write, limits.onLimit, onEndPoll)
+            }
             if (onSave != null && message.uploadProgress == null) Item(R.drawable.ic_download, R.string.save, onSave)
             if (text != null) {
                 Item(R.drawable.ic_copy, R.string.copy_text) {
@@ -83,7 +85,7 @@ internal fun MessageMenu(
             if (sent && message.fromMe && message.content != MessageContent.Redacted) {
                 // Past the network's window it still goes here: said so, not dimmed.
                 val label = if (limits.delete != null) R.string.delete_matrix_only else R.string.delete
-                Item(R.drawable.ic_delete, label) { onDelete() }
+                Item(R.drawable.ic_delete, label, limits.write, limits.onLimit) { onDelete() }
             }
         }
     }
@@ -104,7 +106,9 @@ private fun ThreadAndPin(
         Item(
             if (pinned) R.drawable.ic_pin_off else R.drawable.ic_pin,
             if (pinned) R.string.unpin else R.string.pin,
-            onPin
+            limits.write,
+            limits.onLimit,
+            onPin,
         )
     }
 }

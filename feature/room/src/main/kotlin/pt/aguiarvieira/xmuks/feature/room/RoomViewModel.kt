@@ -65,6 +65,8 @@ class RoomViewModel
         @Assisted("room") val roomId: String,
         /** One of the room's threads, shown instead of its main timeline. */
         @Assisted("thread") val threadRoot: String?,
+        /** Only looking: nothing is marked read, and the room's notifications are left as they are. */
+        @Assisted("preview") val preview: Boolean,
         rooms: RoomListRepository,
         private val sessions: RoomSessions,
         drafts: DraftStore,
@@ -90,6 +92,7 @@ class RoomViewModel
             fun create(
                 @Assisted("room") roomId: String,
                 @Assisted("thread") threadRoot: String?,
+                @Assisted("preview") preview: Boolean,
             ): RoomViewModel
         }
 
@@ -366,7 +369,7 @@ class RoomViewModel
 
         /** The newest message was on screen: mark the room read up to it (once per event). */
         fun markRead(eventId: String) {
-            if (thread != null || eventId == lastMarked) return
+            if (preview || thread != null || eventId == lastMarked) return
             lastMarked = eventId
             viewModelScope.launch { session.writer.markRead(eventId) }
         }
@@ -440,6 +443,8 @@ class RoomViewModel
 
         /** On screen (the app in front) or not: while it is, its messages don't notify, and its notification goes. */
         fun onScreen(shown: Boolean) {
+            // A preview isn't the room being read: it neither silences nor clears anything.
+            if (preview) return
             this.shown = shown
             if (shown) openRoom.opened(roomId) else openRoom.closed(roomId)
         }

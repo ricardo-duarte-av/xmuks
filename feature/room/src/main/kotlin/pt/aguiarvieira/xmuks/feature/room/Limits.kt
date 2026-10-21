@@ -45,6 +45,10 @@ internal fun limitText(
             is Limit.Media -> {
                 mediaText(context, limit.issue, name)
             }
+
+            Limit.Preview -> {
+                context.getString(R.string.preview_read_only)
+            }
         }
     return text.replaceFirstChar { it.uppercase() }
 }

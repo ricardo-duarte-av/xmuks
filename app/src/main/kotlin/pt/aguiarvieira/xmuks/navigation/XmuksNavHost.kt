@@ -80,12 +80,15 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
     val roomId: String,
     val scope: String,
     val eventId: String? = null,
+    /** Only looking: read-only, and nothing is marked read (the room list's Preview). */
+    val preview: Boolean = false,
 ) : NavKey
 
-/** One of a room's threads, from its root. */
+/** One of a room's threads, from its root; [preview] when opened from a previewed room. */
 @Serializable data class ThreadKey(
     val roomId: String,
     val rootId: String,
+    val preview: Boolean = false,
 ) : NavKey
 
 /** Anyone's profile; our own is where it's edited, and where the account lives. */
@@ -281,6 +284,7 @@ fun XmuksNavHost(
                                 Destination {
                                     HomeRoute(
                                         onOpenRoom = backStack::openRoom,
+                                        onPreviewRoom = backStack::previewRoom,
                                         onOpenSpace = { backStack.add(SpaceKey(it)) },
                                         onOpenProfile = { backStack.add(UserKey(it)) },
                                         onOpenNotifications = { backStack.add(NotificationsKey()) },
@@ -295,6 +299,7 @@ fun XmuksNavHost(
                                         spaceId = key.spaceId,
                                         onBack = { backStack.back(key) },
                                         onOpenRoom = backStack::openRoom,
+                                        onPreviewRoom = backStack::previewRoom,
                                     )
                                 }
                             }
@@ -313,7 +318,11 @@ fun XmuksNavHost(
                                         onMentions = { backStack.add(NotificationsKey(key.roomId)) },
                                         onCall = { video -> backStack.add(CallKey(key.roomId, video)) },
                                         onSendFiles = { uris -> backStack.add(ShareKey(uris, null, key.roomId)) },
-                                        onOpenThread = { root -> backStack.add(ThreadKey(key.roomId, root)) },
+                                        onOpenThread = { root ->
+                                            backStack.add(ThreadKey(key.roomId, root, key.preview))
+                                        },
+                                        preview = key.preview,
+                                        onOpenFully = { backStack.openRoom(key.roomId, key.scope) },
                                     )
                                 }
                             }
@@ -329,6 +338,8 @@ fun XmuksNavHost(
                                         onOpenUser = { backStack.add(UserKey(it, key.roomId)) },
                                         onOpenRoomInfo = { backStack.add(RoomInfoKey(key.roomId)) },
                                         onSearch = { backStack.add(SearchKey(key.roomId)) },
+                                        preview = key.preview,
+                                        onOpenFully = { backStack.reopen(key, key.copy(preview = false)) },
                                     )
                                 }
                             }
@@ -529,9 +540,26 @@ private fun NavBackStack<NavKey>.openRoom(
     roomId: String,
     scope: String,
     eventId: String? = null,
+    preview: Boolean = false,
 ) {
     if (lastOrNull() is RoomKey) removeAt(lastIndex)
-    add(RoomKey(roomId, scope, eventId))
+    add(RoomKey(roomId, scope, eventId, preview))
+}
+
+/** A room shown read-only, not marked read, in place of an open one as [openRoom] does. */
+private fun NavBackStack<NavKey>.previewRoom(
+    roomId: String,
+    scope: String,
+) = openRoom(roomId, scope, preview = true)
+
+/** [key], still on top, swapped for [with] (a previewed thread opened for real). */
+private fun NavBackStack<NavKey>.reopen(
+    key: NavKey,
+    with: NavKey,
+) {
+    if (lastOrNull() != key) return
+    removeAt(lastIndex)
+    add(with)
 }
 
 /** After leaving a room: its screens go, back to the list it was opened from. */

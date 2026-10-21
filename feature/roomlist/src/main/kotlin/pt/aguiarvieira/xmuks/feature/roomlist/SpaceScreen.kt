@@ -45,6 +45,8 @@ fun SpaceRoute(
     onBack: () -> Unit,
     onOpenRoom: (roomId: String, scope: String) -> Unit,
     modifier: Modifier = Modifier,
+    /** Shows a room read-only, without marking it read (its long-press menu). */
+    onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
     viewModel: SpaceViewModel =
         hiltViewModel<SpaceViewModel, SpaceViewModel.Factory>(key = spaceId) { it.create(spaceId) },
 ) {
@@ -64,6 +66,7 @@ fun SpaceRoute(
             onBack = onBack,
             onOpenRoom = onOpenRoom,
             modifier = modifier,
+            onPreviewRoom = onPreviewRoom,
         )
     }
 }
@@ -81,6 +84,7 @@ fun SpaceScreen(
     onOpenRoom: (roomId: String, scope: String) -> Unit,
     modifier: Modifier = Modifier,
     now: Long = rememberNow(),
+    onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
 ) {
     // Two cards on a tinted ground, like the room and home: header (with subspace chips), rooms.
     Scaffold(
@@ -131,7 +135,14 @@ fun SpaceScreen(
                 .padding(padding)
                 .fillMaxSize(),
         ) {
-            RoomList(rooms, now, R.string.empty_space, SharedScopes.space(spaceId), onOpenRoom)
+            RoomList(
+                rooms,
+                now,
+                R.string.empty_space,
+                SharedScopes.space(spaceId),
+                onOpenRoom,
+                onPreviewRoom = onPreviewRoom,
+            )
         }
     }
 }

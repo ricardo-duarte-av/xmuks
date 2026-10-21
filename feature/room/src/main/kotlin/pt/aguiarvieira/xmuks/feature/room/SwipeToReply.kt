@@ -29,6 +29,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import kotlin.math.roundToInt
 
@@ -90,9 +91,12 @@ internal fun SwipeToReply(
     }
 }
 
-/** A swipe's reply: the composer answers [message], unless the bridged network takes no replies (then it says so). */
+/**
+ * A swipe's reply: the composer answers [message], unless the bridged network takes no replies or
+ * this is a preview (then it says so).
+ */
 internal fun ComposerActions.replyOrSayWhy(message: TimelineItem.Message) {
-    val block = features?.replyBlock()
+    val block = if (readOnly) Limit.Preview else features?.replyBlock()
     if (block != null) onLimit(block) else onReply(message)
 }
 

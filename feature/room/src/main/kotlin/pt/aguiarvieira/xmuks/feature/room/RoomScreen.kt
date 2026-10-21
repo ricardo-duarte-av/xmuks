@@ -126,9 +126,15 @@ fun RoomRoute(
     threadRoot: String? = null,
     /** Opens a thread, from its root. */
     onOpenThread: (rootId: String) -> Unit = {},
+    /** Only looking (from the room list): read-only, and nothing is marked read. */
+    preview: Boolean = false,
+    /** From a preview: the room (or thread) opened for real. */
+    onOpenFully: () -> Unit = {},
     viewModel: RoomViewModel =
-        hiltViewModel<RoomViewModel, RoomViewModel.Factory>(key = roomId + threadRoot.orEmpty()) {
-            it.create(roomId, threadRoot)
+        hiltViewModel<RoomViewModel, RoomViewModel.Factory>(
+            key = roomId + threadRoot.orEmpty() + if (preview) ":preview" else "",
+        ) {
+            it.create(roomId, threadRoot, preview)
         },
 ) {
     val room by viewModel.room.collectAsStateWithLifecycle()
@@ -219,14 +225,17 @@ fun RoomRoute(
             onCall =
                 onCall.takeIf { threadRoot == null && bridge == null }?.let { start ->
                     { video: Boolean ->
-                        if (canCall) {
+                        if (preview) {
+                            // Joining writes our call membership into the room: not from a preview.
+                            viewModel.limited.show(Limit.Preview)
+                        } else if (canCall) {
                             start(video)
                         } else {
                             Toast.makeText(androidContext, R.string.call_not_allowed, Toast.LENGTH_LONG).show()
                         }
                     }
                 },
-            callAllowed = canCall,
+            callAllowed = canCall && !preview,
             call = call,
             callNotifyRoom = prefs.get(Prefs.callNotifyRoom),
             onCallNotifyRoom = viewModel.setCallNotifyRoom,
@@ -239,7 +248,7 @@ fun RoomRoute(
                 PinsUi(
                     pins,
                     pinnedItems,
-                    viewModel.pins::toggle,
+                    { id -> if (preview) viewModel.limited.show(Limit.Preview) else viewModel.pins.toggle(id) },
                     viewModel.pins::load,
                     pinBarShown,
                     viewModel.pins::closeBar,
@@ -309,7 +318,9 @@ fun RoomRoute(
                     features = features,
                     network = bridge?.protocol,
                     onLimit = viewModel.limited::show,
+                    readOnly = preview,
                 ),
+            onOpenFully = onOpenFully.takeIf { preview },
             modifier = modifier,
         )
     }
@@ -365,7 +376,15 @@ class ComposerActions(
     val network: String? = null,
     /** Something dimmed was tapped: say why. */
     val onLimit: (Limit) -> Unit = {},
-)
+    /** A preview: there's no composer, and all that would send is dimmed ([Limit.Preview]). */
+    val readOnly: Boolean = false,
+) {
+    /** [action], unless this is a preview: then it says why it can't. */
+    fun <A, B> unlessReadOnly(action: (A, B) -> Unit): (A, B) -> Unit {
+        if (!readOnly) return action
+        return { _, _ -> onLimit(Limit.Preview) }
+    }
+}
 
 /** What the emoji/sticker pickers show, and what picking does. */
 class EmojiState(
@@ -438,6 +457,8 @@ fun RoomScreen(
     pins: PinsUi = PinsUi(),
     /** What the room is bridged to: the composer and header say so. */
     bridge: BridgeInfo? = null,
+    /** Set in a preview: opening the room for real, from the bar that stands in for the composer. */
+    onOpenFully: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val overlays = remember { OverlayState() }
@@ -469,9 +490,9 @@ fun RoomScreen(
                 player = player,
                 onUnsent = { overlays.unsent = it },
                 onMessageMenu = { overlays.menuFor = it },
-                onReaction = composer.emoji.onToggle,
+                onReaction = composer.unlessReadOnly(composer.emoji.onToggle),
                 showReactions = composer.onShowReactions,
-                onVote = composer.polls.onVote,
+                onVote = composer.unlessReadOnly(composer.polls.onVote),
                 jumpTo = { eventId ->
                     val index = shown?.indexOfEvent(eventId) ?: -1
                     if (index >= 0) {
@@ -553,29 +574,33 @@ fun RoomScreen(
             }
         },
         bottomBar = {
-            ComposerArea(overlays, composer, resolver) {
-                ComposerCard(
-                    composer.draft,
-                    composer.mode,
-                    {
-                        followNext.requested = true
-                        composer.onSend()
-                    },
-                    composer.onCancelMode,
-                    commands = composer.commands,
-                    onEmoji = { openPanel(overlays, PickerMode.Emoji, keyboard, focus) },
-                    onAttach = { overlays.attaching = true },
-                    onFocus = { if (overlays.picker?.reactTo == null) overlays.picker = null },
-                    personas = composer.personas,
-                    avatarUrl = resolver.avatar,
-                    onChoosePersona = composer.onChoosePersona,
-                    onOpenPersonas = { overlays.choosingPersona = true },
-                    previews = composer.linkPreviews,
-                    network = bridge?.protocol,
-                    mentions = composer.mentions,
-                    onSendMedia = composer.onSendNow,
-                    maxLength = composer.features?.maxTextLength,
-                )
+            if (onOpenFully != null) {
+                PreviewBar(onOpenFully)
+            } else {
+                ComposerArea(overlays, composer, resolver) {
+                    ComposerCard(
+                        composer.draft,
+                        composer.mode,
+                        {
+                            followNext.requested = true
+                            composer.onSend()
+                        },
+                        composer.onCancelMode,
+                        commands = composer.commands,
+                        onEmoji = { openPanel(overlays, PickerMode.Emoji, keyboard, focus) },
+                        onAttach = { overlays.attaching = true },
+                        onFocus = { if (overlays.picker?.reactTo == null) overlays.picker = null },
+                        personas = composer.personas,
+                        avatarUrl = resolver.avatar,
+                        onChoosePersona = composer.onChoosePersona,
+                        onOpenPersonas = { overlays.choosingPersona = true },
+                        previews = composer.linkPreviews,
+                        network = bridge?.protocol,
+                        mentions = composer.mentions,
+                        onSendMedia = composer.onSendNow,
+                        maxLength = composer.features?.maxTextLength,
+                    )
+                }
             }
         },
     ) { padding ->

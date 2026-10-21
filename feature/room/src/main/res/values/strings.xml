@@ -246,6 +246,9 @@
     <string name="limit_poll_unsupported">%1$s doesn\'t support polls</string>
     <string name="limit_location_unsupported">%1$s doesn\'t support locations</string>
     <string name="limit_reaction_not_allowed">%1$s doesn\'t allow this reaction</string>
+    <string name="preview_read_only">Open the room to do this: a preview sends nothing</string>
+    <string name="preview_banner">Preview · not marked as read</string>
+    <string name="preview_open_room">Open room</string>
     <string name="limit_text_too_long">%1$s takes messages of up to %2$d characters</string>
     <string name="limit_too_many_options">%1$s takes polls of up to %2$d options</string>
     <string name="limit_media_kind">%1$s doesn\'t take this kind of file</string>

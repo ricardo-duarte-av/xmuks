@@ -27,12 +27,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomMenuState
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 
-/** A room's long-press menu in the room list: its tags and mute as switches, then mark read and a shortcut. */
+/**
+ * A room's long-press menu in the room list: a read-only preview, its tags and mute as switches,
+ * then mark read and a shortcut.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun RoomMenuSheet(
     room: RoomSummary,
     viewModel: RoomMenuViewModel = hiltViewModel(),
+    /** Shows the room without marking it read. */
+    onPreview: () -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -48,6 +53,10 @@ internal fun RoomMenuSheet(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
+            Action(R.drawable.ic_visibility, R.string.room_menu_preview) {
+                onPreview()
+                onDismiss()
+            }
             Toggle(R.drawable.ic_star, R.string.room_menu_favourite, state.favourite) {
                 viewModel.setFavourite(room.roomId, it)
             }

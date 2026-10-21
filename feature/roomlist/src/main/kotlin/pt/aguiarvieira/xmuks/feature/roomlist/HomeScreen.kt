@@ -84,6 +84,8 @@ fun HomeRoute(
     onOpenNotifications: () -> Unit = {},
     onSearchMessages: () -> Unit = {},
     onOpenInvite: (roomId: String) -> Unit = {},
+    /** Shows a room read-only, without marking it read (its long-press menu). */
+    onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     var tab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
@@ -121,6 +123,7 @@ fun HomeRoute(
             onSearchMessages = onSearchMessages,
             search = viewModel.search,
             onOpenInvite = onOpenInvite,
+            onPreviewRoom = onPreviewRoom,
         )
     }
 }
@@ -154,6 +157,7 @@ fun HomeScreen(
     onOpenNotifications: () -> Unit = {},
     onSearchMessages: () -> Unit = {},
     onOpenInvite: (roomId: String) -> Unit = {},
+    onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
 ) {
     // The header (with the tab's filter in it, as a search app bar) and the tab bar on the tinted
     // ground, edge to edge; the tab's content between, on the surface. The room's header matches.
@@ -248,6 +252,7 @@ fun HomeScreen(
                                     onOpenRoom,
                                     invites = state.invites.filterUnless(searching) { !it.isSpace },
                                     onOpenInvite = onOpenInvite,
+                                    onPreviewRoom = onPreviewRoom,
                                 )
                             }
 
@@ -260,6 +265,7 @@ fun HomeScreen(
                                     onOpenRoom,
                                     invites = state.invites.filterUnless(searching) { it.isDirect && !it.isSpace },
                                     onOpenInvite = onOpenInvite,
+                                    onPreviewRoom = onPreviewRoom,
                                 )
                             }
 
@@ -406,6 +412,8 @@ internal fun RoomList(
     /** Waiting for an answer: listed above the rooms. */
     invites: List<InviteRow> = emptyList(),
     onOpenInvite: (roomId: String) -> Unit = {},
+    /** Shows a room read-only, from its long-press menu. */
+    onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
 ) {
     when {
         rooms == null -> {
@@ -450,7 +458,9 @@ internal fun RoomList(
                     )
                 }
             }
-            menuFor?.let { RoomMenuSheet(it) { menuFor = null } }
+            menuFor?.let { room ->
+                RoomMenuSheet(room, onPreview = { onPreviewRoom(room.roomId, sharedScope) }) { menuFor = null }
+            }
         }
     }
 }
