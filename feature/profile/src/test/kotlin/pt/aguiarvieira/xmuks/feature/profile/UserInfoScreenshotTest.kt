@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.profile
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -13,6 +14,8 @@ import org.robolectric.annotation.Config
 import pt.aguiarvieira.xmuks.core.data.profile.PerMessageProfile
 import pt.aguiarvieira.xmuks.core.data.profile.PerMessageProfiles
 import pt.aguiarvieira.xmuks.core.data.profile.UserProfile
+import pt.aguiarvieira.xmuks.core.designsystem.component.LocalScreenStyle
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenStyle
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 
@@ -47,36 +50,49 @@ class UserInfoScreenshotTest {
     private fun capture(
         name: String,
         dark: Boolean = false,
+        cards: Boolean = false,
         content: @Composable () -> Unit,
     ) {
-        compose.setContent { XmuksTheme(darkTheme = dark, dynamicColor = false, content = content) }
+        val style = if (cards) ScreenStyle.Cards else ScreenStyle.Flat
+        compose.setContent {
+            XmuksTheme(darkTheme = dark, dynamicColor = false) {
+                CompositionLocalProvider(LocalScreenStyle provides style, content)
+            }
+        }
         compose.onRoot().captureRoboImage("src/test/screenshots/$name.png")
     }
 
     @Test
-    fun someoneElse() =
-        capture("user_other") {
-            UserInfoScreen(
-                userId = "@alice:example.org",
-                state =
-                    ProfileState.Loaded(
-                        profile(
-                            "@alice:example.org",
-                            "Alice",
-                            bio = "<p>Writes <b>Matrix</b> clients. <a href=\"https://example.org\">example.org</a></p>",
-                            status = UserProfile.Status("at lunch", "🍜"),
-                            pronouns = listOf(UserProfile.Pronouns("she/her", "en")),
-                        ),
+    fun someoneElse() = someoneElse("user_other")
+
+    @Test
+    fun someoneElseCards() = someoneElse("user_other_cards", cards = true)
+
+    private fun someoneElse(
+        name: String,
+        cards: Boolean = false,
+    ) = capture(name, cards = cards) {
+        UserInfoScreen(
+            userId = "@alice:example.org",
+            state =
+                ProfileState.Loaded(
+                    profile(
+                        "@alice:example.org",
+                        "Alice",
+                        bio = "<p>Writes <b>Matrix</b> clients. <a href=\"https://example.org\">example.org</a></p>",
+                        status = UserProfile.Status("at lunch", "🍜"),
+                        pronouns = listOf(UserProfile.Pronouns("she/her", "en")),
                     ),
-                media = media,
-                busy = false,
-                error = null,
-                onErrorShow = {},
-                onRetry = {},
-                onBack = {},
-                onOpenMedia = {},
-            )
-        }
+                ),
+            media = media,
+            busy = false,
+            error = null,
+            onErrorShow = {},
+            onRetry = {},
+            onBack = {},
+            onOpenMedia = {},
+        )
+    }
 
     @Test
     fun ownProfile() =

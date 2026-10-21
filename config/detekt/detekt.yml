@@ -52,4 +52,5 @@ Compose:
     active: true
     # Navigation hands shared-element scopes to destinations; see component/SharedElements.kt.
     # LocalPillColors: a bubble picks its mention pills' colours for the rich text inside it.
-    allowedCompositionLocals: ['LocalSharedTransitionScope', 'LocalAnimatedVisibilityScope', 'LocalSenderColors', 'LocalRichTextOptions', 'LocalMediaDisplay', 'LocalRoomListDisplay', 'LocalMessageHold', 'LocalCallClock', 'LocalPillColors']
+    # LocalScreenStyle: the app's flat or cards layout (a setting), for every screen's header and body.
+    allowedCompositionLocals: ['LocalSharedTransitionScope', 'LocalAnimatedVisibilityScope', 'LocalSenderColors', 'LocalRichTextOptions', 'LocalMediaDisplay', 'LocalRoomListDisplay', 'LocalMessageHold', 'LocalCallClock', 'LocalPillColors', 'LocalScreenStyle']

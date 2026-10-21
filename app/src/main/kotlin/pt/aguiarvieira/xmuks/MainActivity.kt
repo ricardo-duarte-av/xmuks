@@ -7,6 +7,8 @@ import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.core.content.IntentCompat
 import androidx.core.content.pm.ShortcutManagerCompat
@@ -16,6 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -23,7 +26,11 @@ import pt.aguiarvieira.xmuks.core.call.CallManager
 import pt.aguiarvieira.xmuks.core.call.IncomingCalls
 import pt.aguiarvieira.xmuks.core.call.system.CallService
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
+import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
+import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.profile.Contacts
+import pt.aguiarvieira.xmuks.core.designsystem.component.LocalScreenStyle
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenStyle
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 import pt.aguiarvieira.xmuks.core.notify.PeopleUris
 import pt.aguiarvieira.xmuks.feature.login.LoginRoute
@@ -33,6 +40,9 @@ import pt.aguiarvieira.xmuks.navigation.XmuksNavHost
 import javax.inject.Inject
 
 private val CONTACT_ROWS = setOf(PeopleUris.MIME_MESSAGE, PeopleUris.MIME_VOICE_CALL, PeopleUris.MIME_VIDEO_CALL)
+
+/** How long the splash screen waits for the screen style before going flat. */
+private const val STYLE_WAIT_MS = 500L
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -45,6 +55,11 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var contacts: Contacts
 
+    @Inject lateinit var preferences: PreferenceStore
+
+    /** Flat or cards (a setting); null until read, the splash screen staying up meanwhile. */
+    private val screenStyle = MutableStateFlow<ScreenStyle?>(null)
+
     /** A Matrix link we were opened with (another app, or one of our notifications), until handled. */
     private val link = MutableStateFlow<String?>(null)
 
@@ -55,10 +70,21 @@ class MainActivity : ComponentActivity() {
     private val share = MutableStateFlow<ShareRequest?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        // Kept up until the screen style is known, so a cards user never sees a flat first frame.
+        installSplashScreen().setKeepOnScreenCondition { screenStyle.value == null }
         WindowCompat.enableEdgeToEdge(window)
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) intent?.let(::take)
+        lifecycleScope.launch {
+            preferences.value(Prefs.screenCards).collect { cards ->
+                screenStyle.value = if (cards) ScreenStyle.Cards else ScreenStyle.Flat
+            }
+        }
+        // Should reading it ever stall, the splash screen doesn't wait for it forever.
+        lifecycleScope.launch {
+            delay(STYLE_WAIT_MS)
+            screenStyle.compareAndSet(null, ScreenStyle.Flat)
+        }
         // While in a call, the app (the call screen) may show over the lock screen, as a phone's does.
         lifecycleScope.launch {
             calls.active.collect { active ->
@@ -67,26 +93,32 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContent {
+            val style by screenStyle.collectAsStateWithLifecycle()
             XmuksTheme {
-                val loggedIn by session.loggedIn.collectAsStateWithLifecycle()
-                AnimatedContent(targetState = loggedIn, label = "session") { signedIn ->
-                    val pending by link.collectAsStateWithLifecycle()
-                    val shared by share.collectAsStateWithLifecycle()
-                    val callRoom by call.collectAsStateWithLifecycle()
-                    if (signedIn) {
-                        XmuksNavHost(
-                            link = pending,
-                            onLinkConsume = { link.value = null },
-                            share = shared,
-                            onShareConsume = { share.value = null },
-                            openCall = callRoom,
-                            onOpenCallConsume = { call.value = null },
-                            isLocalServer = { session.isLocalServer() },
-                        )
-                    } else {
-                        LoginRoute()
-                    }
-                }
+                CompositionLocalProvider(LocalScreenStyle provides (style ?: ScreenStyle.Flat)) { Content() }
+            }
+        }
+    }
+
+    @Composable
+    private fun Content() {
+        val loggedIn by session.loggedIn.collectAsStateWithLifecycle()
+        AnimatedContent(targetState = loggedIn, label = "session") { signedIn ->
+            val pending by link.collectAsStateWithLifecycle()
+            val shared by share.collectAsStateWithLifecycle()
+            val callRoom by call.collectAsStateWithLifecycle()
+            if (signedIn) {
+                XmuksNavHost(
+                    link = pending,
+                    onLinkConsume = { link.value = null },
+                    share = shared,
+                    onShareConsume = { share.value = null },
+                    openCall = callRoom,
+                    onOpenCallConsume = { call.value = null },
+                    isLocalServer = { session.isLocalServer() },
+                )
+            } else {
+                LoginRoute()
             }
         }
     }

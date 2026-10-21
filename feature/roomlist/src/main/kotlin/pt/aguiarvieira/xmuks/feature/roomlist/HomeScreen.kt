@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -34,8 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarDefaults
 import androidx.compose.material3.ShortNavigationBarItem
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -44,13 +44,16 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,7 +74,9 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.TabBadges
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 import pt.aguiarvieira.xmuks.core.designsystem.component.UnreadLevel
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 
@@ -159,59 +164,61 @@ fun HomeScreen(
     onOpenInvite: (roomId: String) -> Unit = {},
     onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
 ) {
-    // The header (with the tab's filter in it, as a search app bar) and the tab bar on the tinted
-    // ground, edge to edge; the tab's content between, on the surface. The room's header matches.
+    // Flat: the header (with the tab's filter in it, as a search app bar) and the tab bar on the
+    // tinted ground, edge to edge; the tab's content between, on the surface. Cards: three cards on
+    // the ground, header, content (the filter at its top) and tab bar. The room's layout matches.
+    val cards = ScreenCards.cards
     Scaffold(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = if (cards) ScreenCards.ground else MaterialTheme.colorScheme.surface,
         topBar = {
-            Surface(color = ScreenCards.ground) {
-                Column(Modifier.statusBarsPadding()) {
-                    TopAppBar(
-                        title = {
-                            Text(
-                                stringResource(state.tab.title),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        },
-                        actions = {
-                            AccountChip(state, onAccountClick)
-                        },
-                        windowInsets = WindowInsets(0),
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    )
+            ScreenHeader {
+                TopAppBar(
+                    title = {
+                        Text(
+                            stringResource(state.tab.title),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    actions = {
+                        AccountChip(state, onAccountClick)
+                    },
+                    windowInsets = WindowInsets(0),
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                )
+                // Cards: the filter tops the content card instead (with the options' gear).
+                if (!cards) {
                     FilterBar(
                         search.of(state.tab),
                         stringResource(state.tab.searchHint),
                         onMentions = onOpenNotifications,
                         onSearch = onSearchMessages,
                     )
-                    // Under the search, which belongs to the app bar: the band comes and goes at the
-                    // header's edge without moving the field.
-                    ConnectionIndicator(state.connection)
                 }
+                // Under the search, which belongs to the app bar: the band comes and goes at the
+                // header's edge without moving the field.
+                ConnectionIndicator(state.connection)
             }
         },
         bottomBar = {
-            // Held to the bar height, so the room's composer bar matches it exactly.
-            ShortNavigationBar(
-                modifier = Modifier.height(ScreenCards.BarHeight + navigationBarHeight()),
-                containerColor = ScreenCards.ground,
-            ) {
-                HomeTab.entries.forEach { tab ->
-                    ShortNavigationBarItem(
-                        selected = tab == state.tab,
-                        onClick = { onTabChange(tab) },
-                        icon = { TabIcon(tab, state.badges) },
-                        label = { Text(stringResource(tab.label)) },
-                    )
+            if (cards) {
+                ScreenCard(Modifier.navigationBarsPadding().padding(ScreenCards.Gap)) {
+                    TabBar(state, onTabChange, containerColor = Color.Transparent, windowInsets = WindowInsets(0))
                 }
+            } else {
+                // Held to the bar height, so the room's composer bar matches it exactly.
+                TabBar(
+                    state,
+                    onTabChange,
+                    ScreenCards.ground,
+                    Modifier.height(ScreenCards.BarHeight + navigationBarHeight())
+                )
             }
         },
     ) { padding ->
         val pullState = rememberPullToRefreshState()
-        Box(Modifier.padding(padding).fillMaxSize()) {
+        HomeContent(cards, Modifier.padding(padding).fillMaxSize()) {
             PullToRefreshBox(
                 isRefreshing = state.refreshing,
                 onRefresh = onRefresh,
@@ -242,7 +249,18 @@ fun HomeScreen(
                 ) { page ->
                     val tab = HomeTab.entries[page]
                     val query = search.of(tab)
+                    var scrolled by remember { mutableStateOf(false) }
                     Column {
+                        if (cards) {
+                            FilterBar(
+                                query,
+                                stringResource(tab.searchHint),
+                                onMentions = onOpenNotifications,
+                                onSearch = onSearchMessages,
+                                onOptions = onAccountClick,
+                                scrolledUnder = scrolled,
+                            )
+                        }
                         val searching = query.text.isNotBlank()
                         when (tab) {
                             HomeTab.Chats -> {
@@ -255,6 +273,7 @@ fun HomeScreen(
                                     invites = state.invites.filterUnless(searching) { !it.isSpace },
                                     onOpenInvite = onOpenInvite,
                                     onPreviewRoom = onPreviewRoom,
+                                    onScrolledChange = { scrolled = it },
                                 )
                             }
 
@@ -268,6 +287,7 @@ fun HomeScreen(
                                     invites = state.invites.filterUnless(searching) { it.isDirect && !it.isSpace },
                                     onOpenInvite = onOpenInvite,
                                     onPreviewRoom = onPreviewRoom,
+                                    onScrolledChange = { scrolled = it },
                                 )
                             }
 
@@ -279,6 +299,7 @@ fun HomeScreen(
                                     invites = state.invites.filterUnless(searching) { it.isSpace },
                                     now = now,
                                     onOpenInvite = onOpenInvite,
+                                    onScrolledChange = { scrolled = it },
                                 )
                             }
                         }
@@ -287,6 +308,18 @@ fun HomeScreen(
             }
         }
     }
+}
+
+/** The tab's content: flat on the surface, or a card [ScreenCards.Gap] from the sides. */
+@Composable
+private fun HomeContent(
+    cards: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) = if (cards) {
+    ScreenCard(modifier.padding(horizontal = ScreenCards.Gap), content)
+} else {
+    Box(modifier) { content() }
 }
 
 /**
@@ -337,6 +370,18 @@ private fun AccountChip(
     }
 }
 
+/** Tells [onChange] whether [scrolled] holds, as it changes; false once the list is gone. */
+@Composable
+private fun ReportScrolled(
+    onChange: (Boolean) -> Unit,
+    scrolled: () -> Boolean,
+) {
+    val report by rememberUpdatedState(onChange)
+    val read by rememberUpdatedState(scrolled)
+    LaunchedEffect(Unit) { snapshotFlow { read() }.collect { report(it) } }
+    DisposableEffect(Unit) { onDispose { report(false) } }
+}
+
 /** A tab's invites ([keep]); none while searching, which looks for rooms. */
 private fun List<InviteRow>.filterUnless(
     searching: Boolean,
@@ -363,46 +408,6 @@ private val HomeTab.searchHint
             HomeTab.Spaces -> R.string.search_spaces
         }
 
-/** Tab icon with the tab's unread badge: a number (red with mentions) or a quiet dot. */
-@Composable
-private fun TabIcon(
-    tab: HomeTab,
-    badges: TabBadges,
-) {
-    val unread =
-        when (tab) {
-            HomeTab.Chats -> badges.chats
-            HomeTab.Dms -> badges.dms
-            HomeTab.Spaces -> badges.spaces
-        }
-    val (level, count) = unread.level()
-    BadgedBox(
-        badge = {
-            when (level) {
-                UnreadLevel.None -> {}
-
-                UnreadLevel.Dot -> {
-                    Badge(containerColor = MaterialTheme.colorScheme.primary)
-                }
-
-                UnreadLevel.Count -> {
-                    Badge(containerColor = MaterialTheme.colorScheme.primary) { Text(badgeCount(count)) }
-                }
-
-                UnreadLevel.Mention -> {
-                    Badge { Text(badgeCount(count)) }
-                }
-            }
-        },
-    ) {
-        Icon(painterResource(tab.icon), contentDescription = null)
-    }
-}
-
-private fun badgeCount(count: Int) = if (count > MAX_BADGE) "$MAX_BADGE+" else count.toString()
-
-private const val MAX_BADGE = 99
-
 @Composable
 internal fun RoomList(
     rooms: List<RoomSummary>?,
@@ -416,6 +421,8 @@ internal fun RoomList(
     onOpenInvite: (roomId: String) -> Unit = {},
     /** Shows a room read-only, from its long-press menu. */
     onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
+    /** Whether rows have scrolled up under what's above the list. */
+    onScrolledChange: (Boolean) -> Unit = {},
 ) {
     when {
         rooms == null -> {
@@ -430,6 +437,7 @@ internal fun RoomList(
             val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
             // Invites go above the rooms: arriving while the list is at its top, they show there.
             val list = rememberTopAnchoredState(remember(rooms, invites) { rooms to invites })
+            ReportScrolled(onScrolledChange) { list.canScrollBackward }
             var menuFor by remember { mutableStateOf<RoomSummary?>(null) }
             LazyColumn(
                 modifier = modifier.fillMaxSize(),
@@ -476,6 +484,7 @@ private fun SpaceGrid(
     invites: List<InviteRow> = emptyList(),
     now: Long = 0,
     onOpenInvite: (roomId: String) -> Unit = {},
+    onScrolledChange: (Boolean) -> Unit = {},
 ) {
     when {
         spaces == null -> {
@@ -489,6 +498,7 @@ private fun SpaceGrid(
         else -> {
             val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
             val grid = rememberLazyGridState()
+            ReportScrolled(onScrolledChange) { grid.canScrollBackward }
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 104.dp),
                 state = grid,
@@ -547,20 +557,4 @@ private val HomeTab.title
             HomeTab.Chats -> R.string.title_chats
             HomeTab.Dms -> R.string.title_dms
             HomeTab.Spaces -> R.string.title_spaces
-        }
-
-private val HomeTab.label
-    get() =
-        when (this) {
-            HomeTab.Chats -> R.string.tab_chats
-            HomeTab.Dms -> R.string.tab_dms
-            HomeTab.Spaces -> R.string.tab_spaces
-        }
-
-private val HomeTab.icon
-    get() =
-        when (this) {
-            HomeTab.Chats -> R.drawable.ic_chats
-            HomeTab.Dms -> R.drawable.ic_dms
-            HomeTab.Spaces -> R.drawable.ic_spaces
         }

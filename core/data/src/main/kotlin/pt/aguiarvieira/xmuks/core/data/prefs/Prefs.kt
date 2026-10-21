@@ -63,6 +63,9 @@ object Prefs {
     /** A room with an avatar takes its colours from it. */
     val roomAvatarColors = Pref.Bool("xmuks_room_avatar_colors", true, DEVICE_GLOBAL)
 
+    /** Screens as rounded cards on a tinted ground, as before 0.0.69, instead of flat bars. */
+    val screenCards = Pref.Bool("xmuks_screen_cards", false, DEVICE_GLOBAL)
+
     /** Starting a group call tells the room (a "call started" notification). */
     val callNotifyRoom = Pref.Bool("xmuks_call_notify_room", true, DEVICE_GLOBAL)
 

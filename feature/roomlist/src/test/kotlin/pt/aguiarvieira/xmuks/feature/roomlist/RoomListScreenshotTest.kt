@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.roomlist
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -17,6 +18,8 @@ import pt.aguiarvieira.xmuks.core.data.rooms.SearchQuery
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.TabBadges
 import pt.aguiarvieira.xmuks.core.data.rooms.Unread
+import pt.aguiarvieira.xmuks.core.designsystem.component.LocalScreenStyle
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenStyle
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 import java.time.LocalDateTime
@@ -117,14 +120,29 @@ class RoomListScreenshotTest {
     private fun capture(
         name: String,
         dark: Boolean = false,
+        cards: Boolean = false,
         content: @androidx.compose.runtime.Composable () -> Unit,
     ) {
-        compose.setContent { XmuksTheme(darkTheme = dark, dynamicColor = false, content = content) }
+        val style = if (cards) ScreenStyle.Cards else ScreenStyle.Flat
+        compose.setContent {
+            XmuksTheme(darkTheme = dark, dynamicColor = false) {
+                CompositionLocalProvider(LocalScreenStyle provides style, content)
+            }
+        }
         compose.onRoot().captureRoboImage("src/test/screenshots/$name.png")
     }
 
     @Test
     fun chats() = capture("home_chats") { HomeScreen(home(HomeTab.Chats), {}, {}, { _, _ -> }, {}, {}, now = now) }
+
+    @Test
+    fun chatsCards() = capture("home_chats_cards", cards = true) { HomeScreen(home(HomeTab.Chats), {}, {}, { _, _ -> }, {}, {}, now = now) }
+
+    @Test
+    fun chatsCardsDark() =
+        capture("home_chats_cards_dark", dark = true, cards = true) {
+            HomeScreen(home(HomeTab.Chats), {}, {}, { _, _ -> }, {}, {}, now = now)
+        }
 
     @Test
     fun chatsDarkConnecting() =

@@ -30,6 +30,8 @@
     <string name="section_appearance">Appearance</string>
     <string name="pref_room_avatar_colors">Room colours from avatars</string>
     <string name="pref_room_avatar_colors_desc">A room with an avatar takes its colours from it, instead of the system\'s</string>
+    <string name="pref_screen_cards">Rounded cards</string>
+    <string name="pref_screen_cards_desc">Screens as rounded cards on a tinted ground, with pill-shaped bars, instead of flat bars edge to edge</string>
 
     <string name="pref_send_read_receipts">Send read receipts</string>
     <string name="pref_send_read_receipts_desc">Should read receipts be sent to other users? If off, they use the private type, which only syncs to your own devices.</string>

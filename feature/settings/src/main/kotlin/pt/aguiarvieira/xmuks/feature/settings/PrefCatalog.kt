@@ -201,6 +201,12 @@ internal val ENTRIES: List<PrefEntry> =
             Section.Appearance,
         ),
         PrefEntry(
+            Prefs.screenCards,
+            R.string.pref_screen_cards,
+            R.string.pref_screen_cards_desc,
+            Section.Appearance,
+        ),
+        PrefEntry(
             Prefs.callNotifyRoom,
             R.string.pref_call_notify_room,
             R.string.pref_call_notify_room_desc,

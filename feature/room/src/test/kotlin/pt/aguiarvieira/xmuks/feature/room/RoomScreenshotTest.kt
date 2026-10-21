@@ -2,6 +2,7 @@ package pt.aguiarvieira.xmuks.feature.room
 
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -28,6 +29,8 @@ import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TextKind
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.Typist
+import pt.aguiarvieira.xmuks.core.designsystem.component.LocalScreenStyle
+import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenStyle
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -145,9 +148,15 @@ class RoomScreenshotTest {
     private fun shoot(
         name: String,
         dark: Boolean = false,
+        cards: Boolean = false,
         content: @Composable () -> Unit,
     ) {
-        compose.setContent { XmuksTheme(darkTheme = dark, dynamicColor = false, content = content) }
+        val style = if (cards) ScreenStyle.Cards else ScreenStyle.Flat
+        compose.setContent {
+            XmuksTheme(darkTheme = dark, dynamicColor = false) {
+                CompositionLocalProvider(LocalScreenStyle provides style, content)
+            }
+        }
         compose.onRoot().captureRoboImage("src/test/screenshots/$name.png")
     }
 
@@ -177,6 +186,15 @@ class RoomScreenshotTest {
 
     @Test
     fun timelineDark() = shoot("room_timeline_dark", dark = true) { Screen(timeline.asReversed()) }
+
+    @Test
+    fun timelineCards() =
+        shoot("room_timeline_cards", cards = true) {
+            Screen(timeline.asReversed(), typing = listOf(Typist("@bob:x", "Bob", null)))
+        }
+
+    @Test
+    fun timelineCardsDark() = shoot("room_timeline_cards_dark", dark = true, cards = true) { Screen(timeline.asReversed()) }
 
     @Test
     fun loading() = shoot("room_loading") { Screen(null) }

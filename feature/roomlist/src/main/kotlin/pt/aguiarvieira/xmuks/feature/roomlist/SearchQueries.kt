@@ -3,6 +3,7 @@ package pt.aguiarvieira.xmuks.feature.roomlist
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
@@ -35,7 +36,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -59,9 +63,9 @@ class SearchQueries(
 )
 
 /**
- * The home tabs' bar, in the app bar: the filter field, then mentions and message search. Tapping the
- * field grows it over the whole bar, pushing the three out; back (or closing the keyboard) brings
- * them back, the filter kept.
+ * The home tabs' bar, in the app bar (or, under cards, atop the content's): the filter field, then
+ * mentions, message search and, given [onOptions], options. Tapping the field grows it over the
+ * whole bar, pushing the buttons out; back (or closing the keyboard) brings them back, the filter kept.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -70,6 +74,9 @@ internal fun FilterBar(
     placeholder: String,
     onMentions: () -> Unit,
     onSearch: () -> Unit,
+    onOptions: (() -> Unit)? = null,
+    /** The list has scrolled up under the bar: it takes a tone of its own, so the edge reads. */
+    scrolledUnder: Boolean = false,
 ) {
     var typing by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
@@ -78,9 +85,26 @@ internal fun FilterBar(
     LaunchedEffect(ime) { if (!ime) focus.clearFocus() }
     BackHandler(enabled = typing) { focus.clearFocus() }
     val end by animateDpAsState(if (typing) 16.dp else 4.dp, label = "filterEnd")
+    // Scrolled under: a tone of its own and a hairline beneath, as an app bar takes when content
+    // scrolls under it, so the bar's edge reads in both themes.
+    val colors = MaterialTheme.colorScheme
+    val tone by animateColorAsState(
+        if (scrolledUnder) colors.surfaceContainerLow else Color.Transparent,
+        label = "filterTone"
+    )
+    val line by animateColorAsState(
+        if (scrolledUnder) colors.outlineVariant else Color.Transparent,
+        label = "filterLine"
+    )
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(bottom = 4.dp),
+        modifier =
+            Modifier
+                .drawBehind {
+                    drawRect(tone)
+                    val stroke = 1.dp.toPx()
+                    drawRect(line, Offset(0f, size.height - stroke), Size(size.width, stroke))
+                }.padding(bottom = 4.dp),
     ) {
         SearchField(
             state,
@@ -95,9 +119,10 @@ internal fun FilterBar(
             exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut(),
         ) {
             Row(Modifier.padding(end = 8.dp)) {
-                listOf(
+                listOfNotNull(
                     Triple(R.drawable.ic_mention, R.string.account_mentions, onMentions),
                     Triple(R.drawable.ic_search, R.string.account_search, onSearch),
+                    onOptions?.let { Triple(R.drawable.ic_settings, R.string.account_options, it) },
                 ).forEach { (icon, label, action) ->
                     IconButton(onClick = action) { Icon(painterResource(icon), stringResource(label)) }
                 }
@@ -106,7 +131,7 @@ internal fun FilterBar(
     }
 }
 
-/** A pill-shaped search field, on an app bar's tint. */
+/** A pill-shaped search field, on an app bar's tint or in a card. */
 @Composable
 fun SearchField(
     state: TextFieldState,

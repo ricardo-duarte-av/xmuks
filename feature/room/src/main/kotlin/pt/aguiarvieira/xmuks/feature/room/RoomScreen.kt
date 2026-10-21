@@ -604,7 +604,7 @@ fun RoomScreen(
             }
         },
     ) { padding ->
-        // Edge to edge between the header and the composer's bar, as the room list's tabs.
+        // Edge to edge between the header and the composer's bar, as the room list's tabs (or a card).
         ScreenBody(Modifier.padding(padding).fillMaxSize()) {
             if (context != null) {
                 ContextTimeline(context, contextList, resolver, actions, highlighted, onLeaveContext)

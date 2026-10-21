@@ -81,8 +81,8 @@ internal fun ComposerCard(
 ) {
     val colors = MaterialTheme.colorScheme
     val mediaReceiver = rememberMediaReceiver(onSendMedia)
-    // A bar on the ground along the bottom, as the room list's tab bar: its height, its tint.
-    Surface(modifier, color = ScreenCards.ground) {
+    val cards = ScreenCards.cards
+    ComposerSurface(cards, modifier) {
         Column {
             ModeBanner(mode, onCancelMode)
             SendingAsBanner(personas, state, avatarUrl, onChoosePersona, onOpenPersonas)
@@ -91,9 +91,13 @@ internal fun ComposerCard(
             ComposerLinkPreviews(previews)
             Row(
                 modifier =
-                    Modifier
-                        .heightIn(min = ScreenCards.BarHeight)
-                        .padding(start = 4.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+                    if (cards) {
+                        Modifier.padding(start = 4.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
+                    } else {
+                        Modifier
+                            .heightIn(min = ScreenCards.BarHeight)
+                            .padding(start = 4.dp, end = 6.dp, top = 8.dp, bottom = 8.dp)
+                    },
                 verticalAlignment = Alignment.Bottom,
             ) {
                 // Drawn close together: each keeps its full touch target, overlapping a little.
@@ -124,12 +128,19 @@ internal fun ComposerCard(
                     modifier =
                         Modifier
                             .weight(1f)
-                            // The field in a pill, as the room list's search on its bar; as tall as
-                            // the buttons beside it, so the bar keeps the tab bar's height.
-                            .heightIn(min = FIELD_HEIGHT)
-                            .background(ScreenCards.pill, RoundedCornerShape(FIELD_RADIUS))
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
-                            .contentReceiver(mediaReceiver)
+                            .then(
+                                if (cards) {
+                                    // Bare in its card.
+                                    Modifier.padding(vertical = 12.dp)
+                                } else {
+                                    // The field in a pill, as the room list's search on its bar; as tall
+                                    // as the buttons beside it, so the bar keeps the tab bar's height.
+                                    Modifier
+                                        .heightIn(min = FIELD_HEIGHT)
+                                        .background(ScreenCards.pill, RoundedCornerShape(FIELD_RADIUS))
+                                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                                },
+                            ).contentReceiver(mediaReceiver)
                             .onFocusChanged { if (it.isFocused) onFocus() },
                     decorator = { field ->
                         Box(contentAlignment = Alignment.CenterStart) {
@@ -299,6 +310,21 @@ internal fun DeleteDialog(
         confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.delete)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+/**
+ * Flat: a bar on the ground along the bottom, as the room list's tab bar: its height, its tint.
+ * Cards: a card on the ground, [ScreenCards.Gap] from the sides and the bottom.
+ */
+@Composable
+private fun ComposerSurface(
+    cards: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) = if (cards) {
+    ScreenCard(modifier.padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap), content)
+} else {
+    Surface(modifier, color = ScreenCards.ground, content = content)
 }
 
 private const val MAX_LINES = 6
