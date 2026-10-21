@@ -181,13 +181,15 @@ fun HomeScreen(
                         windowInsets = WindowInsets(0),
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                     )
-                    ConnectionIndicator(state.connection)
                     FilterBar(
                         search.of(state.tab),
                         stringResource(state.tab.searchHint),
                         onMentions = onOpenNotifications,
                         onSearch = onSearchMessages,
                     )
+                    // Under the search, which belongs to the app bar: the band comes and goes at the
+                    // header's edge without moving the field.
+                    ConnectionIndicator(state.connection)
                 }
             }
         },
