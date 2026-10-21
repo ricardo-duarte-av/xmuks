@@ -31,6 +31,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,6 +74,7 @@ fun RoomInfoRoute(
     val leave by rememberUpdatedState(onLeft)
     LaunchedEffect(left) { if (left) leave() }
     val media = remember(viewModel) { ProfileMedia(viewModel.media::avatar, viewModel.media::full) }
+    val context = LocalContext.current
     val actions =
         remember(
             viewModel,
@@ -82,7 +84,8 @@ fun RoomInfoRoute(
             onOpenPreferences,
             onOpenState,
             onOpenGallery,
-            onOpenPowerLevels
+            onOpenPowerLevels,
+            context,
         ) {
             RoomInfoActions(
                 setName = viewModel::setName,
@@ -103,6 +106,7 @@ fun RoomInfoRoute(
                 openState = onOpenState,
                 openGallery = onOpenGallery,
                 openPowerLevels = onOpenPowerLevels,
+                openPhoneNotifications = { context.startActivity(viewModel.phoneNotificationSettings()) },
             )
         }
     RoomInfoScreen(

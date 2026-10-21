@@ -56,6 +56,8 @@
     <string name="status_paused">Paused</string>
     <string name="status_live">Connected</string>
     <string name="room_notifications">Notifications</string>
+    <string name="room_phone_notifications">Sound &amp; vibration</string>
+    <string name="room_phone_notifications_summary">On this phone: Android\'s settings for this room</string>
     <string name="notify_default">Default</string>
     <string name="notify_default_detail">As your account\'s settings say for this kind of room</string>
     <string name="notify_all">All messages</string>

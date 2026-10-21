@@ -136,7 +136,7 @@ class RoomNotifier(
         // Loud when the push rules asked for a sound, or when it's for us (a mention, @room, a
         // keyword: highlighted, which the default rules leave silent) in a room we haven't muted.
         val loud = fresh.any { it.sound } || (highlighted && !isMuted(roomId))
-        val channel = Channels.conversation(context, roomId, latest.roomName, direct)
+        val channel = Channels.forRoom(context, roomId, latest.roomName, direct)
         val notification =
             NotificationCompat
                 .Builder(context, channel)

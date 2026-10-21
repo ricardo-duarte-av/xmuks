@@ -169,6 +169,15 @@ internal fun RoomSettingsCard(
                 notificationLabel(notifications),
                 onClick = { open = Setting.Notifications },
             )
+            // Spaces never notify.
+            if (!info.isSpace) {
+                SettingRow(
+                    R.drawable.ic_vibration,
+                    R.string.room_phone_notifications,
+                    R.string.room_phone_notifications_summary,
+                    onClick = actions.openPhoneNotifications,
+                )
+            }
             SettingRow(
                 R.drawable.ic_person_add,
                 R.string.room_access,

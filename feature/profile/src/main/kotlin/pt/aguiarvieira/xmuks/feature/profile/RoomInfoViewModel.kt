@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.profile
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -27,6 +28,8 @@ import pt.aguiarvieira.xmuks.core.data.roominfo.MembershipAction
 import pt.aguiarvieira.xmuks.core.data.roominfo.PowerLevels
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
+import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
+import pt.aguiarvieira.xmuks.core.notify.roomNotificationSettings
 
 /** The room being shown: loading, loaded, or why it couldn't be. */
 sealed interface RoomInfoState {
@@ -50,7 +53,8 @@ class RoomInfoViewModel
         profiles: ProfileRepository,
         pushRules: RoomPushRules,
         val media: MediaUrls,
-        @ApplicationContext context: Context,
+        @ApplicationContext private val context: Context,
+        roomList: RoomListRepository,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -71,6 +75,15 @@ class RoomInfoViewModel
             profiles.perMessageProfiles(roomId).stateIn(viewModelScope, WHILE_VISIBLE, PerMessageProfiles.EMPTY)
 
         val notifications = RoomNotificationActions(viewModelScope, roomId, pushRules, WHILE_VISIBLE)
+
+        /** The room as the list has it: its name, and whether it's a DM (which notification channel it's under). */
+        private val summary = roomList.room(roomId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+        /** Android's notification settings for this room alone, on this phone (sound, vibration…). */
+        fun phoneNotificationSettings(): Intent {
+            val room = summary.value
+            return roomNotificationSettings(context, roomId, room?.name ?: roomId, room?.isDirect == true)
+        }
 
         /** Set once we've left: the screen goes back. */
         private val _left = MutableStateFlow(false)

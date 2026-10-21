@@ -30,4 +30,6 @@ class RoomInfoActions(
     val openPowerLevels: () -> Unit = {},
     val openGallery: () -> Unit = {},
     val openMedia: (ViewerMedia) -> Unit = {},
+    /** Android's notification settings for the room on this phone: its sound, vibration and the like. */
+    val openPhoneNotifications: () -> Unit = {},
 )
