@@ -17,6 +17,9 @@ class MxcCacheKeyTest {
     fun fullFilesAndThumbnailsDiffer() = assertEquals("mxc://s/id", mxcCacheKey("https://g/_gomuks/media/s/id?encrypted=true"))
 
     @Test
+    fun aVideosFrameIsNotTheVideo() = assertEquals("mxc://s/id#frame", mxcCacheKey("https://g/_gomuks/media/s/id?encrypted=true#frame"))
+
+    @Test
     fun notGomuksMedia() {
         assertNull(mxcCacheKey("file:///data/x.jpg"))
         assertNull(mxcCacheKey("https://example.org/pic.png"))

@@ -26,7 +26,8 @@ class MxcCacheKeys : Interceptor {
 
 /**
  * The cache key for a gomuks media URL (`…/_gomuks/media/{server}/{id}?…`): its `mxc://` URI, with
- * `#thumbnail=<size>` for a thumbnail. Null for anything else (our own files, other hosts' images).
+ * `#thumbnail=<size>` for a thumbnail, or the URL's own fragment (a video's `#frame`). Null for
+ * anything else (our own files, other hosts' images).
  */
 fun mxcCacheKey(url: String): String? {
     val parsed = url.toHttpUrlOrNull() ?: return null
@@ -35,6 +36,7 @@ fun mxcCacheKey(url: String): String? {
     val valid = at >= 0 && segments.size == at + MEDIA_PATH && segments[at + 1] == "media"
     if (!valid) return null
     val mxc = "mxc://${segments[at + 2]}/${segments[at + 3]}"
+    parsed.fragment?.let { return "$mxc#$it" }
     return parsed.queryParameter("thumbnail")?.let { "$mxc#thumbnail=$it" } ?: mxc
 }
 

@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.media
 
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.media.VideoFrames
 import pt.aguiarvieira.xmuks.core.data.timeline.GalleryItem
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
@@ -34,7 +35,10 @@ internal fun GalleryItem.toViewer(
     return ViewerMedia(
         kind = kind,
         url = original,
-        previewUrl = thumbnail ?: original.takeIf { kind == ViewerMedia.Kind.Image && !media.animated },
+        previewUrl =
+            thumbnail
+                ?: original.takeIf { kind == ViewerMedia.Kind.Image && !media.animated }
+                ?: VideoFrames.of(original).takeIf { kind == ViewerMedia.Kind.Video },
         blurhash = media.blurhash,
         width = media.width,
         height = media.height,

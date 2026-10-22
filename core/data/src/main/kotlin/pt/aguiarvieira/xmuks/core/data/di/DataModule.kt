@@ -49,6 +49,7 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.media.VideoFrames
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
@@ -489,6 +490,8 @@ object DataModule {
                 add(AnimatedImageDecoder.Factory())
                 // Bio banners and the odd custom emoji are SVG.
                 add(SvgDecoder.Factory())
+                // A frame for videos sent without a thumbnail (before the network fetcher: its URLs).
+                add(VideoFrames(api, context.cacheDir.resolve("video-frames")))
                 add(
                     OkHttpNetworkFetcherFactory(
                         callFactory = { api },

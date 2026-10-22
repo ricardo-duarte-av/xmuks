@@ -3,6 +3,7 @@ package pt.aguiarvieira.xmuks.feature.room
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import pt.aguiarvieira.xmuks.core.data.media.VideoFrames
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
@@ -59,7 +60,8 @@ internal fun ViewerMedia.inRoom(roomId: String) = if (eventId != null) copy(room
 
 /**
  * What the timeline loads: the sender's thumbnail when there is one (gomuks only makes avatar
- * thumbnails itself), else the original for images — Coil downsamples it to the bubble. A GIF
+ * thumbnails itself), else the original for images — Coil downsamples it to the bubble — and a
+ * frame made on the phone for videos ([VideoFrames]). A GIF
  * loads itself only when it's to [animate]: otherwise its still thumbnail, or nothing (a GIF can be
  * many megabytes, to show as a still).
  */
@@ -73,4 +75,6 @@ internal fun timelineSource(
     if (media.animated && animate) return original
     return resolver.thumbnail(media)
         ?: original.takeIf { kind == ViewerMedia.Kind.Image && !media.animated }
+        // Not for one of ours on its way up: that has our own thumbnail.
+        ?: original?.takeIf { kind == ViewerMedia.Kind.Video && it.startsWith("http") }?.let(VideoFrames::of)
 }
