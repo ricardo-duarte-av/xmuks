@@ -21,7 +21,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -35,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -74,6 +77,7 @@ import coil3.compose.LocalPlatformContext
 import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
+import pt.aguiarvieira.xmuks.core.data.media.PdfFiles
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.core.designsystem.component.sharedElement
 import pt.aguiarvieira.xmuks.core.designsystem.util.Blurhash
@@ -107,6 +111,7 @@ fun MediaViewerRoute(
         viewModel.images,
         sequence = sequence,
         onNearStart = viewModel::loadOlder,
+        pageCount = viewModel::pageCount,
         actions =
             ViewerActions(
                 onSave = save,
@@ -140,6 +145,8 @@ fun MediaViewer(
     sequence: List<ViewerMedia>? = null,
     /** The oldest of [sequence] is near: time for older ones. */
     onNearStart: () -> Unit = {},
+    /** A PDF's number of pages; 0 when it can't be read. */
+    pageCount: suspend (url: String) -> Int = { 0 },
 ) {
     var chrome by rememberSaveable { mutableStateOf(true) }
     ImmersiveWhile(hidden = !chrome)
@@ -171,6 +178,7 @@ fun MediaViewer(
                 turns = if (shown) turns else 0,
                 playerFor = playerFor,
                 images = images,
+                pageCount = pageCount,
                 onTap = { chrome = !chrome },
                 onSwipe = { step -> scope.launch { pager.animateScrollToPage(page + step) } },
             )
@@ -193,6 +201,7 @@ private fun Page(
     turns: Int,
     playerFor: (url: String) -> Player,
     images: ImageLoader?,
+    pageCount: suspend (url: String) -> Int,
     onTap: () -> Unit,
     onSwipe: (step: Int) -> Unit,
 ) {
@@ -214,7 +223,62 @@ private fun Page(
                     }
                 }
 
-                ViewerMedia.Kind.Pdf, ViewerMedia.Kind.File -> {}
+                ViewerMedia.Kind.Pdf -> {
+                    PdfDocument(media, images, pageCount, onTap)
+                }
+
+                ViewerMedia.Kind.File -> {}
+            }
+        }
+    }
+}
+
+/** A PDF's pages, one per screen (scrolling down), each zooming like a picture; which page it is. */
+@kotlin.OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun PdfDocument(
+    media: ViewerMedia,
+    images: ImageLoader?,
+    pageCount: suspend (url: String) -> Int,
+    onTap: () -> Unit,
+) {
+    val loader = images ?: SingletonImageLoader.get(LocalPlatformContext.current)
+    val countPages by rememberUpdatedState(pageCount)
+    val count by produceState<Int?>(null, media.url) { value = countPages(media.url) }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        when (val pages = count) {
+            null -> {
+                ContainedLoadingIndicator()
+            }
+
+            0 -> {
+                Text(stringResource(R.string.media_failed), color = Color.White)
+            }
+
+            else -> {
+                val pager = rememberPagerState { pages }
+                VerticalPager(pager, Modifier.fillMaxSize()) { page ->
+                    ZoomableAsyncImage(
+                        model = PdfFiles.page(media.url, page),
+                        contentDescription = null,
+                        state = rememberZoomableImageState(),
+                        imageLoader = loader,
+                        onClick = { onTap() },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+                Text(
+                    stringResource(R.string.pdf_page, pager.currentPage + 1, pages),
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(16.dp)
+                            .background(Color.Black.copy(alpha = SCRIM), RoundedCornerShape(50))
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
             }
         }
     }

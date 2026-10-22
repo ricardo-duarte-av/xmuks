@@ -49,6 +49,7 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.media.PdfFiles
 import pt.aguiarvieira.xmuks.core.data.media.VideoFrames
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
@@ -462,7 +463,8 @@ object DataModule {
     fun imageLoader(
         @ApplicationContext context: Context,
         @Named("api") api: OkHttpClient,
-    ): ImageLoader = buildImageLoader(context, api, "images", SMALL_IMAGES_BYTES)
+        pdf: PdfFiles,
+    ): ImageLoader = buildImageLoader(context, api, pdf, "images", SMALL_IMAGES_BYTES)
 
     /** Timeline pictures, thumbnails and the viewer's full images: bigger, and churning faster. */
     @Provides
@@ -471,12 +473,22 @@ object DataModule {
     fun mediaImageLoader(
         @ApplicationContext context: Context,
         @Named("api") api: OkHttpClient,
-    ): ImageLoader = buildImageLoader(context, api, "media-images", MEDIA_IMAGES_BYTES)
+        pdf: PdfFiles,
+    ): ImageLoader = buildImageLoader(context, api, pdf, "media-images", MEDIA_IMAGES_BYTES)
+
+    /** PDFs, kept whole for their pages to be drawn (the timeline's preview, the viewer). */
+    @Provides
+    @Singleton
+    fun pdfFiles(
+        @ApplicationContext context: Context,
+        @Named("api") api: OkHttpClient,
+    ) = PdfFiles(api, context.cacheDir.resolve("pdf"), Dispatchers.IO)
 
     @OptIn(ExperimentalCoilApi::class)
     private fun buildImageLoader(
         context: Context,
         api: OkHttpClient,
+        pdf: PdfFiles,
         directory: String,
         maxBytes: Long,
     ): ImageLoader =
@@ -492,6 +504,8 @@ object DataModule {
                 add(SvgDecoder.Factory())
                 // A frame for videos sent without a thumbnail (before the network fetcher: its URLs).
                 add(VideoFrames(api, context.cacheDir.resolve("video-frames")))
+                // PDFs' pages, from their URLs with #pdf or #page=N.
+                add(pdf.fetcher())
                 add(
                     OkHttpNetworkFetcherFactory(
                         callFactory = { api },

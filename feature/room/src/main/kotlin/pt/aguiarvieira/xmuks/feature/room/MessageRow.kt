@@ -334,7 +334,7 @@ private fun Content(
         }
 
         is MessageContent.File, is MessageContent.Location, is MessageContent.Poll -> {
-            CardContent(message, c, color, actions)
+            CardContent(message, c, color, actions, resolver, onOpen)
         }
 
         MessageContent.Redacted -> {
@@ -360,18 +360,25 @@ private fun CardContent(
     c: MessageContent,
     color: Color,
     actions: TimelineActions,
+    resolver: MediaResolver,
+    onOpen: (Media, ViewerMedia.Kind) -> Unit,
 ) {
     when (c) {
         is MessageContent.File -> {
-            Box(contentAlignment = Alignment.Center) {
-                FileCard(
-                    R.drawable.ic_file,
-                    c.name,
-                    c.media.size,
-                    color,
-                    Modifier.tapOrHold(enabled = message.uploadProgress == null) { actions.saveMedia(c.media) },
-                )
-                message.uploadProgress?.let { UploadProgress(it) }
+            if (c.media.isPdf && message.uploadProgress == null) {
+                // A PDF opens in the viewer (where it can be saved too).
+                PdfCard(c, color, resolver) { onOpen(c.media, ViewerMedia.Kind.Pdf) }
+            } else {
+                Box(contentAlignment = Alignment.Center) {
+                    FileCard(
+                        R.drawable.ic_file,
+                        c.name,
+                        c.media.size,
+                        color,
+                        Modifier.tapOrHold(enabled = message.uploadProgress == null) { actions.saveMedia(c.media) },
+                    )
+                    message.uploadProgress?.let { UploadProgress(it) }
+                }
             }
         }
 
@@ -531,7 +538,7 @@ internal fun Media.aspectRatio(): Float? {
 }
 
 @Composable
-private fun FileCard(
+internal fun FileCard(
     icon: Int,
     name: String,
     size: Long?,

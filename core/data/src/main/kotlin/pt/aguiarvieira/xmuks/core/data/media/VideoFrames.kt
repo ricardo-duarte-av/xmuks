@@ -45,10 +45,12 @@ class VideoFrames(
     ): Fetcher? {
         if (data.fragment != FRAGMENT || (data.scheme != "https" && data.scheme != "http")) return null
         val url = data.toString().substringBefore('#')
-        return Fetcher { fetch(url) }
+        return object : Fetcher {
+            override suspend fun fetch(): FetchResult = frame(url)
+        }
     }
 
-    private suspend fun fetch(url: String): FetchResult {
+    private suspend fun frame(url: String): FetchResult {
         val file = File(dir, "${sha1(url)}.jpg")
         if (!file.exists()) {
             if (url in failed) throw IOException("No frame for this video")

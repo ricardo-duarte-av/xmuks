@@ -12,12 +12,14 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import coil3.ImageLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.media.MediaDownloads
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.media.PdfFiles
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomGallery
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import javax.inject.Inject
@@ -38,6 +40,7 @@ class MediaViewerViewModel
         val downloads: MediaDownloads,
         private val gallery: RoomGallery,
         private val urls: MediaUrls,
+        private val pdf: PdfFiles,
     ) : ViewModel() {
         private var player: ExoPlayer? = null
         private var playing: String? = null
@@ -122,6 +125,11 @@ class MediaViewerViewModel
                 loading = false
             }
         }
+
+        /** How many pages a PDF has (it's downloaded for that); 0 when it can't be read. */
+        suspend fun pageCount(url: String): Int =
+            // Unreadable: not downloaded, or a file the platform's renderer won't open (a password).
+            runCatching { pdf.pageCount(url) }.getOrElse { e -> if (e is CancellationException) throw e else 0 }
 
         override fun onCleared() {
             player?.release()
