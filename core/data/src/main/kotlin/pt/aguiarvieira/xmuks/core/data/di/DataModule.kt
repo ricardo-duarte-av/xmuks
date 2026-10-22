@@ -321,6 +321,7 @@ object DataModule {
         database,
         media,
         preferences.layers().map { it.get(Prefs.muteLowPriority) }.distinctUntilChanged(),
+        preferences.layers().map { it.get(Prefs.dmMentions) }.distinctUntilChanged(),
     )
 
     @Provides @Singleton

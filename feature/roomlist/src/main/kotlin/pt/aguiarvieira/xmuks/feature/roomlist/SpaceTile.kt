@@ -42,8 +42,14 @@ fun SpaceTile(
                 size = 84.dp,
                 modifier = Modifier.sharedElement(SharedKeys.avatar(space.roomId, SharedScopes.SPACES)),
             )
-            val (level, count) = space.unread.level()
-            UnreadBadge(level, count, modifier = Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp))
+            val display = LocalRoomListDisplay.current
+            val (level, count) = space.unread.level(display.unreadCount)
+            UnreadBadge(
+                level,
+                count,
+                modifier = Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp),
+                mentionAt = display.mentionAt,
+            )
         }
         Text(
             text = space.name,

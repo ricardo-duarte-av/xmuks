@@ -194,6 +194,9 @@ internal val ENTRIES: List<PrefEntry> =
             R.string.pref_alphabetical_order_desc,
             Section.RoomList
         ),
+        PrefEntry(Prefs.unreadCount, R.string.pref_unread_count, R.string.pref_unread_count_desc, Section.RoomList),
+        PrefEntry(Prefs.mentionAt, R.string.pref_mention_at, R.string.pref_mention_at_desc, Section.RoomList),
+        PrefEntry(Prefs.dmMentions, R.string.pref_dm_mentions, R.string.pref_dm_mentions_desc, Section.RoomList),
         PrefEntry(
             Prefs.roomAvatarColors,
             R.string.pref_room_avatar_colors,

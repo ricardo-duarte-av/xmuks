@@ -85,6 +85,12 @@
     <string name="pref_mute_low_priority_desc">Don\'t count unread messages in low priority rooms. Notifications and mentions still count.</string>
     <string name="pref_alphabetical_order">Alphabetical room list</string>
     <string name="pref_alphabetical_order_desc">Sort rooms by name instead of recent activity.</string>
+    <string name="pref_unread_count">Show unread count</string>
+    <string name="pref_unread_count_desc">Rooms with unread messages show how many, instead of a dot.</string>
+    <string name="pref_mention_at">Use @ for mentions in room list</string>
+    <string name="pref_mention_at_desc">Mentions and replies keep the usual badge colour, with an @ beside it, instead of turning it red.</string>
+    <string name="pref_dm_mentions">Ignore mentions/replies in DMs</string>
+    <string name="pref_dm_mentions_desc">In direct messages, every unread message counts as a mention.</string>
 
     <string name="choice_default">Default</string>
     <string name="choice_compact">Compact</string>

@@ -81,6 +81,15 @@ object Prefs {
     /** xmuks' own: DM partners as phone contacts (Message, Voice call, Video call). */
     val syncContacts = Pref.Bool("xmuks_sync_contacts", false, DEVICE_GLOBAL)
 
+    /** The room list's quiet unread dot becomes the number of unread messages. */
+    val unreadCount = Pref.Bool("xmuks_unread_count", false, DEVICE_GLOBAL)
+
+    /** A mention keeps the plain badge colour, marked by an @ beside it instead. */
+    val mentionAt = Pref.Bool("xmuks_mention_at", false, DEVICE_GLOBAL)
+
+    /** In a DM, every unread message counts as a mention. */
+    val dmMentions = Pref.Bool("xmuks_dm_mentions", false, DEVICE_GLOBAL)
+
     /** Every preference, in gomuks' order (its settings screen's). */
     val all: List<Pref<*>> =
         listOf(

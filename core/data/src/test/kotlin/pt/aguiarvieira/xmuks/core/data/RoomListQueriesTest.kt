@@ -124,7 +124,7 @@ class RoomListQueriesTest {
     @Test
     fun `space unread totals count rooms, each once`() {
         spaces()
-        val top = runBlocking { dao.topLevelSpaceSummaries(muteLowPriority = false).first() }.single()
+        val top = runBlocking { dao.topLevelSpaceSummaries(muteLowPriority = false, dmMentions = false).first() }.single()
         assertEquals(2, top.rooms)
         assertEquals("rooms with anything unread", 2, top.unreadRooms)
         assertEquals("rooms needing attention", 2, top.unreadNotifications)
@@ -134,10 +134,18 @@ class RoomListQueriesTest {
     @Test
     fun `tab badges count rooms per tab, spaces through every level once`() {
         spaces()
-        val chats = runBlocking { dao.tabUnread(dmsOnly = false, muteLowPriority = false).first() }
+        val chats = runBlocking { dao.tabUnread(dmsOnly = false, muteLowPriority = false, dmMentions = false).first() }
         assertEquals(TabUnreadRow(unreadRooms = 3, notifyingRooms = 3, mentionRooms = 1), chats)
-        assertEquals(TabUnreadRow(1, 1, 0), runBlocking { dao.tabUnread(dmsOnly = true, muteLowPriority = false).first() })
-        assertEquals(TabUnreadRow(2, 2, 1), runBlocking { dao.spacesTabUnread(muteLowPriority = false).first() })
+        assertEquals(TabUnreadRow(1, 1, 0), runBlocking { dao.tabUnread(dmsOnly = true, muteLowPriority = false, dmMentions = false).first() })
+        assertEquals(TabUnreadRow(2, 2, 1), runBlocking { dao.spacesTabUnread(muteLowPriority = false, dmMentions = false).first() })
+    }
+
+    @Test
+    fun `with dm mentions, a DM with unread messages counts as mentioning`() {
+        spaces()
+        val chats = runBlocking { dao.tabUnread(dmsOnly = false, muteLowPriority = false, dmMentions = true).first() }
+        assertEquals(TabUnreadRow(unreadRooms = 3, notifyingRooms = 3, mentionRooms = 2), chats)
+        assertEquals(TabUnreadRow(1, 1, 1), runBlocking { dao.tabUnread(dmsOnly = true, muteLowPriority = false, dmMentions = true).first() })
     }
 
     @Test
@@ -161,9 +169,9 @@ class RoomListQueriesTest {
         assertEquals(true, rows.getValue("!c").lowPriority)
         assertEquals(false, rows.getValue("!b").lowPriority)
         // !c's quiet unread no longer counts; !a still notifies, so it still does.
-        val muted = runBlocking { dao.tabUnread(dmsOnly = false, muteLowPriority = true).first() }
+        val muted = runBlocking { dao.tabUnread(dmsOnly = false, muteLowPriority = true, dmMentions = false).first() }
         assertEquals(TabUnreadRow(unreadRooms = 3, notifyingRooms = 3, mentionRooms = 1), muted)
-        val unmuted = runBlocking { dao.tabUnread(dmsOnly = false, muteLowPriority = false).first() }
+        val unmuted = runBlocking { dao.tabUnread(dmsOnly = false, muteLowPriority = false, dmMentions = false).first() }
         assertEquals(TabUnreadRow(unreadRooms = 4, notifyingRooms = 3, mentionRooms = 1), unmuted)
     }
 

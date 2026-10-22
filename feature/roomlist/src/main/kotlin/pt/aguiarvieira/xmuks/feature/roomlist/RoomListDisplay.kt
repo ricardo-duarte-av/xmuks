@@ -11,20 +11,32 @@ import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import java.text.Collator
 
-/** How room list rows look, from gomuks' preferences (`room_list_preview`, `room_list_style`). */
+/**
+ * How room list rows look, from gomuks' preferences (`room_list_preview`, `room_list_style`) and
+ * xmuks' own unread badge ones.
+ */
 @Immutable
 data class RoomListDisplay(
     val showPreview: Boolean = true,
     val avatar: Dp = 48.dp,
     val verticalPadding: Dp = 10.dp,
+    /** Quiet unread shows the number of unread messages, not a dot. */
+    val unreadCount: Boolean = false,
+    /** Mentions keep the plain badge colour, marked with an @. */
+    val mentionAt: Boolean = false,
 ) {
     companion object {
         fun of(layers: PrefLayers): RoomListDisplay {
-            val preview = layers.get(Prefs.roomListPreview)
+            val base =
+                RoomListDisplay(
+                    showPreview = layers.get(Prefs.roomListPreview),
+                    unreadCount = layers.get(Prefs.unreadCount),
+                    mentionAt = layers.get(Prefs.mentionAt),
+                )
             return when (layers.get(Prefs.roomListStyle)) {
-                "compact" -> RoomListDisplay(preview, avatar = 36.dp, verticalPadding = 6.dp)
-                "spacious" -> RoomListDisplay(preview, avatar = 56.dp, verticalPadding = 14.dp)
-                else -> RoomListDisplay(preview)
+                "compact" -> base.copy(avatar = 36.dp, verticalPadding = 6.dp)
+                "spacious" -> base.copy(avatar = 56.dp, verticalPadding = 14.dp)
+                else -> base
             }
         }
     }

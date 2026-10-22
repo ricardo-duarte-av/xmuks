@@ -202,8 +202,8 @@ interface RoomListDao {
             SELECT t.root AS root,
                 COUNT(r.roomId) AS rooms,
                 SUM(CASE WHEN $UNREAD THEN 1 ELSE 0 END) AS unreadRooms,
-                SUM(CASE WHEN r.unreadNotifications > 0 OR r.unreadHighlights > 0 THEN 1 ELSE 0 END) AS unreadNotifications,
-                SUM(CASE WHEN r.unreadHighlights > 0 THEN 1 ELSE 0 END) AS unreadHighlights
+                SUM(CASE WHEN r.unreadNotifications > 0 OR r.unreadHighlights > 0 OR $DM_MENTION THEN 1 ELSE 0 END) AS unreadNotifications,
+                SUM(CASE WHEN r.unreadHighlights > 0 OR $DM_MENTION THEN 1 ELSE 0 END) AS unreadHighlights
             FROM tree t JOIN rooms r ON r.roomId = t.id AND r.isSpace = 0
             GROUP BY t.root
         )
@@ -215,7 +215,10 @@ interface RoomListDao {
         ORDER BY p.position
         """
     )
-    fun topLevelSpaceSummaries(muteLowPriority: Boolean): Flow<List<SpaceSummaryRow>>
+    fun topLevelSpaceSummaries(
+        muteLowPriority: Boolean,
+        dmMentions: Boolean,
+    ): Flow<List<SpaceSummaryRow>>
 
     @Query(
         """
@@ -255,14 +258,15 @@ interface RoomListDao {
         """
         SELECT
             COALESCE(SUM(CASE WHEN $UNREAD THEN 1 ELSE 0 END), 0) AS unreadRooms,
-            COALESCE(SUM(CASE WHEN unreadNotifications > 0 OR unreadHighlights > 0 THEN 1 ELSE 0 END), 0) AS notifyingRooms,
-            COALESCE(SUM(CASE WHEN unreadHighlights > 0 THEN 1 ELSE 0 END), 0) AS mentionRooms
+            COALESCE(SUM(CASE WHEN unreadNotifications > 0 OR unreadHighlights > 0 OR $DM_MENTION THEN 1 ELSE 0 END), 0) AS notifyingRooms,
+            COALESCE(SUM(CASE WHEN unreadHighlights > 0 OR $DM_MENTION THEN 1 ELSE 0 END), 0) AS mentionRooms
         FROM rooms r WHERE isSpace = 0 AND (:dmsOnly = 0 OR dmUserId IS NOT NULL)
         """
     )
     fun tabUnread(
         dmsOnly: Boolean,
         muteLowPriority: Boolean,
+        dmMentions: Boolean,
     ): Flow<TabUnreadRow>
 
     /** Unread room counts over every room reachable from a top-level space, each counted once. */
@@ -275,12 +279,15 @@ interface RoomListDao {
         )
         SELECT
             COALESCE(SUM(CASE WHEN $UNREAD THEN 1 ELSE 0 END), 0) AS unreadRooms,
-            COALESCE(SUM(CASE WHEN unreadNotifications > 0 OR unreadHighlights > 0 THEN 1 ELSE 0 END), 0) AS notifyingRooms,
-            COALESCE(SUM(CASE WHEN unreadHighlights > 0 THEN 1 ELSE 0 END), 0) AS mentionRooms
+            COALESCE(SUM(CASE WHEN unreadNotifications > 0 OR unreadHighlights > 0 OR $DM_MENTION THEN 1 ELSE 0 END), 0) AS notifyingRooms,
+            COALESCE(SUM(CASE WHEN unreadHighlights > 0 OR $DM_MENTION THEN 1 ELSE 0 END), 0) AS mentionRooms
         FROM rooms r WHERE isSpace = 0 AND roomId IN (SELECT id FROM tree)
         """
     )
-    fun spacesTabUnread(muteLowPriority: Boolean): Flow<TabUnreadRow>
+    fun spacesTabUnread(
+        muteLowPriority: Boolean,
+        dmMentions: Boolean,
+    ): Flow<TabUnreadRow>
 
     /** Member events we already hold for [roomId] (preview senders): the seed for sender names. */
     @Query(
@@ -334,3 +341,7 @@ private const val LOW_PRIORITY =
 private const val UNREAD =
     "((r.unreadMessages > 0 AND NOT (:muteLowPriority AND $LOW_PRIORITY))" +
         " OR r.unreadNotifications > 0 OR r.unreadHighlights > 0 OR r.markedUnread)"
+
+/** Room `r` is a DM with unread messages while the query's `:dmMentions` is set: it counts as a mention. */
+private const val DM_MENTION =
+    "(:dmMentions AND r.dmUserId IS NOT NULL AND r.unreadMessages > 0 AND NOT (:muteLowPriority AND $LOW_PRIORITY))"

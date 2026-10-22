@@ -139,8 +139,8 @@ fun RoomListItem(
                     onTextLayout = { pills.layout = it },
                     modifier = Modifier.weight(1f).then(pills.modifier),
                 )
-                val (level, count) = room.unread.level()
-                UnreadBadge(level, count)
+                val (level, count) = room.unread.level(display.unreadCount)
+                UnreadBadge(level, count, mentionAt = display.mentionAt)
             }
         }
     }
@@ -174,13 +174,14 @@ private const val BODY_MARK = "\u0000"
 
 /**
  * One rule for rooms, spaces and tabs: anything needing attention shows a number (red when it
- * includes a mention); quiet unread shows a dot.
+ * includes a mention); quiet unread shows a dot, or with [showCount] the number of unread messages.
  */
-fun Unread.level(): Pair<UnreadLevel, Int> {
+fun Unread.level(showCount: Boolean = false): Pair<UnreadLevel, Int> {
     val attention = maxOf(notifications, highlights)
     return when {
         highlights > 0 -> UnreadLevel.Mention to attention
         attention > 0 -> UnreadLevel.Count to attention
+        showCount && messages > 0 -> UnreadLevel.Count to messages
         any -> UnreadLevel.Dot to 0
         else -> UnreadLevel.None to 0
     }

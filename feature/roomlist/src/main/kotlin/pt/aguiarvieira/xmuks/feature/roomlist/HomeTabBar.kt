@@ -48,7 +48,8 @@ private fun TabIcon(
             HomeTab.Dms -> badges.dms
             HomeTab.Spaces -> badges.spaces
         }
-    val (level, count) = unread.level()
+    val display = LocalRoomListDisplay.current
+    val (level, count) = unread.level(display.unreadCount)
     BadgedBox(
         badge = {
             when (level) {
@@ -63,7 +64,11 @@ private fun TabIcon(
                 }
 
                 UnreadLevel.Mention -> {
-                    Badge { Text(badgeCount(count)) }
+                    if (display.mentionAt) {
+                        Badge(containerColor = MaterialTheme.colorScheme.primary) { Text("@" + badgeCount(count)) }
+                    } else {
+                        Badge { Text(badgeCount(count)) }
+                    }
                 }
             }
         },
