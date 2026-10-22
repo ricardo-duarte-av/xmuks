@@ -273,6 +273,17 @@ data class Media(
 ) {
     /** An animated image (a GIF): its thumbnail is a still, the file itself can be large. */
     val animated: Boolean get() = mimeType == "image/gif"
+
+    /** A PDF: by its type, or by its name when the sender gave no useful type. */
+    val isPdf: Boolean
+        get() =
+            mimeType == PDF ||
+                (mimeType in VAGUE_TYPES && name?.endsWith(".pdf", ignoreCase = true) == true)
+
+    companion object {
+        const val PDF = "application/pdf"
+        private val VAGUE_TYPES = setOf(null, "application/octet-stream")
+    }
 }
 
 /** An encrypted file's key (`key.k`), IV and SHA-256, as the event carries them. */

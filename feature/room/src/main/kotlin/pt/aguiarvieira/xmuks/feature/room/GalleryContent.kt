@@ -186,7 +186,7 @@ private fun GalleryTile(
         when {
             more > 0 -> onMore()
             item is MessageContent.File -> actions.saveMedia(media)
-            else -> actions.openMedia(viewerMedia(message, media, kind ?: ViewerMedia.Kind.Audio, resolver, key))
+            else -> actions.openMedia(viewerMedia(message, media, kind ?: ViewerMedia.Kind.Audio, resolver, key, index))
         }
     }
     Box(

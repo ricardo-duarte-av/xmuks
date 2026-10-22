@@ -493,7 +493,14 @@ fun XmuksNavHost(
                             }
                             entry<MediaKey> { key ->
                                 Destination {
-                                    MediaViewerRoute(media = key.media, onBack = { backStack.back(key) })
+                                    MediaViewerRoute(
+                                        media = key.media,
+                                        onBack = { backStack.back(key) },
+                                        onGoToMessage = { roomId, eventId ->
+                                            backStack.remove(key)
+                                            backStack.openRoom(roomId, LINK_SCOPE, eventId)
+                                        },
+                                    )
                                 }
                             }
                             entry<CallKey> { key ->

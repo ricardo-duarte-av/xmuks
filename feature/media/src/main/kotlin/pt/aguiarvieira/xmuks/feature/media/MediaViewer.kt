@@ -1,12 +1,15 @@
 package pt.aguiarvieira.xmuks.feature.media
 
 import android.app.Activity
+import androidx.annotation.DrawableRes
 import androidx.annotation.OptIn
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -35,10 +39,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
@@ -62,15 +68,44 @@ import pt.aguiarvieira.xmuks.core.designsystem.util.Blurhash
 
 /**
  * Full-screen viewer for any [ViewerMedia]. Images zoom (pinch, double tap) and pan; video and audio
- * stream with the platform player UI. A tap toggles the chrome (and the system bars).
+ * stream with the platform player UI. A tap toggles the chrome (and the system bars). The bottom
+ * bar turns the picture, saves the file, and — for a message's media — forwards it or goes to it.
  */
 @Composable
 fun MediaViewerRoute(
     media: ViewerMedia,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Forwarding a message's media to another room (with a caption of its own). */
+    onForward: ((ViewerMedia) -> Unit)? = null,
+    /** Opening the room at the message the media is from. */
+    onGoToMessage: ((roomId: String, eventId: String) -> Unit)? = null,
     viewModel: MediaViewerViewModel = hiltViewModel(key = media.url),
-) = MediaViewer(media, onBack, viewModel::player, modifier, viewModel.images)
+) {
+    val save = rememberViewerSaver(viewModel)
+    MediaViewer(
+        media,
+        onBack,
+        viewModel::player,
+        modifier,
+        viewModel.images,
+        ViewerActions(
+            onSave = save,
+            onForward = onForward,
+            onGoToMessage =
+                onGoToMessage?.let { go ->
+                    { m -> if (m.roomId != null && m.eventId != null) go(m.roomId, m.eventId) }
+                },
+        ),
+    )
+}
+
+/** What the bottom bar does with what's shown; an action left null isn't offered. */
+class ViewerActions(
+    val onSave: ((ViewerMedia) -> Unit)? = null,
+    val onForward: ((ViewerMedia) -> Unit)? = null,
+    val onGoToMessage: ((ViewerMedia) -> Unit)? = null,
+)
 
 /** The viewer itself; [playerFor] supplies the player for video and audio. */
 @Composable
@@ -81,16 +116,61 @@ fun MediaViewer(
     modifier: Modifier = Modifier,
     /** The cache tier to load pictures through; null uses the app's default loader. */
     images: ImageLoader? = null,
+    actions: ViewerActions = ViewerActions(),
 ) {
     var chrome by rememberSaveable { mutableStateOf(true) }
+    // Quarter turns clockwise, for a picture taken sideways.
+    var turns by rememberSaveable(media.url) { mutableIntStateOf(0) }
     ImmersiveWhile(hidden = !chrome)
     Box(modifier.fillMaxSize().background(Color.Black)) {
-        when (media.kind) {
-            ViewerMedia.Kind.Image -> ZoomableImage(media, images, onTap = { chrome = !chrome })
-            ViewerMedia.Kind.Video, ViewerMedia.Kind.Audio -> MediaPlayer(media, playerFor, images)
+        Box(Modifier.fillMaxSize().rotated(turns)) {
+            when (media.kind) {
+                ViewerMedia.Kind.Image -> {
+                    ZoomableImage(media, images, onTap = { chrome = !chrome })
+                }
+
+                ViewerMedia.Kind.Video, ViewerMedia.Kind.Audio -> {
+                    MediaPlayer(media, playerFor, images)
+                }
+
+                ViewerMedia.Kind.Pdf -> {}
+            }
         }
         AnimatedVisibility(visible = chrome, enter = fadeIn(), exit = fadeOut()) {
             TopBar(media, onBack)
+        }
+        AnimatedVisibility(
+            visible = chrome,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            BottomBar(media, actions, onRotate = { turns = (turns + 1) % QUARTERS })
+        }
+    }
+}
+
+/**
+ * Turns the content by [turns] quarter turns, laid out in the space it has once turned: a
+ * landscape picture turned upright fills a portrait screen. Touches turn with it.
+ */
+private fun Modifier.rotated(turns: Int): Modifier {
+    if (turns % QUARTERS == 0) return this
+    val sideways = turns % 2 == 1
+    return layout { measurable, constraints ->
+        val inner =
+            if (sideways) {
+                Constraints(constraints.minHeight, constraints.maxHeight, constraints.minWidth, constraints.maxWidth)
+            } else {
+                constraints
+            }
+        val placeable = measurable.measure(inner)
+        val width = if (sideways) placeable.height else placeable.width
+        val height = if (sideways) placeable.width else placeable.height
+        layout(width, height) {
+            placeable.placeWithLayer((width - placeable.width) / 2, (height - placeable.height) / 2) {
+                rotationZ = turns * DEGREES_PER_TURN
+            }
         }
     }
 }
@@ -222,6 +302,44 @@ private fun TopBar(
     }
 }
 
+/** Turning the picture, saving it, and for a message's media forwarding it and going to it. */
+@Composable
+private fun BottomBar(
+    media: ViewerMedia,
+    actions: ViewerActions,
+    onRotate: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = SCRIM))))
+                .navigationBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Audio has nothing to turn.
+        if (media.kind != ViewerMedia.Kind.Audio) BarButton(R.drawable.ic_rotate, R.string.rotate, onRotate)
+        actions.onSave?.let { save -> BarButton(R.drawable.ic_download, R.string.save) { save(media) } }
+        if (media.fromMessage) {
+            actions.onForward?.let { forward -> BarButton(R.drawable.ic_forward, R.string.forward) { forward(media) } }
+            actions.onGoToMessage?.let { go -> BarButton(R.drawable.ic_chat, R.string.go_to_message) { go(media) } }
+        }
+    }
+}
+
+@Composable
+private fun BarButton(
+    @DrawableRes icon: Int,
+    @StringRes label: Int,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick) {
+        Icon(painterResource(icon), stringResource(label), tint = Color.White)
+    }
+}
+
 /** Hides the system bars while [hidden], light icons on black otherwise; restores both on leaving. */
 @Composable
 private fun ImmersiveWhile(hidden: Boolean) {
@@ -248,4 +366,6 @@ private fun ImmersiveWhile(hidden: Boolean) {
 }
 
 private const val SCRIM = 0.6f
+private const val QUARTERS = 4
+private const val DEGREES_PER_TURN = 90f
 private const val SUBTLE = 0.75f

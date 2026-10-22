@@ -11,6 +11,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import coil3.ImageLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import pt.aguiarvieira.xmuks.core.data.media.MediaDownloads
 import javax.inject.Inject
 import javax.inject.Named
 
@@ -23,6 +24,7 @@ class MediaViewerViewModel
         @param:Named("player") private val source: DataSource.Factory,
         /** The timeline pictures' cache tier: what the viewer shows is mostly already there. */
         @param:Named("media") val images: ImageLoader,
+        val downloads: MediaDownloads,
     ) : ViewModel() {
         private var player: ExoPlayer? = null
 

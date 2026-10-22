@@ -485,7 +485,7 @@ fun RoomScreen(
                 saveMedia = onSaveMedia,
                 openThread = onOpenThread,
                 compactThreads = compactThreads,
-                openMedia = onOpenMedia,
+                openMedia = { onOpenMedia(it.inRoom(roomId)) },
                 openUser = onOpenUser,
                 player = player,
                 onUnsent = { overlays.unsent = it },

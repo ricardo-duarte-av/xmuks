@@ -91,14 +91,15 @@ fun GalleryRoute(
         resolver,
         onFilter = viewModel::filter,
         onLoadMore = viewModel::loadMore,
-        onOpen = { item -> openOrSave(item, resolver, onOpenMedia, save) },
+        onOpen = { item -> openOrSave(roomId, item, resolver, onOpenMedia, save) },
         onBack = onBack,
         modifier = modifier,
     )
 }
 
-/** Pictures and videos open in the viewer; audio and files are saved where the user picks. */
+/** Pictures, videos and PDFs open in the viewer; audio and other files are saved where the user picks. */
 private fun openOrSave(
+    roomId: String,
     item: GalleryItem,
     resolver: MediaResolver,
     onOpenMedia: (ViewerMedia) -> Unit,
@@ -106,11 +107,11 @@ private fun openOrSave(
 ) {
     when (val c = item.content) {
         is MessageContent.Image -> {
-            onOpenMedia(galleryViewer(item, c.media, ViewerMedia.Kind.Image, resolver))
+            onOpenMedia(galleryViewer(roomId, item, c.media, ViewerMedia.Kind.Image, resolver))
         }
 
         is MessageContent.Video -> {
-            onOpenMedia(galleryViewer(item, c.media, ViewerMedia.Kind.Video, resolver))
+            onOpenMedia(galleryViewer(roomId, item, c.media, ViewerMedia.Kind.Video, resolver))
         }
 
         is MessageContent.Audio -> {
@@ -118,7 +119,11 @@ private fun openOrSave(
         }
 
         is MessageContent.File -> {
-            save(c.media)
+            if (c.media.isPdf) {
+                onOpenMedia(galleryViewer(roomId, item, c.media, ViewerMedia.Kind.Pdf, resolver))
+            } else {
+                save(c.media)
+            }
         }
 
         else -> {}
@@ -126,6 +131,7 @@ private fun openOrSave(
 }
 
 private fun galleryViewer(
+    roomId: String,
     item: GalleryItem,
     media: Media,
     kind: ViewerMedia.Kind,
@@ -139,6 +145,11 @@ private fun galleryViewer(
     height = media.height,
     title = item.senderName,
     subtitle = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(item.timestamp)),
+    name = media.name,
+    mimeType = media.mimeType,
+    roomId = roomId,
+    eventId = item.eventId,
+    index = item.key.substringAfter('#', "").toIntOrNull(),
 )
 
 /**

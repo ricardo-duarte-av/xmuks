@@ -1,4 +1,11 @@
 <resources>
     <string name="back">Back</string>
     <string name="media_failed">Couldn\'t load this media</string>
+    <string name="rotate">Rotate</string>
+    <string name="save">Save</string>
+    <string name="forward">Forward</string>
+    <string name="go_to_message">Go to message</string>
+    <string name="saving">Saving %1$s…</string>
+    <string name="saved">Saved %1$s</string>
+    <string name="save_failed">Couldn\'t save %1$s: %2$s</string>
 </resources>

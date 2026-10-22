@@ -17,6 +17,8 @@ internal fun viewerMedia(
     resolver: MediaResolver,
     /** The shared-element key's ID: the event's, or one gallery item's (see [galleryKey]). */
     key: String = message.eventId,
+    /** Which of an MSC4274 gallery's items it is. */
+    index: Int? = null,
 ) = ViewerMedia(
     kind = kind,
     url = resolver.file(media).orEmpty(),
@@ -27,7 +29,15 @@ internal fun viewerMedia(
     title = message.senderName,
     subtitle = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(message.timestamp)),
     sharedKey = SharedKeys.media(key),
+    name = media.name,
+    mimeType = media.mimeType,
+    // One still in our outbox has no event to forward or go to yet. The room is the screen's to add.
+    eventId = message.eventId.takeIf { message.localId == null },
+    index = index,
 )
+
+/** A message's media with its room, which the viewer's actions on it (forwarding, going to it) need. */
+internal fun ViewerMedia.inRoom(roomId: String) = if (eventId != null) copy(roomId = roomId) else this
 
 /**
  * What the timeline loads: the sender's thumbnail when there is one (gomuks only makes avatar

@@ -8,6 +8,7 @@ android {
 
 dependencies {
     implementation(projects.core.data)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.telephoto.zoomable.image.coil3)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
