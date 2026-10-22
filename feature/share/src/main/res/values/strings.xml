@@ -2,6 +2,7 @@
 <resources>
     <string name="back">Back</string>
     <string name="share_to">Send to…</string>
+    <string name="forward_to">Forward to…</string>
     <string name="share_search">Search rooms</string>
     <string name="share_no_rooms">No rooms match</string>
     <string name="share_caption">Caption</string>

@@ -104,8 +104,12 @@ internal fun RoomOverlays(
     onSaveMedia: (Media) -> Unit = {},
     onOpenThread: ((String) -> Unit)? = null,
     pins: PinsUi = PinsUi(),
+    /** Forwarding a message's media; null where it isn't offered. */
+    onForward: ((ViewerMedia) -> Unit)? = null,
 ) {
-    state.menuFor?.let { message -> MessageMenuFor(message, state, composer, onSaveMedia, onOpenThread, pins) }
+    state.menuFor?.let { message ->
+        MessageMenuFor(message, state, composer, onSaveMedia, onOpenThread, pins, resolver, onForward)
+    }
     PickerSheet(state, composer, resolver)
     state.deleting?.let { message -> DeleteFor(message, state, composer) }
     composer.history?.let { MessageHistorySheet(it, resolver, actions, composer.onHideHistory) }
@@ -333,6 +337,8 @@ private fun MessageMenuFor(
     onSaveMedia: (Media) -> Unit,
     onOpenThread: ((String) -> Unit)?,
     pins: PinsUi,
+    resolver: MediaResolver,
+    onForward: ((ViewerMedia) -> Unit)?,
 ) {
     val features = composer.features
     val now = System.currentTimeMillis()
@@ -373,6 +379,15 @@ private fun MessageMenuFor(
                 {
                     onSaveMedia(media)
                     state.menuFor = null
+                }
+            },
+        onForward =
+            onForward?.let { forward ->
+                forwardable(message, resolver)?.let { media ->
+                    {
+                        forward(media)
+                        state.menuFor = null
+                    }
                 }
             },
         onEndPoll =

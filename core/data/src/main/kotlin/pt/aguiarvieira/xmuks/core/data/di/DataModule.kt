@@ -70,6 +70,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.CodeThemes
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
+import pt.aguiarvieira.xmuks.core.data.timeline.MediaForwarder
 import pt.aguiarvieira.xmuks.core.data.timeline.PinBarStore
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomGallery
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
@@ -207,6 +208,12 @@ object DataModule {
         outbox: Outbox,
         scope: CoroutineScope,
     ) = MediaSender(uploader, outbox, scope)
+
+    @Provides @Singleton
+    fun mediaForwarder(
+        exec: ExecClient,
+        outbox: Outbox,
+    ) = MediaForwarder(exec, outbox)
 
     @Provides @Singleton
     fun draftStore(

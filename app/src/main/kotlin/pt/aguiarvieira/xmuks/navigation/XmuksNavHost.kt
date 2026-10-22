@@ -111,6 +111,8 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
     val uris: List<String>,
     val text: String?,
     val roomId: String?,
+    /** A message's media to forward instead (to a room picked here). */
+    val forward: ViewerMedia? = null,
 ) : NavKey
 
 /** Message search, in one room or all of them. */
@@ -321,6 +323,7 @@ fun XmuksNavHost(
                                         onOpenThread = { root ->
                                             backStack.add(ThreadKey(key.roomId, root, key.preview))
                                         },
+                                        onForward = { backStack.add(ShareKey(emptyList(), null, null, forward = it)) },
                                         preview = key.preview,
                                         onOpenFully = { backStack.openRoom(key.roomId, key.scope) },
                                     )
@@ -332,6 +335,7 @@ fun XmuksNavHost(
                                         roomId = key.roomId,
                                         sharedScope = THREAD_SCOPE,
                                         threadRoot = key.rootId,
+                                        onForward = { backStack.add(ShareKey(emptyList(), null, null, forward = it)) },
                                         onOpenLink = openLink,
                                         onBack = { backStack.back(key) },
                                         onOpenMedia = { backStack.add(MediaKey(it)) },
@@ -388,7 +392,7 @@ fun XmuksNavHost(
                             entry<ShareKey> { key ->
                                 Destination(roomId = key.roomId) {
                                     ShareRoute(
-                                        request = ShareRequest(key.uris, key.text, key.roomId),
+                                        request = ShareRequest(key.uris, key.text, key.roomId, key.forward),
                                         onDone = { roomId ->
                                             backStack.remove(key)
                                             // Back in the room it came from, or to the one chosen.
@@ -496,6 +500,7 @@ fun XmuksNavHost(
                                     MediaViewerRoute(
                                         media = key.media,
                                         onBack = { backStack.back(key) },
+                                        onForward = { backStack.add(ShareKey(emptyList(), null, null, forward = it)) },
                                         onGoToMessage = { roomId, eventId ->
                                             backStack.remove(key)
                                             backStack.openRoom(roomId, LINK_SCOPE, eventId)

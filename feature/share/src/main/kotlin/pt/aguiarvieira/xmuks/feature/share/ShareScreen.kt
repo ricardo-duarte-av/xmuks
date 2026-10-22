@@ -90,7 +90,14 @@ fun ShareRoute(
     val scope = rememberCoroutineScope()
     val chosen = room?.let { id -> rooms?.firstOrNull { it.roomId == id } }
     if (room == null) {
-        RoomPicker(rooms, { viewModel.query.value = it }, { viewModel.choose(it) }, { onDone(null) }, modifier)
+        RoomPicker(
+            rooms,
+            { viewModel.query.value = it },
+            { viewModel.choose(it) },
+            { onDone(null) },
+            modifier,
+            title = stringResource(if (viewModel.forwarding) R.string.forward_to else R.string.share_to),
+        )
     } else {
         // Back from the captions goes to the picker, unless the room was given by the share.
         BackHandler { if (request.roomId == null) viewModel.choose(null) else onDone(null) }
@@ -117,6 +124,7 @@ private fun RoomPicker(
     onChoose: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    title: String = stringResource(R.string.share_to),
 ) {
     val search = rememberTextFieldState()
     val query by rememberUpdatedState(onQuery)
@@ -127,7 +135,7 @@ private fun RoomPicker(
         topBar = {
             ScreenHeader {
                 Column {
-                    TopBar(stringResource(R.string.share_to), onBack)
+                    TopBar(title, onBack)
                     TextField(
                         state = search,
                         placeholder = { Text(stringResource(R.string.share_search)) },

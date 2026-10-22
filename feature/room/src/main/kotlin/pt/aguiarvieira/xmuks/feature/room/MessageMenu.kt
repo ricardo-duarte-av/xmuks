@@ -33,7 +33,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 
 /**
  * What can be done with a message (long press): react, reply, edit (ours, once sent), thread,
- * pin, save, copy its text, delete.
+ * pin, save, forward, copy its text, delete.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +62,8 @@ internal fun MessageMenu(
     onEndPoll: (() -> Unit)? = null,
     /** A new file for our picture or video; null when it isn't one. */
     onReplace: (() -> Unit)? = null,
+    /** Its file sent to another room; null when it has none to forward. */
+    onForward: (() -> Unit)? = null,
 ) {
     @Suppress("DEPRECATION") // The suspend Clipboard API needs ClipEntry plumbing for plain text.
     val clipboard = LocalClipboardManager.current
@@ -75,7 +77,7 @@ internal fun MessageMenu(
             if (sent && onEndPoll != null) {
                 Item(R.drawable.ic_poll, R.string.poll_end, limits.write, limits.onLimit, onEndPoll)
             }
-            if (onSave != null && message.uploadProgress == null) Item(R.drawable.ic_download, R.string.save, onSave)
+            FileItems(message, sent, onSave, onForward)
             if (text != null) {
                 Item(R.drawable.ic_copy, R.string.copy_text) {
                     clipboard.setText(AnnotatedString(text))
@@ -89,6 +91,18 @@ internal fun MessageMenu(
             }
         }
     }
+}
+
+/** Saving its file, and forwarding it once sent, as each is possible. */
+@Composable
+private fun FileItems(
+    message: TimelineItem.Message,
+    sent: Boolean,
+    onSave: (() -> Unit)?,
+    onForward: (() -> Unit)?,
+) {
+    if (onSave != null && message.uploadProgress == null) Item(R.drawable.ic_download, R.string.save, onSave)
+    if (sent && onForward != null) Item(R.drawable.ic_forward, R.string.forward, onForward)
 }
 
 /** Answering in its thread, and pinning or unpinning it, as each is possible. */

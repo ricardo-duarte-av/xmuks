@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
+import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.SharedKeys
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
@@ -35,6 +36,23 @@ internal fun viewerMedia(
     eventId = message.eventId.takeIf { message.localId == null },
     index = index,
 )
+
+/** A sent message's one file, as forwarding takes it (galleries and stickers aren't forwarded). */
+internal fun forwardable(
+    message: TimelineItem.Message,
+    resolver: MediaResolver,
+): ViewerMedia? {
+    if (message.localId != null || message.uploadProgress != null) return null
+    val (media, kind) =
+        when (val c = message.content) {
+            is MessageContent.Image -> c.media to ViewerMedia.Kind.Image
+            is MessageContent.Video -> c.media to ViewerMedia.Kind.Video
+            is MessageContent.Audio -> c.media to ViewerMedia.Kind.Audio
+            is MessageContent.File -> c.media to if (c.media.isPdf) ViewerMedia.Kind.Pdf else ViewerMedia.Kind.File
+            else -> return null
+        }
+    return viewerMedia(message, media, kind, resolver)
+}
 
 /** A message's media with its room, which the viewer's actions on it (forwarding, going to it) need. */
 internal fun ViewerMedia.inRoom(roomId: String) = if (eventId != null) copy(roomId = roomId) else this

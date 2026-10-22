@@ -35,7 +35,8 @@ data class ViewerMedia(
     /** Which of an MSC4274 gallery's items it is; null for a message's one file. */
     val index: Int? = null,
 ) {
-    enum class Kind { Image, Video, Audio, Pdf }
+    /** [File] is any other file: not shown here, but forwarded the same way. */
+    enum class Kind { Image, Video, Audio, Pdf, File }
 
     /** Shown from a message, with its room known: the actions that need one are offered. */
     val fromMessage: Boolean get() = roomId != null && eventId != null

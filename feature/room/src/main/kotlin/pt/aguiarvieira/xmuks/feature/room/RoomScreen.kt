@@ -126,6 +126,8 @@ fun RoomRoute(
     threadRoot: String? = null,
     /** Opens a thread, from its root. */
     onOpenThread: (rootId: String) -> Unit = {},
+    /** A message's media, to forward to another room. */
+    onForward: (ViewerMedia) -> Unit = {},
     /** Only looking (from the room list): read-only, and nothing is marked read. */
     preview: Boolean = false,
     /** From a preview: the room (or thread) opened for real. */
@@ -241,6 +243,7 @@ fun RoomRoute(
             onCallNotifyRoom = viewModel.setCallNotifyRoom,
             player = viewModel.player,
             onSaveMedia = rememberMediaSaver(),
+            onForwardMedia = onForward.takeUnless { preview },
             onOpenThread = if (threadRoot == null) onOpenThread else null,
             compactThreads = prefs.get(Prefs.smallThreads),
             inThread = threadRoot != null,
@@ -449,6 +452,8 @@ fun RoomScreen(
     onCallNotifyRoom: (Boolean) -> Unit = {},
     player: InlinePlayer? = null,
     onSaveMedia: (Media) -> Unit = {},
+    /** Forwarding a message's media; null where it isn't offered. */
+    onForwardMedia: ((ViewerMedia) -> Unit)? = null,
     /** Opening threads; null when this is one. */
     onOpenThread: ((String) -> Unit)? = null,
     compactThreads: Boolean = true,
@@ -520,7 +525,16 @@ fun RoomScreen(
         if (context != null) onLeaveContext()
         overlays.pinsShown = true
     }
-    RoomOverlays(overlays, composer, resolver, actions, onSaveMedia, onOpenThread, pins)
+    RoomOverlays(
+        overlays,
+        composer,
+        resolver,
+        actions,
+        onSaveMedia,
+        onOpenThread,
+        pins,
+        forwardIn(roomId, onForwardMedia),
+    )
     composer.features?.takeIf { limitsShown }?.let { features ->
         NetworkLimitsSheet(features, composer.network) { limitsShown = false }
     }
@@ -1004,3 +1018,9 @@ private const val HIGHLIGHT_MS = 1_600L
 
 internal const val DISABLED_ALPHA = 0.38f
 private const val HALF = 0.5f
+
+/** Forwarding from this room: the media goes with its room, which the share screen needs. */
+private fun forwardIn(
+    roomId: String,
+    forward: ((ViewerMedia) -> Unit)?,
+): ((ViewerMedia) -> Unit)? = forward?.let { { media -> it(media.inRoom(roomId)) } }

@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -68,8 +67,8 @@ import pt.aguiarvieira.xmuks.core.designsystem.util.Blurhash
 
 /**
  * Full-screen viewer for any [ViewerMedia]. Images zoom (pinch, double tap) and pan; video and audio
- * stream with the platform player UI. A tap toggles the chrome (and the system bars). The bottom
- * bar turns the picture, saves the file, and — for a message's media — forwards it or goes to it.
+ * stream with the platform player UI. A tap toggles the chrome (and the system bars). The top bar
+ * turns the picture, saves the file, and — for a message's media — forwards it or goes to it.
  */
 @Composable
 fun MediaViewerRoute(
@@ -100,7 +99,7 @@ fun MediaViewerRoute(
     )
 }
 
-/** What the bottom bar does with what's shown; an action left null isn't offered. */
+/** What the top bar does with what's shown; an action left null isn't offered. */
 class ViewerActions(
     val onSave: ((ViewerMedia) -> Unit)? = null,
     val onForward: ((ViewerMedia) -> Unit)? = null,
@@ -133,19 +132,12 @@ fun MediaViewer(
                     MediaPlayer(media, playerFor, images)
                 }
 
-                ViewerMedia.Kind.Pdf -> {}
+                ViewerMedia.Kind.Pdf, ViewerMedia.Kind.File -> {}
             }
         }
         AnimatedVisibility(visible = chrome, enter = fadeIn(), exit = fadeOut()) {
-            TopBar(media, onBack)
-        }
-        AnimatedVisibility(
-            visible = chrome,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.BottomCenter),
-        ) {
-            BottomBar(media, actions, onRotate = { turns = (turns + 1) % QUARTERS })
+            // Up top, clear of the player's controls at the bottom.
+            TopBar(media, onBack) { Actions(media, actions, onRotate = { turns = (turns + 1) % QUARTERS }) }
         }
     }
 }
@@ -267,6 +259,7 @@ private fun MediaPlayer(
 private fun TopBar(
     media: ViewerMedia,
     onBack: () -> Unit,
+    actions: @Composable () -> Unit,
 ) {
     Row(
         modifier =
@@ -280,7 +273,7 @@ private fun TopBar(
         IconButton(onClick = onBack) {
             Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.back), tint = Color.White)
         }
-        Column(Modifier.padding(start = 4.dp)) {
+        Column(Modifier.padding(start = 4.dp).weight(1f)) {
             media.title?.let {
                 Text(
                     it,
@@ -299,26 +292,18 @@ private fun TopBar(
                 )
             }
         }
+        actions()
     }
 }
 
 /** Turning the picture, saving it, and for a message's media forwarding it and going to it. */
 @Composable
-private fun BottomBar(
+private fun Actions(
     media: ViewerMedia,
     actions: ViewerActions,
     onRotate: () -> Unit,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = SCRIM))))
-                .navigationBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         // Audio has nothing to turn.
         if (media.kind != ViewerMedia.Kind.Audio) BarButton(R.drawable.ic_rotate, R.string.rotate, onRotate)
         actions.onSave?.let { save -> BarButton(R.drawable.ic_download, R.string.save) { save(media) } }

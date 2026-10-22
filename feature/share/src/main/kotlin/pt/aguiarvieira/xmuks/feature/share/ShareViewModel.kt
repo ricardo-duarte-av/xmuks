@@ -28,6 +28,8 @@ import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
+import pt.aguiarvieira.xmuks.core.data.timeline.MediaForwarder
+import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import java.io.File
 import java.util.UUID
 
@@ -39,11 +41,15 @@ data class SharedItem(
     val preview: Uri?,
 )
 
-/** What a share brought: files (as content URIs), text, and a room when shared straight to one. */
+/**
+ * What a share brought: files (as content URIs), text, and a room when shared straight to one —
+ * or a message's media to [forward], which goes again as it is (nothing copied or uploaded).
+ */
 data class ShareRequest(
     val uris: List<String>,
     val text: String?,
     val roomId: String?,
+    val forward: ViewerMedia? = null,
 )
 
 @HiltViewModel(assistedFactory = ShareViewModel.Factory::class)
@@ -56,6 +62,7 @@ class ShareViewModel
         private val preparer: MediaPreparer,
         private val sender: MediaSender,
         private val drafts: DraftStore,
+        private val forwarder: MediaForwarder,
         preferences: PreferenceStore,
     ) : ViewModel() {
         @AssistedFactory
@@ -100,8 +107,16 @@ class ShareViewModel
         /** The text that came with the share: the first file's caption, or the message itself. */
         val text: String? = request.text?.takeIf { it.isNotBlank() }
 
+        /** Forwarding a message's media, not sharing files from another app. */
+        val forwarding: Boolean = request.forward != null
+
         init {
-            viewModelScope.launch { _items.value = copyIn(request.uris.map(Uri::parse)) }
+            val forward = request.forward
+            if (forward != null) {
+                _items.value = listOf(forwarded(forward))
+            } else {
+                viewModelScope.launch { _items.value = copyIn(request.uris.map(Uri::parse)) }
+            }
         }
 
         fun choose(roomId: String?) {
@@ -117,6 +132,13 @@ class ShareViewModel
          */
         suspend fun send(captions: Map<String, String>): String? {
             val roomId = _room.value ?: return null
+            val forward = request.forward
+            if (forward != null) {
+                val from = forward.roomId ?: return null
+                val event = forward.eventId ?: return null
+                val caption = captions[FORWARDED].orEmpty().trim()
+                return roomId.takeIf { forwarder.forward(from, event, forward.index, roomId, caption) }
+            }
             val files = _items.value.orEmpty()
             if (files.isEmpty()) {
                 text?.let { drafts.save(roomId, it) }
@@ -175,11 +197,28 @@ class ShareViewModel
                 }
             }
 
+        /** The forwarded media as the caption screen shows a file: its picture, name and kind. */
+        private fun forwarded(media: ViewerMedia): SharedItem {
+            val kind =
+                when (media.kind) {
+                    ViewerMedia.Kind.Image -> MediaKind.Image
+                    ViewerMedia.Kind.Video -> MediaKind.Video
+                    ViewerMedia.Kind.Audio -> MediaKind.Audio
+                    ViewerMedia.Kind.Pdf, ViewerMedia.Kind.File -> MediaKind.File
+                }
+            val file = PickedFile(Uri.parse(media.url), media.name ?: media.title.orEmpty(), media.mimeType, 0, kind)
+            val picture = media.previewUrl ?: media.url.takeIf { kind == MediaKind.Image }
+            return SharedItem(FORWARDED, file, picture?.let(Uri::parse))
+        }
+
         private fun safeName(name: String) = name.replace('/', '_').ifBlank { "file" }
 
         companion object {
             /** The caption's key in [send]'s captions when it's a gallery. */
             const val GALLERY_CAPTION = ""
+
+            /** The forwarded media's item ID, and so its caption's key. */
+            const val FORWARDED = "forwarded"
             private const val SHARED = "shared"
             private const val KEEP_MS = 24L * 60 * 60 * 1000
         }

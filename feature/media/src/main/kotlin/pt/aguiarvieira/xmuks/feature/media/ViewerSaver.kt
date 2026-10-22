@@ -63,6 +63,7 @@ internal fun suggestedName(media: ViewerMedia): String {
                 ViewerMedia.Kind.Video -> "video"
                 ViewerMedia.Kind.Audio -> "audio"
                 ViewerMedia.Kind.Pdf -> "document"
+                ViewerMedia.Kind.File -> "file"
             }
     if (base.substringAfterLast('.', "").isNotEmpty()) return base
     val extension = media.mimeType?.let { MimeTypeMap.getSingleton().getExtensionFromMimeType(it) }
