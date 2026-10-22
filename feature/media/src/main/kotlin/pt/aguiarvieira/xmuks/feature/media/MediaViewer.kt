@@ -118,7 +118,11 @@ fun MediaViewerRoute(
                 onForward = onForward,
                 onGoToMessage =
                     onGoToMessage?.let { go ->
-                        { m -> if (m.roomId != null && m.eventId != null) go(m.roomId, m.eventId) }
+                        { m ->
+                            val roomId = m.roomId
+                            val eventId = m.eventId
+                            if (roomId != null && eventId != null) go(roomId, eventId)
+                        }
                     },
             ),
     )

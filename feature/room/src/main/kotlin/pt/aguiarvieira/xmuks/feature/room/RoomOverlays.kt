@@ -53,6 +53,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.media
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 
 /** Which sheet or dialog the room screen has open (at most one of each). */
 internal class OverlayState {
