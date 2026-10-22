@@ -65,6 +65,29 @@ class RoomGallery(
         }
     }
 
+    /**
+     * The room's media from the newest down to [eventId]'s page: everything newer than it (for the
+     * viewer to swipe to) and where the older ones start. gomuks pages only backwards, so this walks
+     * down from the newest — read from its database, so quick for anything near recent. Null when
+     * the event isn't within [maxPages] pages.
+     */
+    suspend fun window(
+        roomId: String,
+        eventId: String,
+        maxPages: Int = WINDOW_PAGES,
+    ): Result<GalleryPage?> =
+        runCatching {
+            val items = mutableListOf<GalleryItem>()
+            var before = 0L
+            repeat(maxPages) {
+                val page = page(roomId, before).getOrThrow()
+                items += page.items
+                if (page.items.any { it.eventId == eventId }) return@runCatching GalleryPage(items, page.before)
+                before = page.before ?: return@runCatching null
+            }
+            null
+        }
+
     /** A media message's file, or each of a gallery's (MSC4274); none for anything else. */
     private fun itemsOf(
         event: Event,
@@ -96,6 +119,7 @@ class RoomGallery(
 
     private companion object {
         const val PAGE = 100
+        const val WINDOW_PAGES = 20
         val MEDIA = setOf("m.image", "m.video", "m.audio", "m.file")
     }
 }

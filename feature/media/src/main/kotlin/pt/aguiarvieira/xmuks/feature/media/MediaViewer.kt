@@ -9,6 +9,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +20,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -26,17 +30,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalView
@@ -52,6 +63,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
@@ -59,16 +71,19 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
+import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.core.designsystem.component.sharedElement
 import pt.aguiarvieira.xmuks.core.designsystem.util.Blurhash
+import kotlin.math.abs
 
 /**
  * Full-screen viewer for any [ViewerMedia]. Images zoom (pinch, double tap) and pan; video and audio
  * stream with the platform player UI. A tap toggles the chrome (and the system bars). The top bar
- * turns the picture, saves the file, and — for a message's media — forwards it or goes to it.
+ * turns the picture, saves the file, and — for a message's media — forwards it or goes to it. A
+ * message's picture or video swipes to the room's others: older to the left, newer to the right.
  */
 @Composable
 fun MediaViewerRoute(
@@ -82,20 +97,25 @@ fun MediaViewerRoute(
     viewModel: MediaViewerViewModel = hiltViewModel(key = media.url),
 ) {
     val save = rememberViewerSaver(viewModel)
+    LaunchedEffect(media) { viewModel.open(media) }
+    val sequence by viewModel.sequence.collectAsStateWithLifecycle()
     MediaViewer(
         media,
         onBack,
         viewModel::player,
         modifier,
         viewModel.images,
-        ViewerActions(
-            onSave = save,
-            onForward = onForward,
-            onGoToMessage =
-                onGoToMessage?.let { go ->
-                    { m -> if (m.roomId != null && m.eventId != null) go(m.roomId, m.eventId) }
-                },
-        ),
+        sequence = sequence,
+        onNearStart = viewModel::loadOlder,
+        actions =
+            ViewerActions(
+                onSave = save,
+                onForward = onForward,
+                onGoToMessage =
+                    onGoToMessage?.let { go ->
+                        { m -> if (m.roomId != null && m.eventId != null) go(m.roomId, m.eventId) }
+                    },
+            ),
     )
 }
 
@@ -116,31 +136,111 @@ fun MediaViewer(
     /** The cache tier to load pictures through; null uses the app's default loader. */
     images: ImageLoader? = null,
     actions: ViewerActions = ViewerActions(),
+    /** The room's pictures and videos around [media], oldest first; null to show it alone. */
+    sequence: List<ViewerMedia>? = null,
+    /** The oldest of [sequence] is near: time for older ones. */
+    onNearStart: () -> Unit = {},
 ) {
     var chrome by rememberSaveable { mutableStateOf(true) }
-    // Quarter turns clockwise, for a picture taken sideways.
-    var turns by rememberSaveable(media.url) { mutableIntStateOf(0) }
     ImmersiveWhile(hidden = !chrome)
+    val pages = sequence ?: listOf(media)
+    // From the one opened to the many around it: start on it.
+    val pager =
+        key(sequence != null) {
+            rememberPagerState(pages.indexOfFirst { it.pageKey == media.pageKey }.coerceAtLeast(0)) { pages.size }
+        }
+    val current = pages.getOrElse(pager.currentPage) { media }
+    // Quarter turns clockwise, for a picture taken sideways; each page starts upright.
+    var turns by rememberSaveable(current.pageKey) { mutableIntStateOf(0) }
+    val nearStart by rememberUpdatedState(onNearStart)
+    LaunchedEffect(pager, pages.size) {
+        snapshotFlow { pager.currentPage }.collect { if (it < NEAR_START) nearStart() }
+    }
+    val scope = rememberCoroutineScope()
     Box(modifier.fillMaxSize().background(Color.Black)) {
+        HorizontalPager(
+            state = pager,
+            key = { pages[it].pageKey },
+            userScrollEnabled = pages.size > 1,
+            modifier = Modifier.fillMaxSize(),
+        ) { page ->
+            val shown = page == pager.settledPage
+            Page(
+                pages[page],
+                shown = shown,
+                turns = if (shown) turns else 0,
+                playerFor = playerFor,
+                images = images,
+                onTap = { chrome = !chrome },
+                onSwipe = { step -> scope.launch { pager.animateScrollToPage(page + step) } },
+            )
+        }
+        AnimatedVisibility(visible = chrome, enter = fadeIn(), exit = fadeOut()) {
+            // Up top, clear of the player's controls at the bottom.
+            TopBar(current, onBack) { Actions(current, actions, onRotate = { turns = (turns + 1) % QUARTERS }) }
+        }
+    }
+}
+
+/**
+ * One page: the picture zooms, the video or audio plays while it's the page [shown] (the others
+ * show their preview). A player takes the touches it gets, so swiping over one is watched for here.
+ */
+@Composable
+private fun Page(
+    media: ViewerMedia,
+    shown: Boolean,
+    turns: Int,
+    playerFor: (url: String) -> Player,
+    images: ImageLoader?,
+    onTap: () -> Unit,
+    onSwipe: (step: Int) -> Unit,
+) {
+    val playable = media.kind == ViewerMedia.Kind.Video || media.kind == ViewerMedia.Kind.Audio
+    Box(Modifier.fillMaxSize().then(if (playable && shown) Modifier.swipes(onSwipe) else Modifier)) {
         Box(Modifier.fillMaxSize().rotated(turns)) {
             when (media.kind) {
                 ViewerMedia.Kind.Image -> {
-                    ZoomableImage(media, images, onTap = { chrome = !chrome })
+                    ZoomableImage(media, images, onTap = onTap)
                 }
 
                 ViewerMedia.Kind.Video, ViewerMedia.Kind.Audio -> {
-                    MediaPlayer(media, playerFor, images)
+                    if (shown) {
+                        MediaPlayer(media, playerFor, images)
+                    } else {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Preview(media, images ?: SingletonImageLoader.get(LocalPlatformContext.current))
+                        }
+                    }
                 }
 
                 ViewerMedia.Kind.Pdf, ViewerMedia.Kind.File -> {}
             }
         }
-        AnimatedVisibility(visible = chrome, enter = fadeIn(), exit = fadeOut()) {
-            // Up top, clear of the player's controls at the bottom.
-            TopBar(media, onBack) { Actions(media, actions, onRotate = { turns = (turns + 1) % QUARTERS }) }
-        }
     }
 }
+
+/**
+ * A sideways swipe (mostly across, far enough) as a step to the next page (-1: the previous),
+ * watched before the content sees it and left for it all the same: a player's view keeps its taps.
+ */
+private fun Modifier.swipes(onSwipe: (step: Int) -> Unit): Modifier =
+    pointerInput(onSwipe) {
+        val far = SWIPE_DISTANCE.toPx()
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            var last = down.position
+            var pressed = true
+            while (pressed) {
+                val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id }
+                pressed = change?.pressed == true
+                if (change != null) last = change.position
+            }
+            val across = last.x - down.position.x
+            val along = last.y - down.position.y
+            if (abs(across) > far && abs(across) > abs(along) * 2) onSwipe(if (across < 0) 1 else -1)
+        }
+    }
 
 /**
  * Turns the content by [turns] quarter turns, laid out in the space it has once turned: a
@@ -234,6 +334,8 @@ private fun MediaPlayer(
 ) {
     val player = remember(media.url) { playerFor(media.url) }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { player.pause() }
+    // Swiped away: it stops (the next video takes the player over).
+    DisposableEffect(player) { onDispose { player.pause() } }
     val audio = media.kind == ViewerMedia.Kind.Audio
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (!audio) Preview(media, images ?: SingletonImageLoader.get(LocalPlatformContext.current))
@@ -352,5 +454,9 @@ private fun ImmersiveWhile(hidden: Boolean) {
 
 private const val SCRIM = 0.6f
 private const val QUARTERS = 4
+
+/** Pages from the oldest loaded at which older ones are fetched. */
+private const val NEAR_START = 3
+private val SWIPE_DISTANCE = 64.dp
 private const val DEGREES_PER_TURN = 90f
 private const val SUBTLE = 0.75f
