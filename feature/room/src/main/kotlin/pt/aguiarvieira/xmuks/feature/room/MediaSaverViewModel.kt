@@ -18,6 +18,7 @@ import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import pt.aguiarvieira.xmuks.core.data.media.DownloadResult
 import pt.aguiarvieira.xmuks.core.data.media.MediaDownloads
+import pt.aguiarvieira.xmuks.core.data.media.MediaShares
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import javax.inject.Inject
 
@@ -26,6 +27,7 @@ class MediaSaverViewModel
     @Inject
     constructor(
         val downloads: MediaDownloads,
+        val shares: MediaShares,
     ) : ViewModel()
 
 /**

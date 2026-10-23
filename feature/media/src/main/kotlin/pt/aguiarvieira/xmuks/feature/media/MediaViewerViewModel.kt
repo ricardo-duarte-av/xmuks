@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.media.MediaDownloads
+import pt.aguiarvieira.xmuks.core.data.media.MediaShares
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.media.PdfFiles
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomGallery
@@ -38,6 +39,7 @@ class MediaViewerViewModel
         /** The timeline pictures' cache tier: what the viewer shows is mostly already there. */
         @param:Named("media") val images: ImageLoader,
         val downloads: MediaDownloads,
+        val shares: MediaShares,
         private val gallery: RoomGallery,
         private val urls: MediaUrls,
         private val pdf: PdfFiles,

@@ -33,7 +33,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 
 /**
  * What can be done with a message (long press): react, reply, edit (ours, once sent), thread,
- * pin, save, forward, copy its text, delete.
+ * pin, save, forward, share to another app, copy its text, delete.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +64,8 @@ internal fun MessageMenu(
     onReplace: (() -> Unit)? = null,
     /** Its file sent to another room; null when it has none to forward. */
     onForward: (() -> Unit)? = null,
+    /** Its file (with its caption) or text to another app; null when it has neither. */
+    onShare: (() -> Unit)? = null,
 ) {
     @Suppress("DEPRECATION") // The suspend Clipboard API needs ClipEntry plumbing for plain text.
     val clipboard = LocalClipboardManager.current
@@ -78,6 +80,7 @@ internal fun MessageMenu(
                 Item(R.drawable.ic_poll, R.string.poll_end, limits.write, limits.onLimit, onEndPoll)
             }
             FileItems(message, sent, onSave, onForward)
+            if (onShare != null) Item(R.drawable.ic_share, R.string.share, onShare)
             if (text != null) {
                 Item(R.drawable.ic_copy, R.string.copy_text) {
                     clipboard.setText(AnnotatedString(text))

@@ -107,9 +107,11 @@ internal fun RoomOverlays(
     pins: PinsUi = PinsUi(),
     /** Forwarding a message's media; null where it isn't offered. */
     onForward: ((ViewerMedia) -> Unit)? = null,
+    /** A message's file or text to another app; null where it isn't offered. */
+    onShare: ((TimelineItem.Message) -> Unit)? = null,
 ) {
     state.menuFor?.let { message ->
-        MessageMenuFor(message, state, composer, onSaveMedia, onOpenThread, pins, resolver, onForward)
+        MessageMenuFor(message, state, composer, onSaveMedia, onOpenThread, pins, resolver, onForward, onShare)
     }
     PickerSheet(state, composer, resolver)
     state.deleting?.let { message -> DeleteFor(message, state, composer) }
@@ -340,6 +342,7 @@ private fun MessageMenuFor(
     pins: PinsUi,
     resolver: MediaResolver,
     onForward: ((ViewerMedia) -> Unit)?,
+    onShare: ((TimelineItem.Message) -> Unit)?,
 ) {
     val features = composer.features
     val now = System.currentTimeMillis()
@@ -379,6 +382,13 @@ private fun MessageMenuFor(
             message.content.media?.let { media ->
                 {
                     onSaveMedia(media)
+                    state.menuFor = null
+                }
+            },
+        onShare =
+            onShare?.takeIf { shareable(message) }?.let { share ->
+                {
+                    share(message)
                     state.menuFor = null
                 }
             },

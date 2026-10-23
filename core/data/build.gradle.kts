@@ -18,6 +18,7 @@ dependencies {
     implementation(libs.coil.gif)
     implementation(libs.coil.svg)
     implementation(libs.androidx.lifecycle.process)
+    implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.robolectric)
     testImplementation(libs.zstd.jni) // desktop natives for the opt-in live test

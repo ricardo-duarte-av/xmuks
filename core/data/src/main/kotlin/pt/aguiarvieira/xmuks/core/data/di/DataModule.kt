@@ -47,6 +47,7 @@ import pt.aguiarvieira.xmuks.core.data.media.LinkPreviewFetcher
 import pt.aguiarvieira.xmuks.core.data.media.MediaDownloads
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
+import pt.aguiarvieira.xmuks.core.data.media.MediaShares
 import pt.aguiarvieira.xmuks.core.data.media.MediaUploader
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.media.PdfFiles
@@ -331,6 +332,15 @@ object DataModule {
         media: MediaUrls,
         scope: CoroutineScope,
     ) = MediaDownloads(http, media, context.contentResolver, scope, Dispatchers.IO)
+
+    /** Media handed to other apps through the share sheet. */
+    @Provides @Singleton
+    fun mediaShares(
+        @ApplicationContext context: Context,
+        @Named("media") http: OkHttpClient,
+        media: MediaUrls,
+        pdf: PdfFiles,
+    ) = MediaShares(context, http, media, pdf, context.cacheDir.resolve("shares"), Dispatchers.IO)
 
     @Provides @Singleton
     fun mediaUploader(

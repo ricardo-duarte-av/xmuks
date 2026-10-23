@@ -86,8 +86,9 @@ import kotlin.math.abs
 /**
  * Full-screen viewer for any [ViewerMedia]. Images zoom (pinch, double tap) and pan; video and audio
  * stream with the platform player UI. A tap toggles the chrome (and the system bars). The top bar
- * turns the picture, saves the file, and — for a message's media — forwards it or goes to it. A
- * message's picture or video swipes to the room's others: older to the left, newer to the right.
+ * turns the picture, saves or shares the file, and — for a message's media — forwards it or goes
+ * to it. A message's picture or video swipes to the room's others: older to the left, newer to the
+ * right.
  */
 @Composable
 fun MediaViewerRoute(
@@ -101,6 +102,7 @@ fun MediaViewerRoute(
     viewModel: MediaViewerViewModel = hiltViewModel(key = media.url),
 ) {
     val save = rememberViewerSaver(viewModel)
+    val share = rememberViewerSharer(viewModel)
     LaunchedEffect(media) { viewModel.open(media) }
     val sequence by viewModel.sequence.collectAsStateWithLifecycle()
     MediaViewer(
@@ -115,6 +117,7 @@ fun MediaViewerRoute(
         actions =
             ViewerActions(
                 onSave = save,
+                onShare = share,
                 onForward = onForward,
                 onGoToMessage =
                     onGoToMessage?.let { go ->
@@ -131,6 +134,8 @@ fun MediaViewerRoute(
 /** What the top bar does with what's shown; an action left null isn't offered. */
 class ViewerActions(
     val onSave: ((ViewerMedia) -> Unit)? = null,
+    /** To another app, through the system's share sheet. */
+    val onShare: ((ViewerMedia) -> Unit)? = null,
     val onForward: ((ViewerMedia) -> Unit)? = null,
     val onGoToMessage: ((ViewerMedia) -> Unit)? = null,
 )
@@ -466,7 +471,7 @@ private fun TopBar(
     }
 }
 
-/** Turning the picture, saving it, and for a message's media forwarding it and going to it. */
+/** Turning the picture, saving and sharing it, and for a message's media forwarding it and going to it. */
 @Composable
 private fun Actions(
     media: ViewerMedia,
@@ -477,6 +482,7 @@ private fun Actions(
         // Audio has nothing to turn.
         if (media.kind != ViewerMedia.Kind.Audio) BarButton(R.drawable.ic_rotate, R.string.rotate, onRotate)
         actions.onSave?.let { save -> BarButton(R.drawable.ic_download, R.string.save) { save(media) } }
+        actions.onShare?.let { share -> BarButton(R.drawable.ic_share, R.string.share) { share(media) } }
         if (media.fromMessage) {
             actions.onForward?.let { forward -> BarButton(R.drawable.ic_forward, R.string.forward) { forward(media) } }
             actions.onGoToMessage?.let { go -> BarButton(R.drawable.ic_chat, R.string.go_to_message) { go(media) } }

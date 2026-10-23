@@ -243,6 +243,7 @@ fun RoomRoute(
             onCallNotifyRoom = viewModel.setCallNotifyRoom,
             player = viewModel.player,
             onSaveMedia = rememberMediaSaver(),
+            onShareMessage = rememberMessageSharer(),
             onForwardMedia = onForward.takeUnless { preview },
             onOpenThread = if (threadRoot == null) onOpenThread else null,
             compactThreads = prefs.get(Prefs.smallThreads),
@@ -452,6 +453,8 @@ fun RoomScreen(
     onCallNotifyRoom: (Boolean) -> Unit = {},
     player: InlinePlayer? = null,
     onSaveMedia: (Media) -> Unit = {},
+    /** A message's file or text to another app; null where it isn't offered. */
+    onShareMessage: ((TimelineItem.Message) -> Unit)? = null,
     /** Forwarding a message's media; null where it isn't offered. */
     onForwardMedia: ((ViewerMedia) -> Unit)? = null,
     /** Opening threads; null when this is one. */
@@ -534,6 +537,7 @@ fun RoomScreen(
         onOpenThread,
         pins,
         forwardIn(roomId, onForwardMedia),
+        onShareMessage,
     )
     composer.features?.takeIf { limitsShown }?.let { features ->
         NetworkLimitsSheet(features, composer.network) { limitsShown = false }

@@ -48,6 +48,9 @@ class PdfFiles(
             file.also { it.setLastModified(System.currentTimeMillis()) }
         }
 
+    /** [url]'s file if it's already here, else null (nothing is downloaded). */
+    fun cached(url: String): File? = File(dir, "${sha1(url)}.pdf").takeIf { it.exists() }
+
     /** How many pages [url] has. */
     suspend fun pageCount(url: String): Int = withContext(io) { open(file(url)) { it.pageCount } }
 
