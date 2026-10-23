@@ -51,6 +51,8 @@ class RoomNotifier(
     private val isDirect: suspend (roomId: String) -> Boolean?,
     /** Whether the room is muted by its push rules (mentions, `@room` and keywords make no sound then). */
     private val isMuted: suspend (roomId: String) -> Boolean = { false },
+    /** Whether a DM's messages always sound, whatever the push rules say (unless it's muted). */
+    private val dmSound: suspend () -> Boolean = { false },
     /** The whole event (gomuks' `get_event`), for its formatting and media; null when it can't be had. */
     private val eventOf: suspend (roomId: String, eventId: String) -> Event? = { _, _ -> null },
     private val clock: () -> Long = System::currentTimeMillis,
@@ -134,8 +136,9 @@ class RoomNotifier(
             )
         }
         // Loud when the push rules asked for a sound, or when it's for us (a mention, @room, a
-        // keyword: highlighted, which the default rules leave silent) in a room we haven't muted.
-        val loud = fresh.any { it.sound } || (highlighted && !isMuted(roomId))
+        // keyword: highlighted, which the default rules leave silent; or a DM, when set to) in a
+        // room we haven't muted.
+        val loud = fresh.any { it.sound } || ((highlighted || (direct && dmSound())) && !isMuted(roomId))
         val channel = Channels.forRoom(context, roomId, latest.roomName, direct)
         val notification =
             NotificationCompat

@@ -95,6 +95,10 @@
     <string name="choice_default">Default</string>
     <string name="choice_compact">Compact</string>
     <string name="choice_spacious">Spacious</string>
+    <string name="section_notifications">Notifications</string>
+    <string name="pref_dm_sound">Always sound for DMs</string>
+    <string name="pref_dm_sound_desc">Every message in a direct message makes a sound, even where the push rules would keep it quiet (bridged DMs, with their bot, for one). Muted rooms stay silent.</string>
+
     <string name="section_calls">Calls</string>
     <string name="pref_call_notify_room">Tell the room when I start a call</string>
     <string name="pref_call_notify_room_desc">Starting a call in a group sends a \"call started\" notification (direct messages always ring)</string>

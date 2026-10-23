@@ -19,6 +19,8 @@ import pt.aguiarvieira.xmuks.core.account.PushRegistrar
 import pt.aguiarvieira.xmuks.core.account.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
+import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.push.RoomNotifications
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
@@ -57,6 +59,7 @@ object PushModule {
         rooms: RoomListRepository,
         exec: ExecClient,
         pushRules: RoomPushRules,
+        preferences: PreferenceStore,
     ) = RoomNotifier(
         context,
         images,
@@ -68,6 +71,7 @@ object PushModule {
         server = { store.credentials()?.serverUrl },
         isDirect = { roomId -> rooms.room(roomId).first()?.isDirect },
         isMuted = { roomId -> pushRules.setting(roomId).first() in MUTED },
+        dmSound = { preferences.value(Prefs.dmSound).first() },
         eventOf = { roomId, eventId ->
             val params =
                 buildJsonObject {

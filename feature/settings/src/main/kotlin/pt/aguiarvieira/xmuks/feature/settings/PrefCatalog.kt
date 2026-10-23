@@ -13,6 +13,7 @@ internal enum class Section(
     Media(R.string.section_media),
     RoomList(R.string.section_room_list),
     Appearance(R.string.section_appearance),
+    Notifications(R.string.section_notifications),
     Calls(R.string.section_calls),
 }
 
@@ -209,6 +210,7 @@ internal val ENTRIES: List<PrefEntry> =
             R.string.pref_screen_cards_desc,
             Section.Appearance,
         ),
+        PrefEntry(Prefs.dmSound, R.string.pref_dm_sound, R.string.pref_dm_sound_desc, Section.Notifications),
         PrefEntry(
             Prefs.callNotifyRoom,
             R.string.pref_call_notify_room,

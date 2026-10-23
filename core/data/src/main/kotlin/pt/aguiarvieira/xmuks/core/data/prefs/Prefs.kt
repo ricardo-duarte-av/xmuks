@@ -90,6 +90,12 @@ object Prefs {
     /** In a DM, every unread message counts as a mention. */
     val dmMentions = Pref.Bool("xmuks_dm_mentions", false, DEVICE_GLOBAL)
 
+    /**
+     * A DM's messages notify with sound whatever the push rules say (unless the room is muted):
+     * the default rules only sound in a two-member DM, so a bridged one, with its bot, stays silent.
+     */
+    val dmSound = Pref.Bool("xmuks_dm_sound", true, DEVICE_GLOBAL)
+
     /** Every preference, in gomuks' order (its settings screen's). */
     val all: List<Pref<*>> =
         listOf(
