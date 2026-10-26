@@ -132,7 +132,8 @@ class HtmlParser(
             // Containers. Table cells become lines of their own: a real table layout is more than a
             // chat bubble can hold.
             in CONTAINERS -> {
-                blocks(el.childNodes())
+                // A raw `<div data-mx-maths>` is display maths, not a container.
+                displayMaths(el)?.let(::listOf) ?: blocks(el.childNodes())
             }
 
             "blockquote" -> {
