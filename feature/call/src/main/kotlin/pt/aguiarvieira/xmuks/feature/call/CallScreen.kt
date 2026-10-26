@@ -209,6 +209,7 @@ fun CallScreen(
                 onMinimise,
                 Modifier.align(Alignment.TopCenter),
                 layout.takeIf { offersLayouts(ui, views) },
+                views,
             )
             CallControls(
                 ui,
@@ -231,6 +232,7 @@ private fun CallTopBar(
     modifier: Modifier = Modifier,
     /** Offers grid ↔ spotlight when there's more than one thing to look at. */
     layout: StageLayout? = null,
+    views: List<CallView> = emptyList(),
 ) {
     Row(
         modifier
@@ -257,7 +259,7 @@ private fun CallTopBar(
             )
         }
         if (layout != null) {
-            val spotlight = layout.spotlight || layout.pinned != null
+            val spotlight = layout.spotlightOn(views)
             IconButton(onClick = {
                 layout.pinned = null
                 layout.spotlight = !spotlight

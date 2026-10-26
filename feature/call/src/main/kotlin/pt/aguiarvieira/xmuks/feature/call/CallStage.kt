@@ -3,11 +3,15 @@ package pt.aguiarvieira.xmuks.feature.call
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -34,17 +38,26 @@ internal fun callViews(ui: CallUi): List<CallView> =
     ui.tiles.filter { it.participant.screen != null }.map { CallView(it, screen = true) } +
         ui.tiles.map { CallView(it, screen = false) }
 
-/** How the call is laid out: all in a grid, or one in the spotlight (pinned, or full screen). */
+/**
+ * How the call is laid out: all in a grid, or one in the spotlight (pinned, or full screen).
+ * [spotlight] is the user's choice; null until they make one, when a shared screen brings the
+ * spotlight on by itself.
+ */
 @Stable
 internal class StageLayout {
-    var spotlight by mutableStateOf(false)
+    var spotlight by mutableStateOf<Boolean?>(null)
     var pinned by mutableStateOf<String?>(null)
     var fullScreen by mutableStateOf(false)
+
+    /** Whether one view is in the spotlight: pinned, chosen, or (unchosen) someone else shares a screen. */
+    fun spotlightOn(views: List<CallView>): Boolean =
+        pinned != null || (spotlight ?: views.any { it.screen && !it.tile.participant.isLocal })
 }
 
 /**
- * One view large, the rest in a strip below. Tapping the large one goes full screen (and back);
- * tapping one in the strip puts it in the spotlight. Unpinned, the spotlight follows whoever speaks.
+ * One view large, the rest in a strip below (beside it, in landscape: a shared screen is wide).
+ * Tapping the large one goes full screen (and back); tapping one in the strip puts it in the
+ * spotlight. Unpinned, the spotlight follows whoever speaks, after any shared screen.
  */
 @Composable
 internal fun Spotlight(
@@ -53,6 +66,7 @@ internal fun Spotlight(
 ) {
     val focus =
         views.firstOrNull { it.key == layout.pinned }
+            ?: views.firstOrNull { it.screen && !it.tile.participant.isLocal }
             ?: views.firstOrNull { !it.screen && it.tile.participant.speaking && !it.tile.participant.isLocal }
             ?: views.firstOrNull { !it.tile.participant.isLocal }
             ?: views.firstOrNull()
@@ -64,26 +78,48 @@ internal fun Spotlight(
         })
         return
     }
-    Column(Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val rest = views.filter { it.key != focus.key }
+    val big: @Composable (Modifier) -> Unit = { modifier ->
         Tile(
             focus.tile,
-            Modifier.weight(1f).fillMaxWidth(),
+            modifier,
             screen = focus.screen,
             onClick = {
                 layout.pinned = focus.key
                 layout.fullScreen = true
             },
         )
-        val rest = views.filter { it.key != focus.key }
-        if (rest.isNotEmpty()) {
-            LazyRow(Modifier.fillMaxWidth().height(STRIP_HEIGHT), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(rest, key = { it.key }) { view ->
-                    Tile(
-                        view.tile,
-                        Modifier.height(STRIP_HEIGHT).aspectRatio(STRIP_RATIO),
-                        screen = view.screen,
-                        onClick = { layout.pinned = view.key },
-                    )
+    }
+    val small: @Composable (CallView, Modifier) -> Unit = { view, modifier ->
+        Tile(view.tile, modifier, screen = view.screen, onClick = { layout.pinned = view.key })
+    }
+    BoxWithConstraints(Modifier.fillMaxSize().padding(8.dp)) {
+        if (maxWidth > maxHeight) {
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                big(Modifier.weight(1f).fillMaxHeight())
+                if (rest.isNotEmpty()) {
+                    LazyColumn(
+                        Modifier.fillMaxHeight().width(STRIP_WIDTH),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(rest, key = { it.key }) { view ->
+                            small(view, Modifier.width(STRIP_WIDTH).aspectRatio(SIDE_RATIO))
+                        }
+                    }
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                big(Modifier.weight(1f).fillMaxWidth())
+                if (rest.isNotEmpty()) {
+                    LazyRow(
+                        Modifier.fillMaxWidth().height(STRIP_HEIGHT),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(rest, key = { it.key }) { view ->
+                            small(view, Modifier.height(STRIP_HEIGHT).aspectRatio(STRIP_RATIO))
+                        }
+                    }
                 }
             }
         }
@@ -92,6 +128,10 @@ internal fun Spotlight(
 
 private val STRIP_HEIGHT = 132.dp
 private const val STRIP_RATIO = 0.8f
+
+/** The strip beside the spotlight, in landscape: its tiles a little wider than tall. */
+private val STRIP_WIDTH = 160.dp
+private const val SIDE_RATIO = 1.25f
 
 /** What's on screen: spotlight (pinned, full screen, or chosen), else the DM or group layout. */
 @Composable
@@ -102,7 +142,7 @@ internal fun Stage(
     full: Boolean,
 ) {
     when {
-        full || layout.pinned != null || (layout.spotlight && views.size > 1) -> Spotlight(views, layout)
+        full || layout.pinned != null || (layout.spotlightOn(views) && views.size > 1) -> Spotlight(views, layout)
         ui.isDirect && ui.anyVideo -> DirectVideo(ui)
         ui.isDirect -> DirectAudio(ui)
         else -> GroupGrid(views, layout)
@@ -123,13 +163,37 @@ internal fun GroupGrid(
 ) {
     BoxWithConstraints(Modifier.fillMaxSize().padding(8.dp)) {
         val count = views.size.coerceAtLeast(1)
+        val landscape = maxWidth > maxHeight
         val columns =
-            if (count <= 1) {
-                1
-            } else if (count <= 4 || maxWidth < 600.dp) {
-                2
-            } else {
-                3
+            when {
+                count <= 1 -> {
+                    1
+                }
+
+                // Landscape: side by side, wider than tall, so a row fits the screen's height.
+                landscape -> {
+                    if (count <= 2) {
+                        2
+                    } else if (count <= LANDSCAPE_THREE) {
+                        3
+                    } else {
+                        4
+                    }
+                }
+
+                count <= 4 || maxWidth < 600.dp -> {
+                    2
+                }
+
+                else -> {
+                    3
+                }
+            }
+        val ratio =
+            when {
+                landscape -> LANDSCAPE_RATIO
+                columns == 1 -> 0.75f
+                else -> 1f
             }
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
@@ -139,7 +203,7 @@ internal fun GroupGrid(
             gridItems(views, key = { it.key }) { view ->
                 Tile(
                     view.tile,
-                    Modifier.fillMaxWidth().aspectRatio(if (columns == 1) 0.75f else 1f),
+                    Modifier.fillMaxWidth().aspectRatio(ratio),
                     screen = view.screen,
                     onClick = { layout.pinned = view.key },
                 )
@@ -147,3 +211,7 @@ internal fun GroupGrid(
         }
     }
 }
+
+/** Up to this many share three columns in landscape; more take four. */
+private const val LANDSCAPE_THREE = 6
+private const val LANDSCAPE_RATIO = 4f / 3f
