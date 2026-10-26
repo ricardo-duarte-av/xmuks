@@ -45,11 +45,14 @@ object PushModule {
     ): PushTokenSource = FirebaseTokens(registrar) { work -> scope.launch { runCatching { work() } } }
 
     @Provides @Singleton
-    fun roomShortcuts(
+    fun pinnedShortcuts(
         @ApplicationContext context: Context,
         images: ImageLoader,
         media: MediaUrls,
-    ): RoomShortcuts = PinnedShortcuts(context, images, media)
+    ) = PinnedShortcuts(context, images, media)
+
+    @Provides
+    fun roomShortcuts(shortcuts: PinnedShortcuts): RoomShortcuts = shortcuts
 
     @Provides @Singleton
     fun roomNotifier(
