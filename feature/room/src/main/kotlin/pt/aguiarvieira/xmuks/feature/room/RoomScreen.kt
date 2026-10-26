@@ -74,6 +74,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -313,6 +314,7 @@ fun RoomRoute(
                     onSendLocation = viewModel::sendLocation,
                     polls = viewModel.polls,
                     mentions = MentionHintsUi(mentionHints, viewModel.media::avatar, viewModel.mentions::pick),
+                    captionMentions = viewModel.mentionsIn,
                     linkPreviews =
                         LinkPreviewsUi(
                             linkPreviews,
@@ -374,6 +376,8 @@ class ComposerActions(
     val polls: PollActions = PollActions(),
     val linkPreviews: LinkPreviewsUi = LinkPreviewsUi(),
     val mentions: MentionHintsUi = MentionHintsUi(),
+    /** Mentions completed in a media caption's box, as in the composer's; null where there are none. */
+    val captionMentions: ((TextFieldState, CoroutineScope) -> ComposerMentions)? = null,
     /** What the bridged network here can do; null when the room isn't bridged (nothing is limited). */
     val features: RoomFeatures? = null,
     /** The bridged network's name, for saying what it won't do. */

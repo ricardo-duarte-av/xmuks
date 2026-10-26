@@ -19,6 +19,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,6 +34,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,9 +51,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.media.MediaKind
+import pt.aguiarvieira.xmuks.core.data.rooms.MentionTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.MediaIssue
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
@@ -69,13 +76,17 @@ internal fun MediaSendScreen(
     network: String? = null,
     /** Send tapped for a file the network won't take. */
     onLimit: (Limit) -> Unit = {},
+    /** Completing @people and #rooms in the caption, as in the composer; null for none. */
+    mentions: CaptionMentions? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         // Dark whatever the app's theme: media reads best on black, and the controls must too.
-        XmuksTheme(darkTheme = true) { MediaSendContent(draft, onChoose, onSend, onDismiss, network, onLimit) }
+        XmuksTheme(
+            darkTheme = true
+        ) { MediaSendContent(draft, onChoose, onSend, onDismiss, network, onLimit, mentions) }
     }
 }
 
@@ -87,8 +98,13 @@ private fun MediaSendContent(
     onDismiss: () -> Unit,
     network: String?,
     onLimit: (Limit) -> Unit,
+    mentions: CaptionMentions?,
 ) {
     val caption = rememberTextFieldState(draft.replacing?.caption.orEmpty())
+    val scope = rememberCoroutineScope()
+    // Once per caption box: a new one would fetch the members again.
+    val completing = remember(caption) { mentions?.start?.invoke(caption, scope) }
+    val hints by (completing?.suggestions ?: NO_HINTS).collectAsStateWithLifecycle()
     var spoiler by rememberSaveable { mutableStateOf(draft.replacing?.spoiler == true) }
     Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
         Column(
@@ -139,6 +155,9 @@ private fun MediaSendContent(
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
+            }
+            if (completing != null && mentions != null) {
+                MentionHints(MentionHintsUi(hints, mentions.avatar, completing::pick))
             }
             Row(
                 modifier = Modifier.padding(12.dp),
@@ -290,3 +309,11 @@ private fun sizeName(size: ImageSize) =
         ImageSize.Medium -> R.string.size_medium
         ImageSize.Small -> R.string.size_small
     }
+
+/** Mentions in a caption: how to start completing them in a box, and the people's avatars. */
+class CaptionMentions(
+    val start: (TextFieldState, CoroutineScope) -> ComposerMentions,
+    val avatar: (String?) -> String?,
+)
+
+private val NO_HINTS = MutableStateFlow(emptyList<MentionTarget>())

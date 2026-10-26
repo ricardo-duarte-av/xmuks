@@ -18,9 +18,10 @@ import pt.aguiarvieira.xmuks.core.data.rooms.mentionQueryAt
 
 /**
  * Completing mentions as they're typed: `@` offers the room's members (as they're named here), `#`
- * the rooms we're in. Picking one puts its link in place of what was typed.
+ * the rooms we're in. Picking one puts its link in place of what was typed. The composer has one,
+ * and so does a media caption's box.
  */
-internal class ComposerMentions(
+class ComposerMentions(
     private val scope: CoroutineScope,
     private val draft: TextFieldState,
     private val roomId: String,

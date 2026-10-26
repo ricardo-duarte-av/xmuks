@@ -12,6 +12,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -81,7 +82,7 @@ class RoomViewModel
         private val openRoom: OpenRoom,
         val media: MediaUrls,
         linkPreviews: LinkPreviewFetcher,
-        mentionTargets: MentionTargets,
+        private val mentionTargets: MentionTargets,
         private val roomCalls: RoomCalls,
         private val preferences: PreferenceStore,
         /** Code blocks' colours, as gomuks serves them for its `code_block_theme`. */
@@ -260,6 +261,10 @@ class RoomViewModel
 
         /** People and rooms offered as a mention is typed. */
         internal val mentions = ComposerMentions(viewModelScope, draft, roomId, mentionTargets)
+
+        /** The same, in another box (a media caption's), for as long as [scope] lasts. */
+        val mentionsIn: (TextFieldState, CoroutineScope) -> ComposerMentions =
+            { field, scope -> ComposerMentions(scope, field, roomId, mentionTargets) }
 
         /** Previews offered for the links being written, bundled when sent. */
         internal val linkPreviews =
