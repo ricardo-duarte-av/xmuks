@@ -24,8 +24,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -39,6 +42,7 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -95,7 +99,17 @@ fun PlainContent(
 ) {
     val link = MaterialTheme.colorScheme.primary
     val text = remember(body, link, prefix) { prefix?.plus(linkify(body, link)) ?: linkify(body, link) }
-    Text(text, color = color, style = style, modifier = modifier, onTextLayout = { lastLine?.update(it) })
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    Text(
+        text,
+        color = color,
+        style = style,
+        modifier = modifier.linkPresses({ layout }, rememberLinkPress()),
+        onTextLayout = {
+            layout = it
+            lastLine?.update(it)
+        },
+    )
 }
 
 /** How inline images (custom emoji) load, and what tapping one does. */
@@ -226,6 +240,7 @@ private fun RichText(
 ) {
     val spoilers = rememberSpoilers(text, color)
     val pills = rememberPills(text)
+    val linkPress = rememberLinkPress()
     val ids =
         remember(text) {
             text
@@ -311,7 +326,7 @@ private fun RichText(
             pills.layout = it
             lastLine?.update(it)
         },
-        modifier = pills.modifier.then(spoilers.covers),
+        modifier = pills.modifier.then(spoilers.covers).linkPresses({ pills.layout }, linkPress),
     )
 }
 
