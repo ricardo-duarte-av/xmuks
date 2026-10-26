@@ -24,6 +24,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,9 +39,11 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
@@ -174,6 +177,10 @@ private fun Block(
         is HtmlBlock.Picture -> {
             Picture(block, images)
         }
+
+        is HtmlBlock.Maths -> {
+            DisplayMaths(block, color, style)
+        }
     }
 }
 
@@ -204,7 +211,10 @@ private fun Picture(
     )
 }
 
-/** Annotated text with inline images (custom emoji) sized to the line, and spoilers that tap to reveal. */
+/**
+ * Annotated text with inline images (custom emoji) sized to the line, inline maths on its baseline
+ * (its fallback text, as measured, when it can't be drawn), and spoilers that tap to reveal.
+ */
 @Composable
 private fun RichText(
     text: AnnotatedString,
@@ -222,6 +232,19 @@ private fun RichText(
                 .map { it.item }
                 .filter { it.startsWith(HtmlParser.IMAGE_PREFIX) || it.startsWith(HtmlParser.PICTURE_PREFIX) }
                 .distinct()
+        }
+    val mathsIds =
+        remember(text) {
+            text
+                .getStringAnnotations(0, text.length)
+                .filter { it.item.startsWith(HtmlParser.MATHS_PREFIX) }
+                .distinctBy { it.item }
+                .map { it.item to text.text.substring(it.start, it.end) }
+        }
+    val measurer = rememberTextMeasurer()
+    val maths =
+        mathsIds.associate { (id, fallback) ->
+            id to key(id) { mathsContent(id.removePrefix(HtmlParser.MATHS_PREFIX), fallback, color, style, measurer) }
         }
     val density = LocalDensity.current
     // Pictures never run wider than most of the window (a bubble or a card is a little narrower).
@@ -268,7 +291,13 @@ private fun RichText(
                         )
                     }
                 listOf(id to drawn, HIDDEN_PREFIX + id to InlineTextContent(placeholder) {})
-            }.toMap()
+            }.toMap() +
+            maths.flatMap { (id, content) ->
+                listOf(
+                    id to content,
+                    HIDDEN_PREFIX + id to InlineTextContent(content.placeholder) {}
+                )
+            }
     Text(
         spoilers.text,
         color = color,
@@ -281,6 +310,24 @@ private fun RichText(
         },
         modifier = pills.modifier.then(spoilers.covers),
     )
+}
+
+/** Inline maths drawn, or (it can't be) its [fallback] text in a placeholder its own size. */
+@Composable
+private fun mathsContent(
+    latex: String,
+    fallback: String,
+    color: Color,
+    style: TextStyle,
+    measurer: TextMeasurer,
+): InlineTextContent {
+    val density = LocalDensity.current
+    val drawn = rememberInlineMaths(latex, style, color)
+    if (drawn != null) return InlineTextContent(drawn.placeholder(density)) { InlineMathsDrawing(drawn) }
+    val size = remember(fallback, style) { measurer.measure(fallback, style).size }
+    val placeholder =
+        with(density) { Placeholder(size.width.toSp(), size.height.toSp(), PlaceholderVerticalAlign.TextCenter) }
+    return InlineTextContent(placeholder) { Text(fallback, color = color, style = style, maxLines = 1) }
 }
 
 @Composable

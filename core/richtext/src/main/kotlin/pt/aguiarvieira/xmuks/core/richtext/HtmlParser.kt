@@ -52,6 +52,12 @@ sealed interface HtmlBlock {
 
     data object Rule : HtmlBlock
 
+    /** Display maths (`data-mx-maths` on a div): its LaTeX, and the text to show when it can't be drawn. */
+    data class Maths(
+        val latex: String,
+        val fallback: String,
+    ) : HtmlBlock
+
     /** A sized image (not an emoji), in dp; [link] when it's wrapped in one. */
     data class Picture(
         val mxc: String,
@@ -75,7 +81,9 @@ data class HtmlColors(
  * Parses gomuks' sanitised message HTML (`local_content.sanitized_html`) into blocks of annotated
  * text. Inline images (custom emoji) become inline-content placeholders keyed `img:<src>` with
  * their alternate text. Mentions (gomuks rewrites matrix.to links to `matrix:` URIs with the
- * `hicli-matrix-uri-*` classes) render as pills ([PILL_TAG]).
+ * `hicli-matrix-uri-*` classes) render as pills ([PILL_TAG]). Maths (`data-mx-maths`, which gomuks
+ * rewrites to `<hicli-math latex displaymode>`) is a [HtmlBlock.Maths] when displayed, an
+ * inline-content placeholder ([MATHS_PREFIX]) inline; its own content is the fallback.
  */
 class HtmlParser(
     private val colors: HtmlColors,
@@ -154,7 +162,7 @@ class HtmlParser(
             }
 
             else -> {
-                picture(el)?.let(::listOf)
+                displayMaths(el)?.let(::listOf) ?: picture(el)?.let(::listOf)
             }
         }
 
@@ -185,8 +193,9 @@ class HtmlParser(
         when (node) {
             is TextNode -> ws.text(this, node.wholeText)
 
-            // gomuks pairs each inline image with a hidden fallback link: never shown.
-            is Element -> if (!node.isHidden()) appendElement(node)
+            // gomuks pairs each inline image with a hidden fallback link: never shown. Inline maths
+            // (gomuks' `<hicli-math>`, raw HTML's `<span data-mx-maths>`) is a placeholder.
+            is Element -> if (!node.isHidden() && !appendMaths(node, ws)) appendElement(node)
         }
     }
 
@@ -401,6 +410,9 @@ class HtmlParser(
 
         /** A sized picture: `pic:<width>x<height>:<mxc>`, in dp. */
         const val PICTURE_PREFIX = "pic:"
+
+        /** Inline maths: `math:<latex>`, the placeholder's text its fallback. */
+        const val MATHS_PREFIX = "math:"
         private val CONTAINERS =
             setOf(
                 "p",

@@ -191,4 +191,26 @@ class HtmlParserTest {
         assertTrue(text.getStringAnnotations(0, text.length).isEmpty())
         assertTrue(parser.parse("""<img src="https://x.example/a.png" width="320" height="120">""").none { it is HtmlBlock.Picture })
     }
+
+    @Test
+    fun `inline maths is a placeholder holding its latex, its fallback as the text`() {
+        val text = para("""area <hicli-math displaymode="inline" latex="\pi r^2">pi r squared</hicli-math> here""")
+        assertEquals("area pi r squared here", text.text)
+        val maths = text.getStringAnnotations(0, text.length).single { it.item.startsWith(HtmlParser.MATHS_PREFIX) }
+        assertEquals("\\pi r^2", maths.item.removePrefix(HtmlParser.MATHS_PREFIX))
+        assertEquals("pi r squared", text.text.substring(maths.start, maths.end))
+    }
+
+    @Test
+    fun `display maths is a block of its own, raw data-mx-maths too`() {
+        val blocks = parser.parse("""<p>before</p><hicli-math displaymode="block" latex="E=mc^2">E=mc^2</hicli-math><div data-mx-maths="x^2">x squared</div>""")
+        assertEquals(HtmlBlock.Maths("E=mc^2", "E=mc^2"), blocks[1])
+        assertEquals(HtmlBlock.Maths("x^2", "x squared"), blocks[2])
+    }
+
+    @Test
+    fun `a raw maths span is inline maths`() {
+        val text = para("""<span data-mx-maths="a+b">a plus b</span>""")
+        assertTrue(text.getStringAnnotations(0, text.length).any { it.item == HtmlParser.MATHS_PREFIX + "a+b" })
+    }
 }
