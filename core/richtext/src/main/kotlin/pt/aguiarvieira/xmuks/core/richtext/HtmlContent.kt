@@ -47,6 +47,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.core.net.toUri
@@ -292,16 +293,18 @@ private fun RichText(
                     }
                 listOf(id to drawn, HIDDEN_PREFIX + id to InlineTextContent(placeholder) {})
             }.toMap() +
-            maths.flatMap { (id, content) ->
+            maths.flatMap { (id, inlineMaths) ->
                 listOf(
-                    id to content,
-                    HIDDEN_PREFIX + id to InlineTextContent(content.placeholder) {}
+                    id to inlineMaths.content,
+                    HIDDEN_PREFIX + id to InlineTextContent(inlineMaths.content.placeholder) {}
                 )
             }
+    // A fixed line height holds every line to it, so tall maths would spill over its neighbours.
+    val tall = maths.values.any { it.tall }
     Text(
         spoilers.text,
         color = color,
-        style = style,
+        style = if (tall) style.copy(lineHeight = TextUnit.Unspecified) else style,
         inlineContent = inline,
         onTextLayout = {
             spoilers.layout = it
@@ -312,6 +315,12 @@ private fun RichText(
     )
 }
 
+/** Inline maths' content, and whether it's taller than a line of text. */
+private class InlineMathsContent(
+    val content: InlineTextContent,
+    val tall: Boolean = false,
+)
+
 /** Inline maths drawn, or (it can't be) its [fallback] text in a placeholder its own size. */
 @Composable
 private fun mathsContent(
@@ -320,14 +329,18 @@ private fun mathsContent(
     color: Color,
     style: TextStyle,
     measurer: TextMeasurer,
-): InlineTextContent {
+): InlineMathsContent {
     val density = LocalDensity.current
-    val drawn = rememberInlineMaths(latex, style, color)
-    if (drawn != null) return InlineTextContent(drawn.placeholder(density)) { InlineMathsDrawing(drawn) }
+    val drawn = rememberInlineMaths(latex, style, color, measurer)
+    if (drawn != null) {
+        val content = InlineTextContent(drawn.placeholder(density)) { InlineMathsDrawing(drawn) }
+        return InlineMathsContent(content, drawn.tall)
+    }
     val size = remember(fallback, style) { measurer.measure(fallback, style).size }
     val placeholder =
         with(density) { Placeholder(size.width.toSp(), size.height.toSp(), PlaceholderVerticalAlign.TextCenter) }
-    return InlineTextContent(placeholder) { Text(fallback, color = color, style = style, maxLines = 1) }
+    val content = InlineTextContent(placeholder) { Text(fallback, color = color, style = style, maxLines = 1) }
+    return InlineMathsContent(content)
 }
 
 @Composable

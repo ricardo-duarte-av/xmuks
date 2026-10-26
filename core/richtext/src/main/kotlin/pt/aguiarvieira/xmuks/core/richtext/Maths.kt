@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -20,13 +21,17 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import org.jsoup.nodes.Element
 import ru.noties.jlatexmath.JLatexMathAndroid
 import ru.noties.jlatexmath.JLatexMathDrawable
+import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 /**
  * LaTeX drawn with JLaTeXMath: [drawable] is null when it can't be (a formula it can't parse), and
@@ -65,11 +70,18 @@ internal object Maths {
 private fun TextStyle.mathsPx(density: Density): Float =
     with(density) { (if (fontSize.isSpecified) fontSize else 16.sp).toPx() }
 
-/** Inline maths' drawing, sized for its placeholder; null to show its fallback text instead. */
+/**
+ * Inline maths' drawing in a placeholder [height] high, the drawing [top] down it. Short maths
+ * (`x^2`) sits on the baseline like text, its depth hanging into the font's descent. [tall] maths
+ * (a matrix, a fraction) is centred on the text instead, padded so its baseline still lands on the
+ * line's: a centred placeholder is the only one that grows its line both up and down, and only
+ * once the paragraph drops its fixed line height (which every line keeps, whatever it holds).
+ */
 internal class InlineMaths(
     val drawable: JLatexMathDrawable,
-    /** Its height above the baseline: the placeholder's, so it sits on the line like text. */
-    val above: Int,
+    val height: Int,
+    val top: Int,
+    val tall: Boolean,
 )
 
 @Composable
@@ -77,34 +89,55 @@ internal fun rememberInlineMaths(
     latex: String,
     style: TextStyle,
     color: Color,
+    measurer: TextMeasurer,
 ): InlineMaths? {
     val context = LocalContext.current
     val density = LocalDensity.current
     val px = style.mathsPx(density)
-    return remember(latex, px, color) {
+    // The font's own ascent and descent: a line of it without the paragraph's line height.
+    val font = remember(style, measurer) { measurer.measure("x", style.copy(lineHeight = TextUnit.Unspecified)) }
+    return remember(latex, px, color, font) {
         Maths.drawable(context, latex, px, color.toArgb())?.let { drawable ->
-            val depth = drawable.icon().iconDepth.coerceIn(0, drawable.intrinsicHeight)
-            InlineMaths(drawable, (drawable.intrinsicHeight - depth).coerceAtLeast(1))
+            inlineMaths(drawable, ascent = -font.firstBaseline, descent = font.size.height - font.firstBaseline)
         }
     }
 }
 
-/** The placeholder for [maths]: as wide as it, as tall as its part above the baseline. */
+/** [drawable] placed for a font [ascent] (negative) and [descent] from the baseline. */
+private fun inlineMaths(
+    drawable: JLatexMathDrawable,
+    ascent: Float,
+    descent: Float,
+): InlineMaths {
+    val depth = drawable.icon().iconDepth.coerceIn(0, drawable.intrinsicHeight)
+    val above = (drawable.intrinsicHeight - depth).coerceAtLeast(1)
+    if (above <= -ascent && depth <= descent) return InlineMaths(drawable, above, top = 0, tall = false)
+    // A text-centred placeholder is centred on the font's middle: half of it reaches up past the
+    // drawing's top, half down past its bottom.
+    val middle = (ascent + descent) / 2
+    val half = ceil(maxOf(above + middle, depth - middle)).toInt()
+    return InlineMaths(drawable, 2 * half, top = (half - above - middle).roundToInt(), tall = true)
+}
+
+/** The placeholder for [maths]: as wide as it, on the baseline (short) or the text's middle (tall). */
 internal fun InlineMaths.placeholder(density: Density): Placeholder =
     with(density) {
-        Placeholder(drawable.intrinsicWidth.toSp(), above.toSp(), PlaceholderVerticalAlign.AboveBaseline)
+        val align = if (tall) PlaceholderVerticalAlign.TextCenter else PlaceholderVerticalAlign.AboveBaseline
+        Placeholder(drawable.intrinsicWidth.toSp(), height.toSp(), align)
     }
 
-/** Inline maths drawn in its placeholder; what's below the baseline (a fraction's lower half) hangs under it. */
+/** Inline maths drawn in its placeholder; short maths' depth (a `y`'s tail) hangs under it. */
 @Composable
 internal fun InlineMathsDrawing(maths: InlineMaths) {
     val density = LocalDensity.current
     val width = with(density) { maths.drawable.intrinsicWidth.toDp() }
-    val height = with(density) { maths.above.toDp() }
+    val height = with(density) { maths.height.toDp() }
     Canvas(Modifier.size(width, height)) {
-        drawIntoCanvas { canvas ->
-            maths.drawable.setBounds(0, 0, maths.drawable.intrinsicWidth, maths.drawable.intrinsicHeight)
-            maths.drawable.draw(canvas.nativeCanvas)
+        translate(top = maths.top.toFloat()) {
+            drawIntoCanvas { canvas ->
+                maths.drawable.setBounds(0, 0, maths.drawable.intrinsicWidth, maths.drawable.intrinsicHeight)
+                maths.drawable.draw(canvas.nativeCanvas)
+            }
         }
     }
 }
