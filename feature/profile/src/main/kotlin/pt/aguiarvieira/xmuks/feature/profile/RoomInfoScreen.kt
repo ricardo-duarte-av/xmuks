@@ -71,6 +71,7 @@ fun RoomInfoRoute(
     val error by viewModel.tasks.error.collectAsStateWithLifecycle()
     val notifyError by viewModel.notifications.error.collectAsStateWithLifecycle()
     val left by viewModel.left.collectAsStateWithLifecycle()
+    val listing by viewModel.directory.listing.collectAsStateWithLifecycle()
     val leave by rememberUpdatedState(onLeft)
     LaunchedEffect(left) { if (left) leave() }
     val media = remember(viewModel) { ProfileMedia(viewModel.media::avatar, viewModel.media::full) }
@@ -94,6 +95,7 @@ fun RoomInfoRoute(
                 setJoinRule = viewModel::setJoinRule,
                 setHistoryVisibility = viewModel::setHistoryVisibility,
                 enableEncryption = viewModel::enableEncryption,
+                setListed = viewModel.directory::set,
                 setNotifications = viewModel.notifications::set,
                 setLevel = viewModel::setLevel,
                 membership = viewModel::membership,
@@ -125,6 +127,7 @@ fun RoomInfoRoute(
         onRetry = viewModel::refresh,
         onBack = onBack,
         modifier = modifier,
+        listing = listing,
     )
 }
 
@@ -147,6 +150,7 @@ fun RoomInfoScreen(
     onRetry: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    listing: DirectoryListing = DirectoryListing(),
 ) {
     val snackbar = remember { SnackbarHostState() }
     val failed = error?.let { stringResource(R.string.action_failed, it) }
@@ -204,7 +208,7 @@ fun RoomInfoScreen(
             }
 
             is RoomInfoState.Loaded -> {
-                RoomInfoCards(state.info, me, notifications, personas, media, actions, padding)
+                RoomInfoCards(state.info, me, notifications, listing, personas, media, actions, padding)
             }
         }
     }
@@ -215,6 +219,7 @@ private fun RoomInfoCards(
     info: RoomInfo,
     me: String,
     notifications: RoomNotifications,
+    listing: DirectoryListing,
     personas: PerMessageProfiles,
     media: ProfileMedia,
     actions: RoomInfoActions,
@@ -226,7 +231,7 @@ private fun RoomInfoCards(
         contentPadding = PaddingValues(bottom = ScreenCards.Gap),
     ) {
         item(key = "hero") { RoomHeroCard(info, me, media, actions, card) }
-        item(key = "settings") { RoomSettingsCard(info, me, notifications, actions, card) }
+        item(key = "settings") { RoomSettingsCard(info, me, notifications, listing, actions, card) }
         item(key = "members") { MembersCard(info, actions.openMembers, card) }
         item(key = "preferences") {
             ScreenCard(card) {

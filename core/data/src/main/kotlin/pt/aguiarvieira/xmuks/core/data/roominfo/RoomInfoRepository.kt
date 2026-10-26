@@ -70,6 +70,15 @@ class RoomInfoRepository(
         }
     }
 
+    /** Who may do what in the room, from the state gomuks holds (members aren't fetched). */
+    suspend fun powerLevels(roomId: String): Result<PowerLevels> {
+        val params = buildJsonObject { put("room_id", JsonPrimitive(roomId)) }
+        return exec.exec("get_room_state", params, ExecMode.Read).toResult().mapCatching { data ->
+            val events = GomuksJson.decodeFromJsonElement(ListSerializer(Event.serializer()), data)
+            RoomInfo.parse(roomId, events).powerLevels
+        }
+    }
+
     /** Every state event of the room but its members, as gomuks holds them: for looking at, raw. */
     suspend fun stateEvents(roomId: String): Result<List<JsonObject>> {
         val params = buildJsonObject { put("room_id", JsonPrimitive(roomId)) }

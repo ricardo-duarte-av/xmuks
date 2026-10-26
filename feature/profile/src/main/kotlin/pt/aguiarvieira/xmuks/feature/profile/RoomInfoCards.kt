@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.profile
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,12 +9,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -150,12 +154,16 @@ private fun EditableLine(
 
 private enum class Setting { Notifications, JoinRule, History, Encryption }
 
-/** Notifications, who can join, who can read history, encryption: each changeable with the power to. */
+/**
+ * Notifications, who can join, whether it's in the directory, who can read history, encryption:
+ * each changeable with the power to.
+ */
 @Composable
 internal fun RoomSettingsCard(
     info: RoomInfo,
     me: String,
     notifications: RoomNotifications,
+    listing: DirectoryListing,
     actions: RoomInfoActions,
     modifier: Modifier = Modifier,
 ) {
@@ -184,6 +192,7 @@ internal fun RoomSettingsCard(
                 JOIN_RULES[info.joinRule] ?: R.string.join_private,
                 onClick = { open = Setting.JoinRule }.takeIf { levels.canSetState(me, "m.room.join_rules") },
             )
+            if (listing.applies) DirectoryRow(info, me, listing, actions.setListed)
             SettingRow(
                 R.drawable.ic_history,
                 R.string.room_history,
@@ -254,6 +263,73 @@ internal fun RoomSettingsCard(
     }
 }
 
+/**
+ * Whether the room is listed in our server's directory, and changing that. Dimmed, not hidden,
+ * without the power to (servers ask for the power to change the room's address), or when gomuks is
+ * too old to know; tapping it then says why.
+ */
+@Composable
+private fun DirectoryRow(
+    info: RoomInfo,
+    me: String,
+    listing: DirectoryListing,
+    setListed: (Boolean) -> Unit,
+) {
+    val context = LocalContext.current
+    var asking by rememberSaveable { mutableStateOf(false) }
+    val listed = listing.listed
+    val allowed = info.powerLevels.canSetState(me, "m.room.canonical_alias")
+    val refusal =
+        when {
+            !listing.supported -> stringResource(R.string.room_directory_unsupported)
+            !allowed -> stringResource(R.string.room_directory_refused)
+            else -> null
+        }
+    SettingRow(
+        R.drawable.ic_explore,
+        R.string.room_directory,
+        null,
+        valueText =
+            when (listed) {
+                true -> stringResource(R.string.room_directory_listed, listing.server)
+                false -> stringResource(R.string.room_directory_not_listed)
+                null -> null
+            },
+        onClick =
+            when {
+                refusal != null -> ({ Toast.makeText(context, refusal, Toast.LENGTH_SHORT).show() })
+                listed != null -> ({ asking = true })
+                else -> null
+            },
+        greyed = refusal != null,
+    )
+    if (asking && listed != null) {
+        val name = info.name ?: info.canonicalAlias ?: info.roomId
+        val explain =
+            when {
+                listed -> stringResource(R.string.room_directory_unlist_explain, listing.server)
+                info.joinRule != "public" -> stringResource(R.string.room_directory_list_not_public, listing.server)
+                else -> stringResource(R.string.room_directory_list_explain, listing.server)
+            }
+        AlertDialog(
+            onDismissRequest = { asking = false },
+            title = {
+                val title = if (listed) R.string.room_directory_unlist_confirm else R.string.room_directory_list_confirm
+                Text(stringResource(title, name))
+            },
+            text = { Text(explain) },
+            confirmButton = {
+                val label = if (listed) R.string.room_directory_unlist else R.string.room_directory_list
+                TextButton(onClick = {
+                    asking = false
+                    setListed(!listed)
+                }) { Text(stringResource(label)) }
+            },
+            dismissButton = { TextButton(onClick = { asking = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+}
+
 @Composable
 private fun SettingRow(
     icon: Int,
@@ -261,6 +337,8 @@ private fun SettingRow(
     value: Int?,
     onClick: (() -> Unit)?,
     greyed: Boolean = false,
+    /** In place of [value], text of its own. */
+    valueText: String? = null,
 ) {
     val colors =
         if (greyed) {
@@ -276,7 +354,7 @@ private fun SettingRow(
         }
     ListItem(
         leadingContent = { Icon(painterResource(icon), null) },
-        supportingContent = value?.let { { Text(stringResource(it)) } },
+        supportingContent = (valueText ?: value?.let { stringResource(it) })?.let { { Text(it) } },
         colors = colors,
         modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
     ) { Text(stringResource(title)) }

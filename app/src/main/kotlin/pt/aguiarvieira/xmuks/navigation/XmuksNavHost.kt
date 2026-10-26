@@ -57,6 +57,7 @@ import pt.aguiarvieira.xmuks.feature.profile.RoomStateRoute
 import pt.aguiarvieira.xmuks.feature.profile.UserInfoRoute
 import pt.aguiarvieira.xmuks.feature.room.GalleryRoute
 import pt.aguiarvieira.xmuks.feature.room.RoomRoute
+import pt.aguiarvieira.xmuks.feature.roomlist.DirectoryRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.NotificationsRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SearchRoute
@@ -122,6 +123,11 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
 /** Message search, in one room or all of them. */
 @Serializable data class SearchKey(
     val roomId: String? = null,
+) : NavKey
+
+/** Our server's public room directory; [spaces] shows only spaces. */
+@Serializable data class DirectoryKey(
+    val spaces: Boolean = false,
 ) : NavKey
 
 /** Past notifications (mentions, or everything that notified): across rooms, or [roomId]'s first. */
@@ -296,6 +302,17 @@ fun XmuksNavHost(
                                         onOpenNotifications = { backStack.add(NotificationsKey()) },
                                         onSearchMessages = { backStack.add(SearchKey()) },
                                         onOpenInvite = { backStack.add(InviteKey(it)) },
+                                        onOpenDirectory = { backStack.add(DirectoryKey(it)) },
+                                    )
+                                }
+                            }
+                            entry<DirectoryKey>(metadata = ListDetailSceneStrategy.listPane()) { key ->
+                                Destination {
+                                    DirectoryRoute(
+                                        spaces = key.spaces,
+                                        onBack = { backStack.back(key) },
+                                        onOpenRoom = { backStack.openRoom(it, LINK_SCOPE) },
+                                        onPreviewRoom = { roomId, via -> backStack.add(RoomPreviewKey(roomId, via)) },
                                     )
                                 }
                             }

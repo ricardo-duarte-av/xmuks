@@ -91,6 +91,8 @@ fun HomeRoute(
     onOpenInvite: (roomId: String) -> Unit = {},
     /** Shows a room read-only, without marking it read (its long-press menu). */
     onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
+    /** Our server's room directory; [spaces] when opened from the Spaces tab. */
+    onOpenDirectory: (spaces: Boolean) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     var tab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
@@ -129,6 +131,7 @@ fun HomeRoute(
             search = viewModel.search,
             onOpenInvite = onOpenInvite,
             onPreviewRoom = onPreviewRoom,
+            onOpenDirectory = onOpenDirectory,
         )
     }
 }
@@ -163,6 +166,7 @@ fun HomeScreen(
     onSearchMessages: () -> Unit = {},
     onOpenInvite: (roomId: String) -> Unit = {},
     onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
+    onOpenDirectory: (spaces: Boolean) -> Unit = {},
 ) {
     // Flat: the header (with the tab's filter in it, as a search app bar) and the tab bar on the
     // tinted ground, edge to edge; the tab's content between, on the surface. Cards: three cards on
@@ -187,13 +191,14 @@ fun HomeScreen(
                     windowInsets = WindowInsets(0),
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 )
-                // Cards: the filter tops the content card instead (with the options' gear).
+                // Cards: the filter tops the content card instead.
                 if (!cards) {
                     FilterBar(
                         search.of(state.tab),
                         stringResource(state.tab.searchHint),
                         onMentions = onOpenNotifications,
                         onSearch = onSearchMessages,
+                        onDirectory = { onOpenDirectory(state.tab == HomeTab.Spaces) },
                     )
                 }
                 // Under the search, which belongs to the app bar: the band comes and goes at the
@@ -257,7 +262,7 @@ fun HomeScreen(
                                 stringResource(tab.searchHint),
                                 onMentions = onOpenNotifications,
                                 onSearch = onSearchMessages,
-                                onOptions = onAccountClick,
+                                onDirectory = { onOpenDirectory(tab == HomeTab.Spaces) },
                                 scrolledUnder = scrolled,
                             )
                         }
@@ -323,8 +328,8 @@ private fun HomeContent(
 }
 
 /**
- * Our display name and Matrix ID beside our avatar; tapping any of it opens the options, as the
- * bar's gear does (mentions and search are on the bar too).
+ * Our display name and Matrix ID beside our avatar; tapping any of it opens the options (mentions,
+ * search and the room directory are on the bar).
  */
 @Composable
 private fun AccountChip(

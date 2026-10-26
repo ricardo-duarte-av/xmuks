@@ -228,4 +228,16 @@
     </plurals>
     <string name="link_phone_contact">Link to a phone contact</string>
     <string name="unlink_phone_contact">Unlink from the phone contact</string>
+    <string name="room_directory">Room directory</string>
+    <string name="room_directory_listed">Listed in %1$s’s directory</string>
+    <string name="room_directory_not_listed">Not listed</string>
+    <string name="room_directory_list">List</string>
+    <string name="room_directory_unlist">Remove</string>
+    <string name="room_directory_list_confirm">List %1$s in the directory?</string>
+    <string name="room_directory_unlist_confirm">Remove %1$s from the directory?</string>
+    <string name="room_directory_list_explain">Anyone on %1$s can then find it in the room directory and join.</string>
+    <string name="room_directory_list_not_public">Anyone on %1$s can then find it in the room directory, but only those let in can join: anyone can join only if Access is Public.</string>
+    <string name="room_directory_unlist_explain">People on %1$s won’t find it in the directory any more. The room itself stays as it is.</string>
+    <string name="room_directory_refused">Only those who can change the room’s address can list it</string>
+    <string name="room_directory_unsupported">This gomuks is too old for the room directory</string>
 </resources>

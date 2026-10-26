@@ -55,4 +55,24 @@
     <string name="invite_line_space">%1$s invited you to a space</string>
     <string name="invite_line_unknown">You\'re invited</string>
     <string name="call_in_progress">Call in progress</string>
+    <string name="directory_open">Room directory</string>
+    <string name="directory_search">Search %1$s’s directory</string>
+    <string name="directory_spaces_only">Spaces only</string>
+    <string name="directory_empty">No public rooms found</string>
+    <string name="directory_failed">Couldn’t load the directory: %1$s</string>
+    <string name="directory_retry">Try again</string>
+    <string name="directory_unsupported">This gomuks is too old for the room directory: update it to browse public rooms.</string>
+    <plurals name="directory_members">
+        <item quantity="one">%d member</item>
+        <item quantity="other">%d members</item>
+    </plurals>
+    <string name="directory_joined">Joined · %1$s</string>
+    <string name="directory_open_room">Open</string>
+    <string name="directory_preview_room">Preview and join</string>
+    <string name="directory_copy_address">Copy address</string>
+    <string name="directory_remove">Remove from directory</string>
+    <string name="directory_remove_confirm">Remove %1$s from the directory?</string>
+    <string name="directory_remove_explain">People on %1$s won’t find it here any more. The room itself stays as it is.</string>
+    <string name="directory_remove_refused">Only those who can change a room’s address can remove it, and only from inside the room</string>
+    <string name="cancel">Cancel</string>
 </resources>

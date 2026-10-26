@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
@@ -26,6 +27,7 @@ import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.roominfo.MembershipAction
 import pt.aguiarvieira.xmuks.core.data.roominfo.PowerLevels
+import pt.aguiarvieira.xmuks.core.data.roominfo.RoomDirectoryRepository
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
@@ -50,6 +52,7 @@ class RoomInfoViewModel
     constructor(
         @Assisted val roomId: String,
         private val rooms: RoomInfoRepository,
+        directoryRepository: RoomDirectoryRepository,
         profiles: ProfileRepository,
         pushRules: RoomPushRules,
         val media: MediaUrls,
@@ -84,6 +87,18 @@ class RoomInfoViewModel
             val room = summary.value
             return roomNotificationSettings(context, roomId, room?.name ?: roomId, room?.isDirect == true)
         }
+
+        /** Whether the room is listed in our server's directory (not for DMs). */
+        val directory =
+            RoomDirectoryActions(
+                viewModelScope,
+                roomId,
+                directoryRepository,
+                tasks,
+                rooms.me,
+                summary.map { it?.isDirect },
+                WHILE_VISIBLE,
+            )
 
         /** Set once we've left: the screen goes back. */
         private val _left = MutableStateFlow(false)

@@ -64,7 +64,7 @@ class SearchQueries(
 
 /**
  * The home tabs' bar, in the app bar (or, under cards, atop the content's): the filter field, then
- * mentions, message search and, given [onOptions], options. Tapping the field grows it over the
+ * mentions, message search and the room directory. Tapping the field grows it over the
  * whole bar, pushing the buttons out; back (or closing the keyboard) brings them back, the filter kept.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -74,7 +74,7 @@ internal fun FilterBar(
     placeholder: String,
     onMentions: () -> Unit,
     onSearch: () -> Unit,
-    onOptions: (() -> Unit)? = null,
+    onDirectory: () -> Unit,
     /** The list has scrolled up under the bar: it takes a tone of its own, so the edge reads. */
     scrolledUnder: Boolean = false,
 ) {
@@ -119,10 +119,10 @@ internal fun FilterBar(
             exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut(),
         ) {
             Row(Modifier.padding(end = 8.dp)) {
-                listOfNotNull(
+                listOf(
                     Triple(R.drawable.ic_mention, R.string.account_mentions, onMentions),
                     Triple(R.drawable.ic_search, R.string.account_search, onSearch),
-                    onOptions?.let { Triple(R.drawable.ic_settings, R.string.account_options, it) },
+                    Triple(R.drawable.ic_explore, R.string.directory_open, onDirectory),
                 ).forEach { (icon, label, action) ->
                     IconButton(onClick = action) { Icon(painterResource(icon), stringResource(label)) }
                 }

@@ -60,6 +60,7 @@ import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.profile.RoomProfiles
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
+import pt.aguiarvieira.xmuks.core.data.roominfo.RoomDirectoryRepository
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.BridgeScanner
 import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvents
@@ -450,6 +451,9 @@ object DataModule {
         database: XmuksDatabase,
         ingestor: SyncIngestor,
     ) = RoomInfoRepository(exec, database, ingestor)
+
+    @Provides @Singleton
+    fun roomDirectoryRepository(exec: ExecClient) = RoomDirectoryRepository(exec)
 
     @Provides @Singleton
     fun linkResolver(

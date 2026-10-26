@@ -16,6 +16,8 @@ class RoomInfoActions(
     val setJoinRule: (String) -> Unit = {},
     val setHistoryVisibility: (String) -> Unit = {},
     val enableEncryption: () -> Unit = {},
+    /** Lists the room in our server's directory, or takes it off. */
+    val setListed: (Boolean) -> Unit = {},
     val setNotifications: (RoomNotifications) -> Unit = {},
     val setLevel: (userId: String, level: Long) -> Unit = { _, _ -> },
     val setThreshold: (Threshold, level: Long) -> Unit = { _, _ -> },
