@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -73,6 +74,7 @@ import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.media.MediaKind
 import pt.aguiarvieira.xmuks.core.data.media.SizeOption
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
+import pt.aguiarvieira.xmuks.core.designsystem.component.NetworkBadge
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
@@ -199,6 +201,22 @@ private fun RoomPicker(
     }
 }
 
+/** A room's avatar, with its bridged network's logo bottom right: the same person on two networks tells apart. */
+@Composable
+private fun PickerAvatar(room: RoomSummary) {
+    Box {
+        RoomAvatar(room.name, room.roomId, room.avatarUrl, size = PICKER_AVATAR)
+        room.bridgeProtocol?.let { protocol ->
+            NetworkBadge(
+                protocol,
+                room.bridgeAvatarUrl,
+                size = PICKER_AVATAR * BADGE_FRACTION,
+                modifier = Modifier.align(Alignment.BottomEnd).offset(x = BADGE_OFFSET, y = BADGE_OFFSET),
+            )
+        }
+    }
+}
+
 @Composable
 private fun RoomList(
     rooms: List<RoomSummary>?,
@@ -219,7 +237,7 @@ private fun RoomList(
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
                 items(rooms, key = { it.roomId }) { room ->
                     ListItem(
-                        leadingContent = { RoomAvatar(room.name, room.roomId, room.avatarUrl, size = 40.dp) },
+                        leadingContent = { PickerAvatar(room) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         modifier = Modifier.clickable { onChoose(room.roomId) },
                     ) { Text(room.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -495,4 +513,7 @@ private fun Thumbnail(item: SharedItem) {
 }
 
 private val THUMB = 72.dp
+private val PICKER_AVATAR = 40.dp
+private val BADGE_OFFSET = 2.dp
+private const val BADGE_FRACTION = 0.42f
 private const val CAPTION_LINES = 5
