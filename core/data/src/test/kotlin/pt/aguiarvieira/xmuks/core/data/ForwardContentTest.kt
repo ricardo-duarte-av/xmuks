@@ -10,6 +10,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import pt.aguiarvieira.xmuks.core.data.timeline.SPOILER
 import pt.aguiarvieira.xmuks.core.data.timeline.forwardContent
+import pt.aguiarvieira.xmuks.core.data.timeline.messageAsIs
 
 class ForwardContentTest {
     private fun json(text: String) = Json.parseToJsonElement(text).jsonObject
@@ -71,4 +72,32 @@ class ForwardContentTest {
         assertEquals("mxc://x/new", forwardContent(edited, null)!!.first.str("url"))
         assertNull(forwardContent(json("""{"msgtype":"m.text","body":"hi"}"""), null))
     }
+
+    @Test
+    fun `a whole message goes as it is, its caption too, without its reply or mentions`() {
+        val content =
+            messageAsIs(
+                json(
+                    """{"msgtype":"m.image","body":"look!","filename":"cat.png","format":"org.matrix.custom.html",
+                    "formatted_body":"<b>look!</b>","file":{"url":"mxc://x/y"},"m.mentions":{"user_ids":["@a:b"]},
+                    "m.relates_to":{"m.in_reply_to":{"event_id":"${'$'}a"}}}""",
+                ),
+            )!!
+        assertEquals("look!", content.str("body"))
+        assertEquals("cat.png", content.str("filename"))
+        assertEquals("<b>look!</b>", content.str("formatted_body"))
+        assertNotNull(content["file"])
+        assertNull(content["m.mentions"])
+        assertNull(content["m.relates_to"])
+    }
+
+    @Test
+    fun `an edited message goes as its newest version`() {
+        val content = messageAsIs(json("""{"msgtype":"m.text","body":"* new","m.new_content":{"msgtype":"m.text","body":"new"}}"""))!!
+        assertEquals("new", content.str("body"))
+        assertNull(content["m.new_content"])
+    }
+
+    @Test
+    fun `nothing to forward from an empty content`() = assertNull(messageAsIs(json("{}")))
 }

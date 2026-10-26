@@ -12,6 +12,13 @@
     <string name="share_change_room">Change</string>
     <string name="share_remove">Remove</string>
     <string name="share_preparing">Getting the files ready…</string>
+    <string name="forward_failed">Couldn\'t forward the message</string>
+    <string name="size_original">Original</string>
+    <string name="size_large">Large</string>
+    <string name="size_medium">Medium</string>
+    <string name="size_small">Small</string>
+    <string name="size_original_forward">The same file again: nothing is uploaded.</string>
+    <string name="size_smaller_forward">A smaller copy is made and uploaded, without the picture\'s metadata.</string>
     <string name="share_unreadable">Couldn\'t read %1$s</string>
     <plurals name="share_count">
         <item quantity="one">%1$d file</item>

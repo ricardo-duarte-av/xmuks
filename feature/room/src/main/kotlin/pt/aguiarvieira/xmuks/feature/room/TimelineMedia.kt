@@ -38,22 +38,14 @@ internal fun viewerMedia(
     index = index,
 )
 
-/** A sent message's one file, as forwarding takes it (galleries and stickers aren't forwarded). */
-internal fun forwardable(
-    message: TimelineItem.Message,
-    resolver: MediaResolver,
-): ViewerMedia? {
-    if (message.localId != null || message.uploadProgress != null) return null
-    val (media, kind) =
-        when (val c = message.content) {
-            is MessageContent.Image -> c.media to ViewerMedia.Kind.Image
-            is MessageContent.Video -> c.media to ViewerMedia.Kind.Video
-            is MessageContent.Audio -> c.media to ViewerMedia.Kind.Audio
-            is MessageContent.File -> c.media to if (c.media.isPdf) ViewerMedia.Kind.Pdf else ViewerMedia.Kind.File
-            else -> return null
+/** A sent message that can be forwarded as it is: anything but what's deleted, unreadable or unknown. */
+internal fun forwardable(message: TimelineItem.Message): Boolean =
+    message.localId == null &&
+        message.uploadProgress == null &&
+        when (message.content) {
+            MessageContent.Redacted, is MessageContent.Undecryptable, is MessageContent.Unsupported -> false
+            else -> true
         }
-    return viewerMedia(message, media, kind, resolver)
-}
 
 /** A message's media with its room, which the viewer's actions on it (forwarding, going to it) need. */
 internal fun ViewerMedia.inRoom(roomId: String) = if (eventId != null) copy(roomId = roomId) else this

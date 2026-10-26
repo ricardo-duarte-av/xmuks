@@ -62,7 +62,7 @@ internal fun MessageMenu(
     onEndPoll: (() -> Unit)? = null,
     /** A new file for our picture or video; null when it isn't one. */
     onReplace: (() -> Unit)? = null,
-    /** Its file sent to another room; null when it has none to forward. */
+    /** It sent to another room as it is; null when it can't be forwarded. */
     onForward: (() -> Unit)? = null,
     /** Its file (with its caption) or text to another app; null when it has neither. */
     onShare: (() -> Unit)? = null,

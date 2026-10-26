@@ -19,10 +19,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.media.MediaKind
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
+import pt.aguiarvieira.xmuks.core.data.media.MediaShares
 import pt.aguiarvieira.xmuks.core.data.media.PickedFile
+import pt.aguiarvieira.xmuks.core.data.media.SizeOption
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
@@ -43,13 +46,21 @@ data class SharedItem(
 
 /**
  * What a share brought: files (as content URIs), text, and a room when shared straight to one —
- * or a message's media to [forward], which goes again as it is (nothing copied or uploaded).
+ * or a message's media to [forward] with a caption of its own (at its size, the same file again:
+ * nothing copied or uploaded), or a whole [message] to forward as it is.
  */
 data class ShareRequest(
     val uris: List<String>,
     val text: String?,
     val roomId: String?,
     val forward: ViewerMedia? = null,
+    val message: ForwardedMessage? = null,
+)
+
+/** A message to forward whole: where it is. */
+data class ForwardedMessage(
+    val roomId: String,
+    val eventId: String,
 )
 
 @HiltViewModel(assistedFactory = ShareViewModel.Factory::class)
@@ -63,6 +74,7 @@ class ShareViewModel
         private val sender: MediaSender,
         private val drafts: DraftStore,
         private val forwarder: MediaForwarder,
+        private val shares: MediaShares,
         preferences: PreferenceStore,
     ) : ViewModel() {
         @AssistedFactory
@@ -107,13 +119,29 @@ class ShareViewModel
         /** The text that came with the share: the first file's caption, or the message itself. */
         val text: String? = request.text?.takeIf { it.isNotBlank() }
 
-        /** Forwarding a message's media, not sharing files from another app. */
-        val forwarding: Boolean = request.forward != null
+        /** Forwarding a message or its media, not sharing files from another app. */
+        val forwarding: Boolean = request.forward != null || request.message != null
+
+        /** A forwarded picture's sizes: Original, then the smaller ones (once its copy is here). */
+        private val _sizes = MutableStateFlow<List<SizeOption>>(emptyList())
+        val sizes: StateFlow<List<SizeOption>> = _sizes.asStateFlow()
+
+        /** Original goes again as it is; a smaller size is made from a copy, and uploaded. */
+        private val _size = MutableStateFlow(ImageSize.Original)
+        val size: StateFlow<ImageSize> = _size.asStateFlow()
+
+        /** The forwarded picture's copy here, and the smaller versions made of it. */
+        private var downloaded: PickedFile? = null
+        private val resized = HashMap<ImageSize, File>()
 
         init {
             val forward = request.forward
-            if (forward != null) {
-                _items.value = listOf(forwarded(forward))
+            if (request.message != null) {
+                _items.value = emptyList()
+            } else if (forward != null) {
+                val item = forwarded(forward)
+                _items.value = listOf(item)
+                if (preparer.resizable(item.file)) offerSizes(forward, item.file)
             } else {
                 viewModelScope.launch { _items.value = copyIn(request.uris.map(Uri::parse)) }
             }
@@ -121,6 +149,45 @@ class ShareViewModel
 
         fun choose(roomId: String?) {
             _room.value = roomId
+        }
+
+        fun chooseSize(size: ImageSize) {
+            _size.value = size
+        }
+
+        /**
+         * Sizes for a forwarded picture, as sending one offers: a copy is downloaded, then each
+         * smaller size made, largest first, so the choice shows what each weighs.
+         */
+        private fun offerSizes(
+            media: ViewerMedia,
+            file: PickedFile,
+        ) {
+            viewModelScope.launch {
+                val local = runCatching { shares.file(media.url, safeName(file.name)) }.getOrNull() ?: return@launch
+                val picked = file.copy(uri = Uri.fromFile(local), size = local.length())
+                downloaded = picked
+                val (w, h) = preparer.dimensions(picked) ?: return@launch
+                val longest = maxOf(w, h)
+                val smaller = ImageSize.entries.filter { (it.maxSide ?: Int.MAX_VALUE) < longest }
+                _sizes.value =
+                    listOf(SizeOption(ImageSize.Original, w, h, picked.size)) +
+                    smaller.map { size ->
+                        val scale = (size.maxSide ?: longest).toFloat() / longest
+                        SizeOption(size, (w * scale).toInt(), (h * scale).toInt(), null)
+                    }
+                smaller.forEach { size ->
+                    val out = runCatching { preparer.resized(picked, size) }.getOrNull() ?: return@forEach
+                    resized[size] = out
+                    _sizes.update { list -> list.map { if (it.size == size) it.copy(bytes = out.length()) else it } }
+                }
+            }
+        }
+
+        /** Forwards the whole message to [roomId]; the room, to open, or null when it couldn't be had. */
+        suspend fun forwardMessage(roomId: String): String? {
+            val message = request.message ?: return null
+            return roomId.takeIf { forwarder.forwardMessage(message.roomId, message.eventId, roomId) }
         }
 
         fun remove(id: String) = _items.update { list -> list?.filterNot { it.id == id } }
@@ -137,7 +204,18 @@ class ShareViewModel
                 val from = forward.roomId ?: return null
                 val event = forward.eventId ?: return null
                 val caption = captions[FORWARDED].orEmpty().trim()
-                return roomId.takeIf { forwarder.forward(from, event, forward.index, roomId, caption) }
+                val size = _size.value
+                val local = downloaded
+                if (size == ImageSize.Original || local == null) {
+                    return roomId.takeIf { forwarder.forward(from, event, forward.index, roomId, caption) }
+                }
+                val encrypted = rooms.value?.firstOrNull { it.roomId == roomId }?.encrypted == true
+                return runCatching { preparer.prepare(local, resized[size] ?: preparer.resized(local, size)) }
+                    .getOrNull()
+                    ?.let { prepared ->
+                        sender.send(roomId, prepared, caption, null, encrypted)
+                        roomId
+                    }
             }
             val files = _items.value.orEmpty()
             if (files.isEmpty()) {

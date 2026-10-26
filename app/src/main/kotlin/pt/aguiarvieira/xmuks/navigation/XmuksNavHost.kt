@@ -63,6 +63,7 @@ import pt.aguiarvieira.xmuks.feature.roomlist.SearchRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
 import pt.aguiarvieira.xmuks.feature.settings.PreferencesRoute
 import pt.aguiarvieira.xmuks.feature.settings.SettingsRoute
+import pt.aguiarvieira.xmuks.feature.share.ForwardedMessage
 import pt.aguiarvieira.xmuks.feature.share.ShareRequest
 import pt.aguiarvieira.xmuks.feature.share.ShareRoute
 
@@ -111,8 +112,11 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
     val uris: List<String>,
     val text: String?,
     val roomId: String?,
-    /** A message's media to forward instead (to a room picked here). */
+    /** A message's media to forward instead (to a room picked here), with a caption of its own. */
     val forward: ViewerMedia? = null,
+    /** A whole message to forward instead, as it is: its room and event. */
+    val forwardRoomId: String? = null,
+    val forwardEventId: String? = null,
 ) : NavKey
 
 /** Message search, in one room or all of them. */
@@ -323,7 +327,7 @@ fun XmuksNavHost(
                                         onOpenThread = { root ->
                                             backStack.add(ThreadKey(key.roomId, root, key.preview))
                                         },
-                                        onForward = { backStack.add(ShareKey(emptyList(), null, null, forward = it)) },
+                                        onForward = { eventId -> backStack.add(forwardMessage(key.roomId, eventId)) },
                                         preview = key.preview,
                                         onOpenFully = { backStack.openRoom(key.roomId, key.scope) },
                                     )
@@ -335,7 +339,7 @@ fun XmuksNavHost(
                                         roomId = key.roomId,
                                         sharedScope = THREAD_SCOPE,
                                         threadRoot = key.rootId,
-                                        onForward = { backStack.add(ShareKey(emptyList(), null, null, forward = it)) },
+                                        onForward = { eventId -> backStack.add(forwardMessage(key.roomId, eventId)) },
                                         onOpenLink = openLink,
                                         onBack = { backStack.back(key) },
                                         onOpenMedia = { backStack.add(MediaKey(it)) },
@@ -392,7 +396,14 @@ fun XmuksNavHost(
                             entry<ShareKey> { key ->
                                 Destination(roomId = key.roomId) {
                                     ShareRoute(
-                                        request = ShareRequest(key.uris, key.text, key.roomId, key.forward),
+                                        request =
+                                            ShareRequest(
+                                                key.uris,
+                                                key.text,
+                                                key.roomId,
+                                                key.forward,
+                                                forwardedMessage(key.forwardRoomId, key.forwardEventId),
+                                            ),
                                         onDone = { roomId ->
                                             backStack.remove(key)
                                             // Back in the room it came from, or to the one chosen.
@@ -616,3 +627,14 @@ private fun StartupPermissions(isLocalServer: suspend () -> Boolean) {
         if (missing.isNotEmpty()) ask.launch(missing.toTypedArray())
     }
 }
+
+/** The share screen, forwarding [eventId] of [roomId] whole. */
+private fun forwardMessage(
+    roomId: String,
+    eventId: String,
+) = ShareKey(emptyList(), null, null, forwardRoomId = roomId, forwardEventId = eventId)
+
+private fun forwardedMessage(
+    roomId: String?,
+    eventId: String?,
+) = if (roomId != null && eventId != null) ForwardedMessage(roomId, eventId) else null

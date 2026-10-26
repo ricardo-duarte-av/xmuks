@@ -17,7 +17,8 @@ import java.util.UUID
  * Sharing media to other apps (the system's share sheet): the file, decrypted by gomuks as it
  * serves it, is copied into [dir] and handed over as a content URI of our [SharedFiles] provider.
  * A PDF already kept whole by [pdf] is copied from there. Copies are cleared a day later: when the
- * other app is done reading isn't known.
+ * other app is done reading isn't known. [file] makes such a copy for xmuks' own use (resizing a
+ * forwarded picture).
  */
 class MediaShares(
     private val context: Context,
@@ -37,7 +38,7 @@ class MediaShares(
         mimeType: String?,
         text: String? = null,
     ): Intent {
-        val file = withContext(io) { copy(url, name) }
+        val file = file(url, name)
         val uri = FileProvider.getUriForFile(context, context.packageName + AUTHORITY, file)
         val send =
             Intent(Intent.ACTION_SEND).apply {
@@ -50,6 +51,12 @@ class MediaShares(
             }
         return Intent.createChooser(send, null)
     }
+
+    /** [url]'s file, downloaded under [name]. */
+    suspend fun file(
+        url: String,
+        name: String,
+    ): File = withContext(io) { copy(url, name) }
 
     private fun copy(
         url: String,

@@ -37,6 +37,14 @@ enum class ImageSize(
     Small(640),
 }
 
+/** One way to send an image: at [size], [bytes] big once encoded (null while that's being worked out). */
+data class SizeOption(
+    val size: ImageSize,
+    val width: Int?,
+    val height: Int?,
+    val bytes: Long?,
+)
+
 /** A thumbnail made on the phone: JPEG bytes, its size, and its blurhash. */
 class Thumbnail(
     val bytes: ByteArray,

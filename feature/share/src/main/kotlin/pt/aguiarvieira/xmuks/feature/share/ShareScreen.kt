@@ -1,8 +1,11 @@
 package pt.aguiarvieira.xmuks.feature.share
 
+import android.text.format.Formatter
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldLineLimits
@@ -26,6 +30,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -42,15 +47,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -60,7 +69,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.media.MediaKind
+import pt.aguiarvieira.xmuks.core.data.media.SizeOption
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
@@ -70,7 +81,8 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 
 /**
  * Something shared to xmuks from another app: pick a room (unless it was shared straight to
- * one), give each file its own caption, send. Text alone goes to the room's composer.
+ * one), give each file its own caption, send. Text alone goes to the room's composer. A message
+ * forwarded whole goes as soon as its room is picked.
  */
 @Composable
 fun ShareRoute(
@@ -87,9 +99,34 @@ fun ShareRoute(
     val room by viewModel.room.collectAsStateWithLifecycle()
     val unreadable by viewModel.unreadable.collectAsStateWithLifecycle()
     val gallery by viewModel.gallery.collectAsStateWithLifecycle()
+    val sizes by viewModel.sizes.collectAsStateWithLifecycle()
+    val size by viewModel.size.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val chosen = room?.let { id -> rooms?.firstOrNull { it.roomId == id } }
-    if (room == null) {
+    // Forwarding a message whole: the tap on a room sends it (once).
+    var forwarding by rememberSaveable { mutableStateOf(false) }
+    if (request.message != null) {
+        RoomPicker(
+            rooms,
+            { viewModel.query.value = it },
+            { roomId ->
+                if (!forwarding) {
+                    forwarding = true
+                    scope.launch {
+                        val sent = viewModel.forwardMessage(roomId)
+                        if (sent == null) {
+                            Toast.makeText(context, R.string.forward_failed, Toast.LENGTH_LONG).show()
+                        }
+                        onDone(sent)
+                    }
+                }
+            },
+            { onDone(null) },
+            modifier,
+            title = stringResource(R.string.forward_to),
+        )
+    } else if (room == null) {
         RoomPicker(
             rooms,
             { viewModel.query.value = it },
@@ -109,6 +146,7 @@ fun ShareRoute(
             gallery = gallery,
             onChangeRoom = { viewModel.choose(null) },
             onRemove = viewModel::remove,
+            sizes = Sizes(sizes, size, viewModel::chooseSize).takeIf { sizes.size > 1 },
             onSend = { captions -> scope.launch { onDone(viewModel.send(captions)) } },
             onBack = { if (request.roomId == null) viewModel.choose(null) else onDone(null) },
             modifier = modifier,
@@ -223,6 +261,8 @@ internal fun CaptionScreen(
     onSend: (Map<String, String>) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** A forwarded picture's sizes to choose from; null when there's no choice. */
+    sizes: Sizes? = null,
 ) {
     // Captions by item; the shared text starts as the first one's.
     val captions = remember { mutableStateMapOf<String, TextFieldState>() }
@@ -299,6 +339,7 @@ internal fun CaptionScreen(
                     items(items, key = { it.id }) { item ->
                         captions[item.id]?.let { ItemCard(item, it.takeUnless { gallery }, { onRemove(item.id) }) }
                     }
+                    if (sizes != null) item(key = "sizes") { SizeCard(sizes) }
                 }
             }
         }
@@ -380,6 +421,55 @@ private fun ItemCard(
         }
     }
 }
+
+/** A picture's sizes, as sending one offers: [chosen] of [options], each with its pixels and weight. */
+class Sizes(
+    val options: List<SizeOption>,
+    val chosen: ImageSize,
+    val onChoose: (ImageSize) -> Unit,
+)
+
+/** The forwarded picture's sizes: Original (the same file again) or a smaller copy, uploaded. */
+@Composable
+private fun SizeCard(sizes: Sizes) {
+    val context = LocalContext.current
+    ScreenCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                sizes.options.forEach { option ->
+                    val name = stringResource(sizeName(option.size))
+                    val weight = option.bytes?.let { Formatter.formatShortFileSize(context, it) } ?: "…"
+                    FilterChip(
+                        selected = sizes.chosen == option.size,
+                        onClick = { sizes.onChoose(option.size) },
+                        label = { Text("$name · ${option.width}×${option.height} · $weight") },
+                    )
+                }
+            }
+            val note =
+                if (sizes.chosen ==
+                    ImageSize.Original
+                ) {
+                    R.string.size_original_forward
+                } else {
+                    R.string.size_smaller_forward
+                }
+            Text(
+                stringResource(note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private fun sizeName(size: ImageSize) =
+    when (size) {
+        ImageSize.Original -> R.string.size_original
+        ImageSize.Large -> R.string.size_large
+        ImageSize.Medium -> R.string.size_medium
+        ImageSize.Small -> R.string.size_small
+    }
 
 @Composable
 private fun Thumbnail(item: SharedItem) {

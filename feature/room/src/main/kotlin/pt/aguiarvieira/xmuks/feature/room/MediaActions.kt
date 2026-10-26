@@ -13,20 +13,13 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaKind
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
 import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.PickedFile
+import pt.aguiarvieira.xmuks.core.data.media.SizeOption
 import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.MediaIssue
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import java.io.File
 import kotlin.math.max
-
-/** One way to send an image: at [size], [bytes] big once encoded (null while that's being worked out). */
-data class SizeOption(
-    val size: ImageSize,
-    val width: Int?,
-    val height: Int?,
-    val bytes: Long?,
-)
 
 /** A picked file waiting on the preview screen: what it is, and for images the sizes on offer. */
 data class MediaDraft(

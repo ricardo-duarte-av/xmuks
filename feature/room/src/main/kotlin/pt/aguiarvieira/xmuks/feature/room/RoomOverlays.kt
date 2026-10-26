@@ -53,7 +53,6 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.media
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
-import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 
 /** Which sheet or dialog the room screen has open (at most one of each). */
 internal class OverlayState {
@@ -106,12 +105,12 @@ internal fun RoomOverlays(
     onOpenThread: ((String) -> Unit)? = null,
     pins: PinsUi = PinsUi(),
     /** Forwarding a message's media; null where it isn't offered. */
-    onForward: ((ViewerMedia) -> Unit)? = null,
+    onForward: ((String) -> Unit)? = null,
     /** A message's file or text to another app; null where it isn't offered. */
     onShare: ((TimelineItem.Message) -> Unit)? = null,
 ) {
     state.menuFor?.let { message ->
-        MessageMenuFor(message, state, composer, onSaveMedia, onOpenThread, pins, resolver, onForward, onShare)
+        MessageMenuFor(message, state, composer, onSaveMedia, onOpenThread, pins, onForward, onShare)
     }
     PickerSheet(state, composer, resolver)
     state.deleting?.let { message -> DeleteFor(message, state, composer) }
@@ -340,8 +339,7 @@ private fun MessageMenuFor(
     onSaveMedia: (Media) -> Unit,
     onOpenThread: ((String) -> Unit)?,
     pins: PinsUi,
-    resolver: MediaResolver,
-    onForward: ((ViewerMedia) -> Unit)?,
+    onForward: ((String) -> Unit)?,
     onShare: ((TimelineItem.Message) -> Unit)?,
 ) {
     val features = composer.features
@@ -394,9 +392,9 @@ private fun MessageMenuFor(
             },
         onForward =
             onForward?.let { forward ->
-                forwardable(message, resolver)?.let { media ->
+                message.takeIf(::forwardable)?.let {
                     {
-                        forward(media)
+                        forward(message.eventId)
                         state.menuFor = null
                     }
                 }
