@@ -296,12 +296,16 @@ private fun PdfDocument(
 /**
  * A sideways swipe (mostly across, far enough) as a step to the next page (-1: the previous),
  * watched before the content sees it and left for it all the same: a player's view keeps its taps.
+ * One that starts on the player's controls (the seek bar, along the bottom) is the player's: a
+ * drag along the seek bar is no swipe.
  */
 private fun Modifier.swipes(onSwipe: (step: Int) -> Unit): Modifier =
     pointerInput(onSwipe) {
         val far = SWIPE_DISTANCE.toPx()
+        val controls = CONTROLS_BAND.toPx()
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (down.position.y > size.height - controls) return@awaitEachGesture
             var last = down.position
             var pressed = true
             while (pressed) {
@@ -532,5 +536,8 @@ private const val QUARTERS = 4
 /** Pages from the oldest loaded at which older ones are fetched. */
 private const val NEAR_START = 3
 private val SWIPE_DISTANCE = 64.dp
+
+/** The player's controls along the bottom (its buttons' bar, the seek bar above it), the navigation bar too. */
+private val CONTROLS_BAND = 160.dp
 private const val DEGREES_PER_TURN = 90f
 private const val SUBTLE = 0.75f
