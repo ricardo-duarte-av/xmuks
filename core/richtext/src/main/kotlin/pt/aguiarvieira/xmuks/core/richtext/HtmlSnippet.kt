@@ -133,6 +133,10 @@ private fun lines(block: HtmlBlock): List<Line> =
             listOf(Line.Text(AnnotatedString(block.alt)))
         }
 
+        is HtmlBlock.Maths -> {
+            listOf(Line.Text(AnnotatedString(block.fallback)))
+        }
+
         HtmlBlock.Rule -> {
             emptyList()
         }
