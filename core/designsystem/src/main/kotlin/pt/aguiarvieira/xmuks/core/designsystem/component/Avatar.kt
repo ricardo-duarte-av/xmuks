@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,12 +44,18 @@ fun InitialsAvatar(
                 .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
+        // An emoji is a picture: it gets more of the tile than letters do.
+        val fontSize = (size.value * if (emoji != null) EMOJI_SCALE else INITIALS_SCALE).sp
         Text(
             text = emoji ?: initialsOf(name),
             color = content,
-            style = MaterialTheme.typography.titleMediumEmphasized,
-            // An emoji is a picture: it gets more of the tile than letters do.
-            fontSize = (size.value * if (emoji != null) EMOJI_SCALE else INITIALS_SCALE).sp,
+            // The style's own line height is for 16sp text: on a small tile (a read receipt's) that
+            // line is taller than the tile, and the letter sat low. One line, as tall as the text.
+            style = MaterialTheme.typography.titleMediumEmphasized.copy(lineHeightStyle = CENTERED),
+            fontSize = fontSize,
+            lineHeight = fontSize,
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }
@@ -86,3 +93,6 @@ internal fun avatarColors(
     return Hct.from(hue, CONTAINER_CHROMA, containerTone).toColor() to
         Hct.from(hue, CONTAINER_CHROMA, contentTone).toColor()
 }
+
+/** A line trimmed to its text and the text centred in it. */
+private val CENTERED = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both)
