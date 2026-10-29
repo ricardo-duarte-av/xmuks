@@ -1,5 +1,11 @@
 package pt.aguiarvieira.xmuks.feature.roomlist
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -17,8 +23,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -121,30 +129,53 @@ fun RoomListItem(
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val inCall = room.call != null
-                val line =
-                    when {
-                        inCall -> AnnotatedString(stringResource(R.string.call_in_progress))
-                        display.showPreview -> previewLine(room)
-                        else -> AnnotatedString("")
-                    }
+                val line = if (display.showPreview) previewLine(room) else AnnotatedString("")
                 // Mentions in the preview are drawn as the timeline draws them.
                 val pills = rememberPills(line)
                 Text(
                     text = line,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (inCall) colors.primary else colors.onSurfaceVariant,
+                    color = colors.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     onTextLayout = { pills.layout = it },
                     modifier = Modifier.weight(1f).then(pills.modifier),
                 )
+                room.call?.let { CallPulse(it) }
                 val (level, count) = room.unread.level(display.unreadCount)
                 UnreadBadge(level, count, mentionAt = display.mentionAt)
             }
         }
     }
 }
+
+/** A call going on: its icon, breathing, beside the unread badge (the preview stays the room's last message). */
+@Composable
+private fun CallPulse(call: CallBadge) {
+    val pulse = rememberInfiniteTransition(label = "call")
+    val beat by pulse.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(PULSE_MS, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "beat",
+    )
+    Icon(
+        painterResource(if (call == CallBadge.Video) R.drawable.ic_videocam else R.drawable.ic_call),
+        contentDescription = stringResource(R.string.call_in_progress),
+        tint = MaterialTheme.colorScheme.primary,
+        modifier =
+            Modifier.size(18.dp).graphicsLayer {
+                val scale = PULSE_MIN_SCALE + (1f - PULSE_MIN_SCALE) * beat
+                scaleX = scale
+                scaleY = scale
+                alpha = PULSE_MIN_ALPHA + (1f - PULSE_MIN_ALPHA) * beat
+            },
+    )
+}
+
+private const val PULSE_MS = 900
+private const val PULSE_MIN_SCALE = 0.8f
+private const val PULSE_MIN_ALPHA = 0.45f
 
 @Composable
 private fun previewLine(room: RoomSummary): AnnotatedString {

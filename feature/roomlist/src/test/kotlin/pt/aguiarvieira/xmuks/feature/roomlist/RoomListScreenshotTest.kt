@@ -10,6 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import pt.aguiarvieira.xmuks.core.data.rooms.CallBadge
 import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvent
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.Preview
@@ -193,6 +194,11 @@ class RoomListScreenshotTest {
                 )
                 RoomListItem(
                     room("!marked", "Marked unread", "nothing new", "Bo", unread = Unread(marked = true)),
+                    now,
+                    onClick = {}
+                )
+                RoomListItem(
+                    room("!call", "Weekly sync", "joining in a sec", "Rui", unread = Unread(1, 1)).copy(call = CallBadge.Video),
                     now,
                     onClick = {}
                 )
