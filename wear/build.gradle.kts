@@ -76,6 +76,7 @@ dependencies {
     implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.androidx.wear.phone.interactions)
+    implementation(libs.androidx.wear.complications.data.source)
     implementation(libs.androidx.wear.compose.material3)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)

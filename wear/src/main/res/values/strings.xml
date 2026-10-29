@@ -20,4 +20,5 @@
     <string name="account">Account</string>
     <string name="mark_read">Mark as read</string>
     <string name="mark_read_failed">Didn\'t go through. Retry</string>
+    <string name="open_app">Open xmuks</string>
 </resources>

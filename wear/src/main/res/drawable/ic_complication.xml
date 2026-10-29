@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher's monochrome mark, cropped to its edges: watch faces tint it and size it themselves. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="58"
+    android:viewportHeight="58">
+    <group
+        android:translateX="-25"
+        android:translateY="-29">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M38,32h32a12,12 0,0 1,12 12v18a12,12 0,0 1,-12 12H52l-12,10v-10h-2a12,12 0,0 1,-12 -12V44a12,12 0,0 1,12 -12z M45.2,41.8l-4.4,4 6.3,8.2 -6.3,8.2 4.4,4 8.8,-8.4 8.8,8.4 4.4,-4 -6.3,-8.2 6.3,-8.2 -4.4,-4 -8.8,8.4z" />
+    </group>
+</vector>
