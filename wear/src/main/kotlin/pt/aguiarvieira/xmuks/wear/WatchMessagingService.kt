@@ -42,6 +42,8 @@ class WatchMessagingService : FirebaseMessagingService() {
             } ?: return
         Log.d(TAG, "Push: ${payload.messages.size} message(s), dismiss ${payload.dismiss.map { it.roomId to it.ts }}")
         holdback.receive(payload)
+        // A new mention, or one read elsewhere: the count on the watch face is out of date either way.
+        LaunchComplicationService.refresh(this)
     }
 
     private companion object {

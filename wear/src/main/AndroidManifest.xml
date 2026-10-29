@@ -51,7 +51,7 @@
             android:name=".WatchActionReceiver"
             android:exported="false" />
 
-        <!-- A watch-face slot that opens the app, like Spotify's or WhatsApp's. -->
+        <!-- A watch-face slot that opens the app, like Spotify's or WhatsApp's, with the unread mentions. -->
         <service
             android:name=".LaunchComplicationService"
             android:exported="true"
@@ -64,10 +64,10 @@
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
                 android:value="SMALL_IMAGE,MONOCHROMATIC_IMAGE,SHORT_TEXT" />
-            <!-- Nothing in it changes, so the watch face never needs to ask again. -->
+            <!-- The mention count's backstop: pushes and mark-as-read refresh it straight away. -->
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="0" />
+                android:value="900" />
         </service>
     </application>
 

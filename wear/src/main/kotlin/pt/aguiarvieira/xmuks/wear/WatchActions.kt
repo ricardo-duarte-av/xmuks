@@ -1,5 +1,7 @@
 package pt.aguiarvieira.xmuks.wear
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import pt.aguiarvieira.xmuks.core.network.ExecClient
@@ -14,6 +16,7 @@ import javax.inject.Singleton
 class WatchActions
     @Inject
     constructor(
+        @ApplicationContext private val context: Context,
         private val exec: ExecClient,
         private val notifier: RoomNotifier,
         private val account: WatchAccount,
@@ -31,6 +34,8 @@ class WatchActions
                     put("event_id", JsonPrimitive(eventId))
                     put("receipt_type", JsonPrimitive(account.receiptType()))
                 }
-            return exec.exec("mark_read", params, ExecMode.Write) is ExecResult.Ok
+            val ok = exec.exec("mark_read", params, ExecMode.Write) is ExecResult.Ok
+            if (ok) LaunchComplicationService.refresh(context)
+            return ok
         }
     }
