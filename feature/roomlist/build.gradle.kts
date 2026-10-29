@@ -10,4 +10,5 @@ dependencies {
     implementation(projects.core.data)
     implementation(projects.core.richtext)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.reorderable)
 }

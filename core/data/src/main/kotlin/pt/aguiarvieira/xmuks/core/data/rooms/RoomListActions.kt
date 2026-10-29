@@ -83,6 +83,29 @@ class RoomListActions(
 
     suspend fun pinShortcut(room: RoomSummary): Boolean = shortcuts.pin(room)
 
+    /**
+     * Top-level spaces shown as [ids] from now on, [moved] being the one dragged: writes MSC3230
+     * orders (only [moved]'s when its neighbours are already ordered), and gomuks re-sorts.
+     */
+    suspend fun reorderSpaces(
+        ids: List<String>,
+        moved: String,
+    ): Result<Unit> {
+        val current = ids.associateWith { id -> parse(dao.accountData(id, SpaceOrder.TYPE).first())?.order() }
+        SpaceOrder.writes(ids, current, moved).forEach { (id, order) ->
+            val params =
+                buildJsonObject {
+                    put("room_id", JsonPrimitive(id))
+                    put("type", JsonPrimitive(SpaceOrder.TYPE))
+                    put("content", buildJsonObject { put("order", JsonPrimitive(order)) })
+                }
+            exec.exec("set_account_data", params, ExecMode.Write).toResult().onFailure { return Result.failure(it) }
+        }
+        return Result.success(Unit)
+    }
+
+    private fun JsonObject.order(): String? = (get("order") as? JsonPrimitive)?.takeIf { it.isString }?.content
+
     /** [tag] added to, or taken from, the room's tags; the others stay as they are. */
     private suspend fun setTag(
         roomId: String,

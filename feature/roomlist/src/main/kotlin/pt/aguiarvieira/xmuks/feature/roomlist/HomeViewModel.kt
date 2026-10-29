@@ -13,12 +13,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import pt.aguiarvieira.xmuks.core.data.connection.SyncController
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.rooms.Invite
 import pt.aguiarvieira.xmuks.core.data.rooms.InvitesRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
+import pt.aguiarvieira.xmuks.core.data.rooms.RoomListActions
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
@@ -45,6 +47,7 @@ class HomeViewModel
         private val sync: SyncController,
         store: CredentialStore,
         preferences: PreferenceStore,
+        private val actions: RoomListActions,
     ) : ViewModel() {
         val search = SearchQueries()
 
@@ -67,8 +70,37 @@ class HomeViewModel
                     prefs
                 ).filteredBy(search.dms) { it.name }
                 .stateIn(viewModelScope, WHILE_VISIBLE, null)
+        private val topLevelSpaces = rooms.topLevelSpaces()
+
+        /** A dragged order, shown until gomuks has re-sorted the spaces to match (or the write failed). */
+        private val pendingOrder = MutableStateFlow<List<String>?>(null)
         val spaces: StateFlow<List<SpaceSummary>?> =
-            rooms.topLevelSpaces().filteredBy(search.spaces) { it.name }.stateIn(viewModelScope, WHILE_VISIBLE, null)
+            combine(topLevelSpaces, pendingOrder) { spaces, pending ->
+                if (pending == null) {
+                    spaces
+                } else {
+                    spaces.sortedBy { pending.indexOf(it.roomId).takeIf { i -> i >= 0 } ?: Int.MAX_VALUE }
+                }
+            }.filteredBy(search.spaces) { it.name }
+                .stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        /** A space dropped so the top-level spaces read [ids]. */
+        fun reorderSpaces(
+            ids: List<String>,
+            moved: String,
+        ) {
+            pendingOrder.value = ids
+            viewModelScope.launch {
+                if (actions.reorderSpaces(ids, moved).isSuccess) {
+                    withTimeoutOrNull(RESORT_TIMEOUT_MS) {
+                        topLevelSpaces.first { list ->
+                            list.map { it.roomId } == ids
+                        }
+                    }
+                }
+                if (pendingOrder.value == ids) pendingOrder.value = null
+            }
+        }
 
         /** Pending invites, newest first; each tab shows its own kind. */
         val invites: StateFlow<List<InviteRow>> =
@@ -116,5 +148,6 @@ class HomeViewModel
 
         private companion object {
             val WHILE_VISIBLE = SharingStarted.WhileSubscribed(5_000)
+            const val RESORT_TIMEOUT_MS = 10_000L
         }
     }

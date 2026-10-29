@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.roomlist
 
 import android.text.format.DateFormat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,8 +59,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -79,6 +83,8 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 import pt.aguiarvieira.xmuks.core.designsystem.component.UnreadLevel
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 @Composable
 fun HomeRoute(
@@ -132,6 +138,7 @@ fun HomeRoute(
             onOpenInvite = onOpenInvite,
             onPreviewRoom = onPreviewRoom,
             onOpenDirectory = onOpenDirectory,
+            onReorderSpaces = viewModel::reorderSpaces,
         )
     }
 }
@@ -167,6 +174,7 @@ fun HomeScreen(
     onOpenInvite: (roomId: String) -> Unit = {},
     onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
     onOpenDirectory: (spaces: Boolean) -> Unit = {},
+    onReorderSpaces: (ids: List<String>, moved: String) -> Unit = { _, _ -> },
 ) {
     // Flat: the header (with the tab's filter in it, as a search app bar) and the tab bar on the
     // tinted ground, edge to edge; the tab's content between, on the surface. Cards: three cards on
@@ -305,6 +313,8 @@ fun HomeScreen(
                                     now = now,
                                     onOpenInvite = onOpenInvite,
                                     onScrolledChange = { scrolled = it },
+                                    // A filtered grid isn't the whole order: no moving spaces in it.
+                                    onReorder = onReorderSpaces.takeUnless { searching },
                                 )
                             }
                         }
@@ -490,6 +500,8 @@ private fun SpaceGrid(
     now: Long = 0,
     onOpenInvite: (roomId: String) -> Unit = {},
     onScrolledChange: (Boolean) -> Unit = {},
+    /** Long-press and drag moves a space; null: they stay put. */
+    onReorder: ((ids: List<String>, moved: String) -> Unit)? = null,
 ) {
     when {
         spaces == null -> {
@@ -504,6 +516,25 @@ private fun SpaceGrid(
             val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
             val grid = rememberLazyGridState()
             ReportScrolled(onScrolledChange) { grid.canScrollBackward }
+            val haptics = LocalHapticFeedback.current
+            // The grid's own copy, moved live under the finger; back in step with [spaces] between drags.
+            var order by remember { mutableStateOf(spaces) }
+            var dragged by remember { mutableStateOf<String?>(null) }
+            // After a drop, the [spaces] of that moment are stale: hold the dropped order until new ones come.
+            var stale by remember { mutableStateOf<List<SpaceSummary>?>(null) }
+            if (dragged == null && order != spaces && spaces !== stale) {
+                order = spaces
+                stale = null
+            }
+            val reorder =
+                rememberReorderableLazyGridState(grid) { from, to ->
+                    val target = order.indexOfFirst { it.roomId == to.key }
+                    val source = order.indexOfFirst { it.roomId == from.key }
+                    if (source >= 0 && target >= 0) {
+                        order = order.toMutableList().apply { add(target, removeAt(source)) }
+                        haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                    }
+                }
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 104.dp),
                 state = grid,
@@ -521,8 +552,35 @@ private fun SpaceGrid(
                         InviteListItem(row, now, is24Hour, onClick = { onOpenInvite(row.invite.roomId) })
                     }
                 }
-                items(spaces, key = { it.roomId }) { space ->
-                    SpaceTile(space, onClick = { onOpenSpace(space.roomId) }, modifier = Modifier.animateItem())
+                items(order, key = { it.roomId }) { space ->
+                    ReorderableItem(reorder, key = space.roomId, enabled = onReorder != null) { dragging ->
+                        val scale by animateFloatAsState(if (dragging) DRAGGED_SCALE else 1f, label = "lift")
+                        SpaceTile(
+                            space,
+                            onClick = { onOpenSpace(space.roomId) },
+                            modifier =
+                                Modifier
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                    }.longPressDraggableHandle(
+                                        enabled = onReorder != null,
+                                        onDragStarted = {
+                                            dragged = space.roomId
+                                            haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                                        },
+                                        onDragStopped = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.GestureEnd)
+                                            val ids = order.map { it.roomId }
+                                            if (ids != spaces.map { it.roomId }) {
+                                                stale = spaces
+                                                onReorder?.invoke(ids, space.roomId)
+                                            }
+                                            dragged = null
+                                        },
+                                    ),
+                        )
+                    }
                 }
             }
         }
@@ -552,6 +610,9 @@ fun rememberNow(): Long {
 }
 
 private const val MINUTE_MS = 60_000L
+
+/** A dragged space tile, lifted off the grid. */
+private const val DRAGGED_SCALE = 1.12f
 
 @Composable
 private fun navigationBarHeight() = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
