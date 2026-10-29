@@ -27,6 +27,9 @@ class CallAudio {
 
     @Volatile private var changer: ((AudioRoute) -> Unit)? = null
 
+    /** Where the next call's audio should start (one of [TelecomCall.startingRoutes]); null: the system's pick. */
+    @Volatile var startingRoute: AudioRoute? = null
+
     /** Asks for audio to go to [route]; nothing happens while no call owns the audio. */
     fun select(route: AudioRoute) {
         changer?.invoke(route)

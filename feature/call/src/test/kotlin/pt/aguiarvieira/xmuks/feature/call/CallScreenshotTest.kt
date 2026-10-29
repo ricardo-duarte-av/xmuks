@@ -1,6 +1,9 @@
 package pt.aguiarvieira.xmuks.feature.call
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -12,6 +15,8 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import pt.aguiarvieira.xmuks.core.call.CallParticipant
 import pt.aguiarvieira.xmuks.core.call.CallPhase
+import pt.aguiarvieira.xmuks.core.call.system.AudioRoute
+import pt.aguiarvieira.xmuks.core.call.system.RouteKind
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 
 @RunWith(AndroidJUnit4::class)
@@ -99,4 +104,42 @@ class CallScreenshotTest {
         assertEquals("12:34", formatDuration((12 * 60 + 34) * 1_000L))
         assertEquals("1:02:03", formatDuration((3_600 + 2 * 60 + 3) * 1_000L))
     }
+
+    private fun shootLobby(
+        choice: LobbyChoice,
+        file: String,
+    ) {
+        compose.setContent {
+            XmuksTheme(darkTheme = true, dynamicColor = false) {
+                CallLobby(
+                    roomName = "Weekly sync",
+                    roomId = "!room:hs",
+                    roomAvatarUrl = null,
+                    people = 3,
+                    choice = choice,
+                    onChoice = {},
+                    routes =
+                        listOf(
+                            AudioRoute("1", "Earpiece", RouteKind.Earpiece),
+                            AudioRoute("2", "Speaker", RouteKind.Speaker),
+                            AudioRoute("3", "Pixel Buds", RouteKind.Bluetooth),
+                        ),
+                    onJoin = {},
+                    onCancel = {},
+                    preview = { Box(it.background(Color(0xFF3A4A5A))) },
+                )
+            }
+        }
+        compose.onRoot().captureRoboImage("src/test/screenshots/$file.png")
+    }
+
+    @Test
+    fun lobbyCameraOff() = shootLobby(LobbyChoice(microphoneOn = false), "call_lobby_camera_off")
+
+    @Test
+    fun lobbyCameraOn() =
+        shootLobby(
+            LobbyChoice(cameraOn = true, route = AudioRoute("2", "Speaker", RouteKind.Speaker)),
+            "call_lobby_camera_on",
+        )
 }

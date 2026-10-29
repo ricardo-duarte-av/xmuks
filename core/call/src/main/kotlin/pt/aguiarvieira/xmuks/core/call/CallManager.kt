@@ -50,6 +50,7 @@ class CallManager(
         /** Tell a group room we started a call; null: as the room's preference says. */
         notifyRoom: Boolean? = null,
         answer: Boolean = false,
+        microphone: Boolean = true,
     ) {
         val current = mutableActive.value
         if (current != null && current.room.roomId == roomId && current.phase.value !is CallPhase.Ended) return
@@ -91,7 +92,7 @@ class CallManager(
                 )
             mutableActive.value = session
             roomCalls.setInCall(roomId)
-            session.start(video)
+            session.start(video, microphone)
             CallService.start(context)
             // Forget the session once it has ended, unless another call replaced it meanwhile.
             session.phase.first { it is CallPhase.Ended }

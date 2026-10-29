@@ -33,4 +33,12 @@
     <string name="call_layout_grid">Show everyone</string>
     <string name="call_layout_spotlight">Spotlight</string>
     <string name="call_full_screen_hint">Tap to leave full screen</string>
+    <string name="call_lobby_camera_off">Camera off</string>
+    <string name="call_lobby_join">Join</string>
+    <string name="call_lobby_cancel">Cancel</string>
+    <string name="call_lobby_route_automatic">Automatic</string>
+    <plurals name="call_lobby_people">
+        <item quantity="one">%1$d person in the call</item>
+        <item quantity="other">%1$d people in the call</item>
+    </plurals>
 </resources>

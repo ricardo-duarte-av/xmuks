@@ -164,9 +164,13 @@ class CallSession internal constructor(
     @Volatile var startedWithVideo: Boolean = false
         private set
 
-    /** Joins the room's call (starting it if nobody's there), with camera on for [video]. */
-    fun start(video: Boolean) {
+    /** Joins the room's call (starting it if nobody's there), with camera on for [video], muted unless [microphone]. */
+    fun start(
+        video: Boolean,
+        microphone: Boolean = true,
+    ) {
         startedWithVideo = video
+        mutableMicrophone.value = microphone
         scope.launch {
             runCatching { join(video) }.onFailure { e ->
                 end(e.message ?: e.javaClass.simpleName)

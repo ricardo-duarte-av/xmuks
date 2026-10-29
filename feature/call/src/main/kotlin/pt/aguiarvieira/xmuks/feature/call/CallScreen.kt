@@ -46,7 +46,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +64,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.call.CallPhase
 import pt.aguiarvieira.xmuks.core.call.CallReaction
 import pt.aguiarvieira.xmuks.core.call.EndReason
@@ -70,8 +73,9 @@ import pt.aguiarvieira.xmuks.core.call.system.RouteKind
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 
 /**
- * The call in [roomId]: joins it on arrival (after asking for the microphone, and the camera for a
- * video call), and leaves the screen — not the call — on back.
+ * The call in [roomId]: after asking for the microphone (and the camera for a video call), joins it
+ * on arrival — or, when others are in it already, first shows the [CallLobby] to choose how. Leaves
+ * the screen — not the call — on back.
  */
 @Composable
 fun CallRoute(
@@ -86,10 +90,25 @@ fun CallRoute(
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var asked by remember { mutableStateOf(false) }
+    var lobby by rememberSaveable { mutableStateOf(false) }
+    var choice by remember { mutableStateOf(LobbyChoice(cameraOn = video)) }
+    val scope = rememberCoroutineScope()
+
+    /** Permissions settled: into the lobby if there's a call to join, else straight in. */
+    fun proceed(camera: Boolean) {
+        scope.launch {
+            if (!answer && viewModel.callGoingOn()) {
+                choice = choice.copy(cameraOn = video && camera)
+                lobby = true
+            } else {
+                viewModel.join(video && camera, answer)
+            }
+        }
+    }
     val permissions =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
             if (granted[Manifest.permission.RECORD_AUDIO] == true) {
-                viewModel.join(video && granted[Manifest.permission.CAMERA] == true, answer)
+                proceed(camera = granted[Manifest.permission.CAMERA] == true)
             } else {
                 onBack()
             }
@@ -103,8 +122,56 @@ fun CallRoute(
                 ContextCompat.checkSelfPermission(context, it) !=
                     PackageManager.PERMISSION_GRANTED
             }
-        if (missing.isEmpty()) viewModel.join(video, answer) else permissions.launch(missing.toTypedArray())
+        if (missing.isEmpty()) proceed(camera = true) else permissions.launch(missing.toTypedArray())
     }
+    if (lobby && ui.phase == null) {
+        val ongoing by viewModel.ongoing.collectAsStateWithLifecycle()
+        val routes by viewModel.startingRoutes.collectAsStateWithLifecycle()
+        LobbyRoute(
+            roomId,
+            ui,
+            people = ongoing?.members?.distinctBy { it.userId }?.size ?: 0,
+            routes = routes,
+            choice = choice,
+            onChoice = { choice = it },
+            onJoin = {
+                lobby = false
+                viewModel.join(choice.cameraOn, microphone = choice.microphoneOn, route = choice.route)
+            },
+            onBack = onBack,
+            modifier = modifier,
+        )
+    } else {
+        InCallRoute(
+            ui,
+            onBack = onBack,
+            onMicrophone = viewModel::setMicrophone,
+            onCamera = viewModel::setCamera,
+            onFlipCamera = viewModel::flipCamera,
+            onHangUp = viewModel::hangUp,
+            onRoute = viewModel::selectRoute,
+            onHand = viewModel::raiseHand,
+            onReact = viewModel::react,
+            modifier = modifier,
+        )
+    }
+}
+
+/** In the call (or joining it): closes once the call this screen showed is over. */
+@Composable
+private fun InCallRoute(
+    ui: CallUi,
+    onBack: () -> Unit,
+    onMicrophone: (Boolean) -> Unit,
+    onCamera: (Boolean) -> Unit,
+    onFlipCamera: () -> Unit,
+    onHangUp: () -> Unit,
+    onRoute: (AudioRoute) -> Unit,
+    onHand: (Boolean) -> Unit,
+    onReact: (CallReaction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
     // Close once the call this screen showed is over: ended, or already forgotten by the manager.
     val leave by rememberUpdatedState(onBack)
     var shown by remember { mutableStateOf(false) }
@@ -126,18 +193,18 @@ fun CallRoute(
     }
     BackHandler(onBack = onBack)
     if (ui.phase == CallPhase.Connected) FullScreenRingPrompt()
-    EarProximity(ui, onRoute = viewModel::selectRoute, onCamera = viewModel::setCamera)
+    EarProximity(ui, onRoute = onRoute, onCamera = onCamera)
     CallScreen(
         // Leaving after the call is forgotten: keep saying it ended, not "Connecting…", while the screen goes.
         ui = if (ui.phase == null && shown) ui.copy(phase = CallPhase.Ended()) else ui,
         onMinimise = onBack,
-        onMicrophone = viewModel::setMicrophone,
-        onCamera = viewModel::setCamera,
-        onFlipCamera = viewModel::flipCamera,
-        onHangUp = viewModel::hangUp,
-        onRoute = viewModel::selectRoute,
-        onHand = viewModel::raiseHand,
-        onReact = viewModel::react,
+        onMicrophone = onMicrophone,
+        onCamera = onCamera,
+        onFlipCamera = onFlipCamera,
+        onHangUp = onHangUp,
+        onRoute = onRoute,
+        onHand = onHand,
+        onReact = onReact,
         modifier = modifier.awakeDuring(ui.phase),
     )
 }
@@ -561,58 +628,8 @@ private fun CallControls(
     }
 }
 
-/**
- * Where the call's audio goes. Two choices (earpiece and speaker) swap with a tap; with a headset or
- * a car in the mix, a menu lists them all.
- */
-@Composable
-private fun RouteButton(
-    ui: CallUi,
-    onRoute: (AudioRoute) -> Unit,
-) {
-    var menu by remember { mutableStateOf(false) }
-    Box {
-        FilledTonalIconToggleButton(
-            checked = ui.route?.kind == RouteKind.Speaker,
-            onCheckedChange = {
-                if (ui.routes.size == 2) {
-                    ui.routes.firstOrNull { it != ui.route }?.let(onRoute)
-                } else {
-                    menu = true
-                }
-            },
-            modifier = Modifier.size(CONTROL_SIZE),
-        ) {
-            Icon(
-                painterResource(routeIcon(ui.route?.kind)),
-                contentDescription = stringResource(R.string.call_audio_route)
-            )
-        }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            ui.routes.forEach { route ->
-                DropdownMenuItem(
-                    text = { Text(route.name) },
-                    leadingIcon = { Icon(painterResource(routeIcon(route.kind)), null) },
-                    onClick = {
-                        menu = false
-                        onRoute(route)
-                    },
-                )
-            }
-        }
-    }
-}
-
-private fun routeIcon(kind: RouteKind?) =
-    when (kind) {
-        RouteKind.Speaker -> R.drawable.ic_speaker
-        RouteKind.Bluetooth -> R.drawable.ic_bluetooth
-        RouteKind.WiredHeadset -> R.drawable.ic_headset
-        else -> R.drawable.ic_call
-    }
-
 private val TOP_BAR_HEIGHT = 64.dp
-private val CONTROL_SIZE = 52.dp
+internal val CONTROL_SIZE = 52.dp
 private val CONTROLS_HEIGHT = 96.dp
 private const val SELF_VIEW_RATIO = 0.75f
 private const val TICK_MS = 1_000L

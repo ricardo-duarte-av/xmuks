@@ -12,8 +12,11 @@ import androidx.core.telecom.CallControlScope
 import androidx.core.telecom.CallEndpointCompat
 import androidx.core.telecom.CallsManager
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.call.CallPhase
 import pt.aguiarvieira.xmuks.core.call.CallSession
@@ -49,6 +52,19 @@ class TelecomCall(
         return registered
     }
 
+    /** Where a call could start its audio, before there is one (for [CallAudio.startingRoute]). */
+    fun startingRoutes(): Flow<List<AudioRoute>> =
+        if (available()) {
+            manager.getAvailableStartingCallEndpoints().map { list ->
+                startingEndpoints = list
+                list.map(::route)
+            }
+        } else {
+            emptyFlow()
+        }
+
+    @Volatile private var startingEndpoints: List<CallEndpointCompat> = emptyList()
+
     /**
      * Holds a Telecom call for [session] until it ends; suspends that long. [onRemoteHangUp] is a
      * hang-up from outside the app (headset, car, the system making room for a phone call).
@@ -60,6 +76,11 @@ class TelecomCall(
         onRemoteHangUp: () -> Unit,
     ) {
         val room = session.room
+        val starting =
+            audio.startingRoute?.let { r ->
+                startingEndpoints.firstOrNull { it.identifier.toString() == r.id }
+            }
+        audio.startingRoute = null
         val attributes =
             CallAttributesCompat(
                 displayName = room.name,
@@ -70,6 +91,7 @@ class TelecomCall(
                 direction =
                     if (incoming) CallAttributesCompat.DIRECTION_INCOMING else CallAttributesCompat.DIRECTION_OUTGOING,
                 callType = callType(video),
+                preferredStartingCallEndpoint = starting,
             )
         runCatching {
             manager.addCall(

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onEach
@@ -24,6 +25,9 @@ import pt.aguiarvieira.xmuks.core.call.CallReaction
 import pt.aguiarvieira.xmuks.core.call.CallSession
 import pt.aguiarvieira.xmuks.core.call.system.AudioRoute
 import pt.aguiarvieira.xmuks.core.call.system.CallAudio
+import pt.aguiarvieira.xmuks.core.call.system.TelecomCall
+import pt.aguiarvieira.xmuks.core.data.calls.RoomCall
+import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.profile.RoomProfiles
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
@@ -61,6 +65,15 @@ data class CallUi(
     val anyVideo: Boolean get() = tiles.any { it.participant.video != null }
 }
 
+/** What the lobby will join with: chosen here, applied when joining. */
+@Immutable
+data class LobbyChoice(
+    val microphoneOn: Boolean = true,
+    val cameraOn: Boolean = false,
+    /** Null: wherever the system starts call audio. */
+    val route: AudioRoute? = null,
+)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel(assistedFactory = CallViewModel.Factory::class)
 class CallViewModel
@@ -69,6 +82,8 @@ class CallViewModel
         @Assisted val roomId: String,
         private val manager: CallManager,
         private val audio: CallAudio,
+        private val telecom: TelecomCall,
+        private val roomCalls: RoomCalls,
         private val profiles: RoomProfiles,
         private val media: MediaUrls,
         rooms: RoomListRepository,
@@ -150,11 +165,27 @@ class CallViewModel
             }
         }
 
-        /** Joins this room's call unless we're already in it. */
+        /** Joins this room's call unless we're already in it; audio starts on [route] (null: the system's pick). */
         fun join(
             video: Boolean,
             answer: Boolean = false,
-        ) = manager.join(roomId, video, answer = answer)
+            microphone: Boolean = true,
+            route: AudioRoute? = null,
+        ) {
+            audio.startingRoute = route
+            manager.join(roomId, video, answer = answer, microphone = microphone)
+        }
+
+        /** The room's call as the lobby shows it: going on, and we're not in it from here. */
+        val ongoing: StateFlow<RoomCall?> =
+            roomCalls.of(roomId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_MS), null)
+
+        /** Someone's in this room's call already (so joining is a choice to make, not a call to start). */
+        suspend fun callGoingOn(): Boolean = roomCalls.of(roomId).first()?.joinedHere == false
+
+        /** Where audio could start, before joining (empty: the system routes it, no choice). */
+        val startingRoutes: StateFlow<List<AudioRoute>> =
+            telecom.startingRoutes().stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_MS), emptyList())
 
         fun setMicrophone(on: Boolean) = session.value?.setMicrophone(on)
 
