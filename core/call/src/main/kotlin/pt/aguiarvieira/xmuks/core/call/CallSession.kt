@@ -24,6 +24,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
+import pt.aguiarvieira.xmuks.core.call.media.AudioDiagnostics
 import pt.aguiarvieira.xmuks.core.call.media.KeySink
 import pt.aguiarvieira.xmuks.core.call.media.MediaKeyManager
 import pt.aguiarvieira.xmuks.core.call.media.SfuConnection
@@ -285,6 +286,7 @@ class CallSession internal constructor(
         connection.connect()
         connectedAt = clock()
         watchConnection(connection.room)
+        AudioDiagnostics.watch(scope, connection.room, "own")
         connection.room.localParticipant.setMicrophoneEnabled(mutableMicrophone.value)
         if (video) setCamera(true)
     }
@@ -464,6 +466,7 @@ class CallSession internal constructor(
             )
         others[transportKey(transport)] = connection
         runCatching { connection.connect() }
+        AudioDiagnostics.watch(scope, connection.room, access.url)
     }
 
     private fun transportKey(t: RtcTransport) = t.livekitServiceUrl ?: t.raw.toString()
