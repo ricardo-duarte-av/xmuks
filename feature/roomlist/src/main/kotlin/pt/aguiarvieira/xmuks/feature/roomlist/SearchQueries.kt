@@ -41,6 +41,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -85,11 +86,13 @@ internal fun FilterBar(
     LaunchedEffect(ime) { if (!ime) focus.clearFocus() }
     BackHandler(enabled = typing) { focus.clearFocus() }
     val end by animateDpAsState(if (typing) 16.dp else 4.dp, label = "filterEnd")
-    // Scrolled under: a tone of its own and a hairline beneath, as an app bar takes when content
-    // scrolls under it, so the bar's edge reads in both themes.
+    // Scrolled under: a hairline beneath, as an app bar takes when content scrolls under it, so the
+    // bar's edge reads in both themes; in dark mode a tone of its own too. In light mode the bar stays
+    // the card's white, the hairline enough.
     val colors = MaterialTheme.colorScheme
+    val dark = colors.surface.luminance() <= 0.5f
     val tone by animateColorAsState(
-        if (scrolledUnder) colors.surfaceContainerLow else Color.Transparent,
+        if (scrolledUnder && dark) colors.surfaceContainerLow else Color.Transparent,
         label = "filterTone"
     )
     val line by animateColorAsState(
