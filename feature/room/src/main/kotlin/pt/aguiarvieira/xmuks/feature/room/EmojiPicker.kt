@@ -61,8 +61,8 @@ private class Section(
 )
 
 /**
- * The emoji/sticker picker: search, a strip of sections to jump to (recent, custom packs, the
- * Unicode groups), and the grid. Room packs can be subscribed to (or dropped) from their header.
+ * The emoji/sticker picker: search, a strip of sections to jump to (recent, the Unicode groups,
+ * custom packs), and the grid. Room packs can be subscribed to (or dropped) from their header.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -295,7 +295,7 @@ private fun sections(
                 .distinctBy { it.mxc }
                 .map(custom)
         val unicodeHits = EmojiCatalog.search(q).map { Picked.Unicode(it.emoji) }
-        return listOf(Section("search", "", null, customHits + unicodeHits))
+        return listOf(Section("search", "", null, unicodeHits + customHits))
     }
     val byMxc = packs.flatMap { it.emojis }.associateBy { it.mxc }
     val recentItems =
@@ -306,14 +306,15 @@ private fun sections(
     val catalog = EmojiCatalog.catalog
     return buildList {
         if (recentItems.isNotEmpty()) add(Section("recent", "Recent", null, recentItems))
+        catalog.emoji.groupBy { it.group }.toSortedMap().forEach { (group, emoji) ->
+            val title = catalog.groups.getOrNull(group)?.replaceFirstChar { it.uppercase() } ?: ""
+            add(Section("g$group", title, emoji.first().emoji, emoji.map { Picked.Unicode(it.emoji) }))
+        }
+        // The user's packs come after the default set.
         packs.filter { it.emojis.isNotEmpty() }.forEach {
             add(
                 Section(it.id, it.name, it.iconMxc, it.emojis.map(custom), it)
             )
-        }
-        catalog.emoji.groupBy { it.group }.toSortedMap().forEach { (group, emoji) ->
-            val title = catalog.groups.getOrNull(group)?.replaceFirstChar { it.uppercase() } ?: ""
-            add(Section("g$group", title, emoji.first().emoji, emoji.map { Picked.Unicode(it.emoji) }))
         }
     }
 }
