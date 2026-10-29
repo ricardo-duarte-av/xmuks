@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -113,62 +114,68 @@ internal fun PinnedSheet(
 ) {
     val load by rememberUpdatedState(pins.onLoad)
     LaunchedEffect(pins.pins.eventIds) { load() }
+    // Full height from the first frame: with only the spinner showing, the sheet would settle
+    // expanded and stay there once the list grew; this way it opens half-way and drags up.
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text(
-            stringResource(R.string.pinned_messages),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-        )
-        val items = pins.items?.filterIsInstance<TimelineItem.Message>()
-        if (items == null) {
-            Box(
-                Modifier.fillMaxWidth().padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) { CircularProgressIndicator() }
-        } else {
-            LazyColumn(Modifier.navigationBarsPadding()) {
-                items(items, key = { it.eventId }) { message ->
-                    ListItem(
-                        leadingContent = {
-                            RoomAvatar(
-                                message.senderName,
-                                message.sender,
-                                resolver.avatar(message.senderAvatarMxc),
-                                size = 36.dp
-                            )
-                        },
-                        supportingContent = {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                // A reply: what it answered, quoted above it as in the timeline.
-                                message.reply?.takeIf { it.sender != null }?.let { reply ->
-                                    Reply(reply, MaterialTheme.colorScheme.onSurfaceVariant) { onShow(reply.eventId) }
-                                }
-                                Text(summaryOf(message.content), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            }
-                        },
-                        trailingContent =
-                            if (pins.pins.canPin) {
-                                { UnpinButton { pins.onToggle(message.eventId) } }
-                            } else {
-                                null
+        Column(Modifier.fillMaxHeight()) {
+            Text(
+                stringResource(R.string.pinned_messages),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
+            val items = pins.items?.filterIsInstance<TimelineItem.Message>()
+            if (items == null) {
+                Box(
+                    Modifier.fillMaxWidth().padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) { CircularProgressIndicator() }
+            } else {
+                LazyColumn(Modifier.navigationBarsPadding()) {
+                    items(items, key = { it.eventId }) { message ->
+                        ListItem(
+                            leadingContent = {
+                                RoomAvatar(
+                                    message.senderName,
+                                    message.sender,
+                                    resolver.avatar(message.senderAvatarMxc),
+                                    size = 36.dp
+                                )
                             },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.tapOrHold { onShow(message.eventId) },
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                message.senderName,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false),
-                            )
-                            Text(
-                                remember(message.timestamp) { pinnedAt(message.timestamp) },
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                modifier = Modifier.padding(start = 8.dp),
-                            )
+                            supportingContent = {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    // A reply: what it answered, quoted above it as in the timeline.
+                                    message.reply?.takeIf { it.sender != null }?.let { reply ->
+                                        Reply(reply, MaterialTheme.colorScheme.onSurfaceVariant) {
+                                            onShow(reply.eventId)
+                                        }
+                                    }
+                                    Text(summaryOf(message.content), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                }
+                            },
+                            trailingContent =
+                                if (pins.pins.canPin) {
+                                    { UnpinButton { pins.onToggle(message.eventId) } }
+                                } else {
+                                    null
+                                },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier.tapOrHold { onShow(message.eventId) },
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    message.senderName,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                )
+                                Text(
+                                    remember(message.timestamp) { pinnedAt(message.timestamp) },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    modifier = Modifier.padding(start = 8.dp),
+                                )
+                            }
                         }
                     }
                 }
