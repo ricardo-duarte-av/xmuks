@@ -26,10 +26,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -196,9 +199,28 @@ private fun previewLine(room: RoomSummary): AnnotatedString {
             else -> room.previewSender
         }
     if (sender == null) return body
-    // The body keeps its styling: the string only places it beside the sender.
+    // The body keeps its styling: the string only places it beside the sender, drawn in the accent.
     val (before, after) = stringResource(R.string.preview_sender, sender, BODY_MARK).split(BODY_MARK, limit = 2)
-    return AnnotatedString(before) + body + AnnotatedString(after)
+    val accent = MaterialTheme.colorScheme.primary
+    return if (sender in before) {
+        senderColored(before, sender, accent) + body + AnnotatedString(after)
+    } else {
+        AnnotatedString(before) + body + senderColored(after, sender, accent)
+    }
+}
+
+/** [text] with [sender] in it drawn in [color]; a translation may put the name after the body. */
+private fun senderColored(
+    text: String,
+    sender: String,
+    color: Color,
+): AnnotatedString {
+    val at = text.indexOf(sender)
+    if (at < 0) return AnnotatedString(text)
+    return buildAnnotatedString {
+        append(text)
+        addStyle(SpanStyle(color = color), at, at + sender.length)
+    }
 }
 
 private const val BODY_MARK = "\u0000"
