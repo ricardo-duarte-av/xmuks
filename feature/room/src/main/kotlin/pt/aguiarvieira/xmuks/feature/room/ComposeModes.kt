@@ -61,5 +61,8 @@ class ComposeModes(
 internal val ComposeMode.editsCaption: Boolean
     get() =
         (this as? ComposeMode.Edit)?.message?.content.let {
-            it is MessageContent.Image || it is MessageContent.Video || it is MessageContent.Gallery
+            it is MessageContent.Image ||
+                it is MessageContent.Video ||
+                it is MessageContent.File ||
+                it is MessageContent.Gallery
         }

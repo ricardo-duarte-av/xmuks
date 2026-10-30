@@ -170,7 +170,7 @@ internal fun summaryOf(content: MessageContent): String =
         is MessageContent.Video -> content.caption ?: stringResource(R.string.summary_video)
         is MessageContent.Audio -> stringResource(R.string.summary_audio)
         is MessageContent.Gallery -> content.caption ?: stringResource(R.string.summary_gallery, content.items.size)
-        is MessageContent.File -> content.name
+        is MessageContent.File -> content.caption ?: content.name
         is MessageContent.Sticker -> content.body
         is MessageContent.Location -> content.body
         is MessageContent.Poll -> stringResource(R.string.summary_poll, content.poll.question)

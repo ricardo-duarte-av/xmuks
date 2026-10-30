@@ -365,20 +365,23 @@ private fun CardContent(
 ) {
     when (c) {
         is MessageContent.File -> {
-            if (c.media.isPdf && message.uploadProgress == null) {
-                // A PDF opens in the viewer (where it can be saved too).
-                PdfCard(c, color, resolver) { onOpen(c.media, ViewerMedia.Kind.Pdf) }
-            } else {
-                Box(contentAlignment = Alignment.Center) {
-                    FileCard(
-                        R.drawable.ic_file,
-                        c.name,
-                        c.media.size,
-                        color,
-                        Modifier.tapOrHold(enabled = message.uploadProgress == null) { actions.saveMedia(c.media) },
-                    )
-                    message.uploadProgress?.let { UploadProgress(it) }
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (c.media.isPdf && message.uploadProgress == null) {
+                    // A PDF opens in the viewer (where it can be saved too).
+                    PdfCard(c, color, resolver) { onOpen(c.media, ViewerMedia.Kind.Pdf) }
+                } else {
+                    Box(contentAlignment = Alignment.Center) {
+                        FileCard(
+                            R.drawable.ic_file,
+                            c.name,
+                            c.media.size,
+                            color,
+                            Modifier.tapOrHold(enabled = message.uploadProgress == null) { actions.saveMedia(c.media) },
+                        )
+                        message.uploadProgress?.let { UploadProgress(it) }
+                    }
                 }
+                c.caption?.let { Caption(it, c.html, color, resolver) }
             }
         }
 
@@ -520,14 +523,7 @@ private fun MediaImage(
                 kind == ViewerMedia.Kind.Video -> PlayBadge()
             }
         }
-        caption?.let {
-            val style = MaterialTheme.typography.bodyLarge
-            if (captionHtml != null) {
-                HtmlContent(captionHtml, color, style, { resolver.media(it, false) })
-            } else {
-                PlainContent(it, color, style)
-            }
-        }
+        caption?.let { Caption(it, captionHtml, color, resolver) }
     }
 }
 

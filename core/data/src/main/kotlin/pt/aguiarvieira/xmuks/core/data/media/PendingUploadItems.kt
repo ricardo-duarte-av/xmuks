@@ -58,7 +58,7 @@ private fun PendingPart.content(caption: String?): MessageContent {
     return when (kind) {
         MediaKind.Image -> MessageContent.Image(media, caption)
         MediaKind.Video -> MessageContent.Video(media, caption)
-        MediaKind.Audio, MediaKind.File -> MessageContent.File(media, filename)
+        MediaKind.Audio, MediaKind.File -> MessageContent.File(media, filename, caption)
     }
 }
 

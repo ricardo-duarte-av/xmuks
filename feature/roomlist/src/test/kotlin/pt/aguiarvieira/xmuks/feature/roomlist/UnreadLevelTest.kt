@@ -13,7 +13,12 @@ class UnreadLevelTest {
     @Test fun `marked unread with no messages stays a dot`() = assertEquals(UnreadLevel.Dot to 0, Unread(marked = true).level(showCount = true))
 
     @Test fun `notifications and mentions keep their count`() {
-        assertEquals(UnreadLevel.Count to 2, Unread(messages = 5, notifications = 2).level(showCount = true))
+        assertEquals(UnreadLevel.Count to 2, Unread(messages = 5, notifications = 2).level())
         assertEquals(UnreadLevel.Mention to 2, Unread(messages = 5, notifications = 2, highlights = 1).level())
+    }
+
+    @Test fun `with the count shown, a mention turns the badge red but keeps the message count`() {
+        assertEquals(UnreadLevel.Count to 5, Unread(messages = 5, notifications = 2).level(showCount = true))
+        assertEquals(UnreadLevel.Mention to 5, Unread(messages = 5, notifications = 2, highlights = 1).level(showCount = true))
     }
 }

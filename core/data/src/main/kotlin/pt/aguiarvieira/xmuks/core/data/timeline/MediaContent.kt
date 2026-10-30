@@ -23,7 +23,7 @@ internal fun mediaMessage(
         "m.image" -> MessageContent.Image(media, caption, captionHtml)
         "m.video" -> MessageContent.Video(media, caption, captionHtml)
         "m.audio" -> audioMessage(media, content, body)
-        else -> MessageContent.File(media, content.str("filename") ?: body)
+        else -> MessageContent.File(media, content.str("filename") ?: body, caption, captionHtml)
     }
 }
 

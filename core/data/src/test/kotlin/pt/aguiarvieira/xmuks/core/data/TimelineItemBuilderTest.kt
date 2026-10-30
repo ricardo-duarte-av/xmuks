@@ -444,17 +444,30 @@ class TimelineItemBuilderTest {
             }
         val plain = ev(sender = "@me:x", content = """{"msgtype":"m.text","body":"hi"}""")
         val theirs = ev(content = """{"msgtype":"m.text","body":"yo"}""")
-        val file = ev(sender = "@me:x", content = """{"msgtype":"m.file","body":"x.pdf","url":"mxc://x/y"}""")
-        assertEquals(listOf("/me waves", "hi", null, null), build(mine, plain, theirs, file).messages().map { it.editSource })
+        val audio = ev(sender = "@me:x", content = """{"msgtype":"m.audio","body":"x.ogg","url":"mxc://x/y"}""")
+        assertEquals(listOf("/me waves", "hi", null, null), build(mine, plain, theirs, audio).messages().map { it.editSource })
     }
 
     @Test
-    fun `our pictures, videos and galleries edit their caption - empty when they have none`() {
+    fun `our pictures, videos, files and galleries edit their caption - empty when they have none`() {
         val bare = ev(sender = "@me:x", content = """{"msgtype":"m.image","body":"x.png","url":"mxc://x/y"}""")
         val captioned =
             ev(sender = "@me:x", content = """{"msgtype":"m.video","body":"look","filename":"v.mp4","url":"mxc://x/v"}""")
+        val file =
+            ev(sender = "@me:x", content = """{"msgtype":"m.file","body":"notes","filename":"a.pdf","url":"mxc://x/f"}""")
         val theirs = ev(content = """{"msgtype":"m.image","body":"hi","filename":"y.png","url":"mxc://x/z"}""")
-        assertEquals(listOf("", "look", null), build(bare, captioned, theirs).messages().map { it.editSource })
+        assertEquals(listOf("", "look", "notes", null), build(bare, captioned, file, theirs).messages().map { it.editSource })
+    }
+
+    @Test
+    fun `a file keeps its caption apart from its name`() {
+        val captioned = ev(content = """{"msgtype":"m.file","body":"the report","filename":"q3.pdf","url":"mxc://x/a"}""")
+        val bare = ev(content = """{"msgtype":"m.file","body":"q4.pdf","url":"mxc://x/b"}""")
+        val files = build(captioned, bare).messages().map { it.content as MessageContent.File }
+        assertEquals("q3.pdf", files[0].name)
+        assertEquals("the report", files[0].caption)
+        assertEquals("q4.pdf", files[1].name)
+        assertNull(files[1].caption)
     }
 
     @Test

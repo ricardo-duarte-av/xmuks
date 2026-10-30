@@ -205,14 +205,15 @@ private const val BODY_MARK = "\u0000"
 
 /**
  * One rule for rooms, spaces and tabs: anything needing attention shows a number (red when it
- * includes a mention); quiet unread shows a dot, or with [showCount] the number of unread messages.
+ * includes a mention); quiet unread shows a dot. With [showCount] the number is always the unread
+ * messages: a mention only turns the badge red, it doesn't swap the count for its own.
  */
 fun Unread.level(showCount: Boolean = false): Pair<UnreadLevel, Int> {
     val attention = maxOf(notifications, highlights)
+    val count = if (showCount) maxOf(messages, attention) else attention
     return when {
-        highlights > 0 -> UnreadLevel.Mention to attention
-        attention > 0 -> UnreadLevel.Count to attention
-        showCount && messages > 0 -> UnreadLevel.Count to messages
+        highlights > 0 -> UnreadLevel.Mention to count
+        count > 0 -> UnreadLevel.Count to count
         any -> UnreadLevel.Dot to 0
         else -> UnreadLevel.None to 0
     }

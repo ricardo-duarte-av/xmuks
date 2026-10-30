@@ -211,6 +211,9 @@ sealed interface MessageContent {
     data class File(
         val media: Media,
         val name: String,
+        val caption: String? = null,
+        /** The caption's sanitised HTML, null for plain text. */
+        val html: String? = null,
     ) : MessageContent
 
     data class Sticker(

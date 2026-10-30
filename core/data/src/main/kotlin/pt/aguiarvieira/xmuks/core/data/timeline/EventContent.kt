@@ -114,7 +114,7 @@ internal fun Event.sendState(): SendState =
 
 /**
  * Our own editable messages: gomuks' edit source, else the body (text) or the caption, empty when
- * there's none (pictures, videos, galleries). Null for anything else.
+ * there's none (pictures, videos, files, galleries). Null for anything else.
  */
 internal fun TimelineItemBuilder.editSourceOf(
     event: Event,
@@ -133,7 +133,7 @@ internal fun TimelineItemBuilder.editSourceOf(
 private val EDITABLE_MSGTYPES = setOf("m.text", "m.notice", "m.emote")
 
 /** Media whose caption the timeline shows, so it can be edited. */
-private val CAPTIONED_MSGTYPES = setOf("m.image", "m.video")
+private val CAPTIONED_MSGTYPES = setOf("m.image", "m.video", "m.file")
 
 /** [eventId]'s content as it now reads: its latest edit's, else its own. Null when it isn't held. */
 fun TimelineSnapshot.currentContent(eventId: String): JsonObject? {
