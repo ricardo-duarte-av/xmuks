@@ -149,8 +149,8 @@ class RoomSession(
     val history =
         MessageHistory(roomId, ::getEvent, ::relatedEvents, snapshot) { itemsOf(flowOf(it)).first() }
 
-    /** Events' sources, as Matrix has them. */
-    val sources = EventSources(roomId, events)
+    /** Events' sources, as gomuks has them. */
+    val sources = EventSources(roomId, exec)
 
     /**
      * Who reacted to [eventId] with what (gomuks' m.annotation relations), by reaction. Names are

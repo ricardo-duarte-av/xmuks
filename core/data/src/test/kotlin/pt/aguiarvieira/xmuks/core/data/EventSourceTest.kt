@@ -7,45 +7,34 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import pt.aguiarvieira.xmuks.core.data.timeline.eventSource
-import pt.aguiarvieira.xmuks.core.protocol.Event
 
 class EventSourceTest {
     private fun json(text: String) = Json.parseToJsonElement(text).jsonObject
 
-    private fun event(
-        content: String = "{}",
-        decrypted: String? = null,
-    ) = Event(
-        rowId = 7,
-        roomId = "!r:x",
-        eventId = "\$e",
-        sender = "@a:x",
-        type = if (decrypted != null) "m.room.encrypted" else "m.room.message",
-        timestamp = 1000,
-        content = json(content),
-        decrypted = decrypted?.let(::json),
-        decryptedType = decrypted?.let { "m.room.message" },
-    )
-
     @Test
-    fun `an event is shown as Matrix has it, without gomuks' row`() {
-        val source = json(eventSource(event("""{"msgtype":"m.text","body":"hi"}""")))
-        assertEquals(JsonPrimitive("m.room.message"), source["type"])
-        assertEquals(JsonPrimitive(1000), source["origin_server_ts"])
-        assertEquals(json("""{"msgtype":"m.text","body":"hi"}"""), source["content"])
-        assertNull(source["rowid"])
-        assertNull(source["state_key"])
+    fun `the whole row is shown, gomuks' own fields too`() {
+        val row = json("""{"rowid":7,"type":"m.room.message","content":{"body":"hi"},"local_content":{"x":1}}""")
+        assertEquals(row, json(eventSource(row)))
     }
 
     @Test
-    fun `an encrypted event is shown as it decrypted`() {
-        val source = json(eventSource(event("""{"ciphertext":"x"}""", decrypted = """{"body":"hi"}""")))
+    fun `an encrypted event shows its cleartext, and what was sent under encrypted`() {
+        val row =
+            json(
+                """{"rowid":7,"type":"m.room.encrypted","content":{"ciphertext":"x"},
+                "decrypted":{"body":"hi"},"decrypted_type":"m.room.message","pending":false}""",
+            )
+        val source = json(eventSource(row))
         assertEquals(JsonPrimitive("m.room.message"), source["type"])
         assertEquals(json("""{"body":"hi"}"""), source["content"])
+        assertEquals(json("""{"ciphertext":"x"}"""), source["encrypted"])
+        assertNull(source["decrypted"])
+        assertNull(source["decrypted_type"])
+        assertEquals(JsonPrimitive(7), source["rowid"])
     }
 
     @Test
     fun `it's indented two spaces`() {
-        assertEquals("{\n  \"type\"", eventSource(event()).take(10))
+        assertEquals("{\n  \"rowid\"", eventSource(json("""{"rowid":7}""")).take(11))
     }
 }
