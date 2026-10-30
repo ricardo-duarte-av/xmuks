@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.room
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,8 +40,11 @@ class PinActions(
         scope.launch { session.pinning.setPinned(eventId, pinned) }
     }
 
+    private var loading: Job? = null
+
     fun load() {
         _items.value = null
-        scope.launch { _items.value = session.pinning.pinnedItems(pins.value.eventIds) }
+        loading?.cancel()
+        loading = scope.launch { session.pinning.pinnedItems(pins.value.eventIds).collect { _items.value = it } }
     }
 }

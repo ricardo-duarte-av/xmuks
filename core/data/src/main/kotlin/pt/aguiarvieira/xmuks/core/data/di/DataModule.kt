@@ -74,6 +74,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.CodeThemes
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
+import pt.aguiarvieira.xmuks.core.data.timeline.EventCache
 import pt.aguiarvieira.xmuks.core.data.timeline.MediaForwarder
 import pt.aguiarvieira.xmuks.core.data.timeline.PinBarStore
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomGallery
@@ -175,7 +176,12 @@ object DataModule {
         uploads: MediaSender,
         push: PushRegistrar,
         preferences: PreferenceStore,
-    ): Set<AccountScoped> = setOf(ingestor, stats, timelines, outbox, drafts, pinBars, uploads, push, preferences)
+        events: EventCache,
+    ): Set<AccountScoped> =
+        setOf(ingestor, stats, timelines, outbox, drafts, pinBars, uploads, push, preferences, events)
+
+    @Provides @Singleton
+    fun eventCache(exec: ExecClient) = EventCache(exec)
 
     @Provides @Singleton
     fun preferenceStore(
@@ -560,7 +566,8 @@ object DataModule {
         scope: CoroutineScope,
         prefs: PreferenceStore,
         ingestor: SyncIngestor,
-    ) = RoomSessions(timelines, exec, database, outbox, uploads, scope, prefs, ingestor.stateChanged)
+        events: EventCache,
+    ) = RoomSessions(timelines, exec, database, outbox, uploads, scope, prefs, ingestor.stateChanged, events)
 
     /** Unsent messages: their own database, which (unlike the cache) survives schema changes. */
     @Provides @Singleton

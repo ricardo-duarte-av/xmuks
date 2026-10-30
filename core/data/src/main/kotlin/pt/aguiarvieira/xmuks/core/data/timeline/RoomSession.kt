@@ -62,6 +62,8 @@ class RoomSession(
     private val stateChanges: Flow<String> = emptyFlow(),
     /** Bridged users' networks from their global profiles, shared by every room. */
     private val bridgedUsers: BridgedUsers = BridgedUsers(exec, scope),
+    /** Events fetched one by one, held across rooms and opens. */
+    private val events: EventCache = EventCache(exec),
 ) {
     private val dao = database.roomListDao()
 
@@ -175,16 +177,7 @@ class RoomSession(
     private suspend fun getEvent(
         eventId: String,
         unredact: Boolean,
-    ): Event? {
-        val params =
-            buildJsonObject {
-                put("room_id", JsonPrimitive(roomId))
-                put("event_id", JsonPrimitive(eventId))
-                put("unredact", JsonPrimitive(unredact))
-            }
-        val result = exec.exec("get_event", params, ExecMode.Read) as? ExecResult.Ok ?: return null
-        return runCatching { GomuksJson.decodeFromJsonElement(Event.serializer(), result.data) }.getOrNull()
-    }
+    ): Event? = events.fetch(roomId, eventId, unredact)
 
     /** Items for any snapshot of this room (the live one, or an event context), with its profiles. */
     fun itemsOf(snapshots: Flow<TimelineSnapshot>): Flow<List<TimelineItem>> =
@@ -255,10 +248,18 @@ class RoomSession(
         }.distinctUntilChanged()
 
     /** Pinning and unpinning, and the pinned messages themselves. */
-    val pinning = RoomPinning(roomId, exec, pins, { getEvent(it, unredact = false) }, { itemsOf(flowOf(it)).first() })
+    val pinning =
+        RoomPinning(
+            roomId,
+            exec,
+            pins,
+            { events.cached(roomId, it) },
+            { events.fetch(roomId, it) },
+            { itemsOf(flowOf(it)).first() },
+        )
 
     /** One of this room's threads, from its root. */
-    fun thread(rootId: String) = ThreadTimeline(roomId, rootId, exec, snapshot)
+    fun thread(rootId: String) = ThreadTimeline(roomId, rootId, exec, snapshot, events)
 
     /** Whoever is typing here (not us), with the names and avatars they have in this room. */
     val typing: Flow<List<Typist>> =
@@ -393,11 +394,12 @@ class RoomSessions(
     private val scope: CoroutineScope,
     private val prefs: PreferenceStore? = null,
     private val stateChanges: Flow<String> = emptyFlow(),
+    private val events: EventCache = EventCache(exec),
 ) {
     private val bridgedUsers = BridgedUsers(exec, scope)
 
     fun open(roomId: String) =
-        RoomSession(roomId, store, exec, database, outbox, uploads, scope, prefs, stateChanges, bridgedUsers)
+        RoomSession(roomId, store, exec, database, outbox, uploads, scope, prefs, stateChanges, bridgedUsers, events)
 
     /** Stops our typing notification in [roomId], outliving whoever asked. */
     fun stopTyping(roomId: String) {

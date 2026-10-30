@@ -26,6 +26,7 @@ class ThreadTimeline(
     val rootId: String,
     private val exec: ExecClient,
     live: Flow<TimelineSnapshot>,
+    private val events: EventCache = EventCache(exec),
 ) {
     private val root = MutableStateFlow<Event?>(null)
     private val fetched = MutableStateFlow<List<Event>>(emptyList())
@@ -64,9 +65,10 @@ class ThreadTimeline(
             )
         }
 
-    /** The root, and the newest page of the thread. */
+    /** The root (as last seen, if it's held, until gomuks' copy comes), and the newest page of the thread. */
     suspend fun open() {
-        root.value = getEvent(rootId)
+        root.value = events.cached(roomId, rootId)
+        root.value = events.fetch(roomId, rootId) ?: root.value
         loadOlder()
     }
 
@@ -96,16 +98,6 @@ class ThreadTimeline(
         }
 
     private fun keyed(event: Event) = if (event.rowId != 0L) event else event.copy(rowId = standIn--)
-
-    private suspend fun getEvent(eventId: String): Event? {
-        val params =
-            buildJsonObject {
-                put("room_id", JsonPrimitive(roomId))
-                put("event_id", JsonPrimitive(eventId))
-            }
-        val result = exec.exec("get_event", params, ExecMode.Read) as? ExecResult.Ok ?: return null
-        return runCatching { GomuksJson.decodeFromJsonElement(Event.serializer(), result.data) }.getOrNull()
-    }
 
     private fun decode(json: kotlinx.serialization.json.JsonElement?): List<Event> =
         json
