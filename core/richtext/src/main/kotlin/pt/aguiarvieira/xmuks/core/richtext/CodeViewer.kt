@@ -50,6 +50,8 @@ internal fun CodeViewer(
     style: TextStyle,
     theme: CodeTheme?,
     onDismiss: () -> Unit,
+    /** What it is, above its line count; else its language, else "Code". */
+    title: String? = null,
 ) {
     val wrapByDefault = LocalRichTextOptions.current.wrapCode
     var wrap by rememberSaveable { mutableStateOf(wrapByDefault) }
@@ -72,7 +74,7 @@ internal fun CodeViewer(
                     },
                     title = {
                         Column {
-                            Text(block.language ?: stringResource(R.string.code_title))
+                            Text(title ?: block.language ?: stringResource(R.string.code_title))
                             Text(
                                 pluralStringResource(R.plurals.code_lines, lines, lines),
                                 style = MaterialTheme.typography.labelMedium,

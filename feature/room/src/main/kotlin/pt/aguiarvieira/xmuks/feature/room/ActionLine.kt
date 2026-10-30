@@ -35,6 +35,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.Change
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.Reaction
 import pt.aguiarvieira.xmuks.core.data.timeline.Reader
+import pt.aguiarvieira.xmuks.core.data.timeline.SenderLabel
 import pt.aguiarvieira.xmuks.core.data.timeline.TextKind
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
@@ -193,7 +194,14 @@ internal fun StateChangeRow(
         actions = actions,
         highlighted = highlighted,
         footer = { Text(time, color = muted, style = MaterialTheme.typography.labelSmall) },
-        modifier = modifier,
+        // Held, it offers what any event does (react, reply, its source).
+        modifier =
+            modifier.combinedClickable(
+                interactionSource = null,
+                indication = null,
+                onClick = {},
+                onLongClick = { actions.onMessageMenu(item.asMessage()) },
+            ),
         eventId = item.eventId,
     ) { lastLine ->
         val template = changeTemplate(item.change, item.actor)
@@ -209,6 +217,37 @@ internal fun StateChangeRow(
         )
     }
 }
+
+/** The change as the message menu takes it: content it has none of, only its event's type. */
+private fun TimelineItem.StateChange.asMessage() =
+    TimelineItem.Message(
+        key = key,
+        eventId = eventId,
+        sender = actor,
+        label = SenderLabel(actor, actorName),
+        senderAvatarMxc = actorAvatarMxc,
+        fromMe = false,
+        timestamp = timestamp,
+        content = MessageContent.Unsupported(change.eventType, null),
+        reply = null,
+        reactions = reactions,
+        edited = false,
+        firstInGroup = true,
+        lastInGroup = true,
+        readBy = emptyList(),
+        sendError = null,
+    )
+
+private val Change.eventType: String
+    get() =
+        when (this) {
+            is Change.RoomName -> "m.room.name"
+            is Change.RoomTopic -> "m.room.topic"
+            Change.RoomAvatar -> "m.room.avatar"
+            Change.RoomCreated -> "m.room.create"
+            Change.EncryptionEnabled -> "m.room.encryption"
+            else -> "m.room.member"
+        }
 
 /** [ACTOR] becomes the coloured name; [OLD_AVATAR]/[NEW_AVATAR] become inline avatar images. */
 private fun fillTemplate(

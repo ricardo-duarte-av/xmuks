@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.room
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -38,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -53,6 +55,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.media
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
+import pt.aguiarvieira.xmuks.core.richtext.JsonViewer
 
 /** Which sheet or dialog the room screen has open (at most one of each). */
 internal class OverlayState {
@@ -116,6 +119,7 @@ internal fun RoomOverlays(
     state.deleting?.let { message -> DeleteFor(message, state, composer) }
     composer.history?.let { MessageHistorySheet(it, resolver, actions, composer.onHideHistory) }
     composer.reactions?.let { ReactionsSheet(it, resolver, actions.openUser, composer.onHideReactions) }
+    composer.source?.let { SourceFor(it, composer.onHideSource) }
     ComposerOverlays(state, composer, resolver)
     state.unsent?.let { message ->
         val id = message.localId ?: return@let
@@ -430,6 +434,10 @@ private fun MessageMenuFor(
             composer.onShowReactions(message.eventId, null)
             state.menuFor = null
         },
+        onSource = {
+            composer.onShowSource(message.eventId)
+            state.menuFor = null
+        },
         onDelete = {
             state.deleting = message
             state.menuFor = null
@@ -446,6 +454,24 @@ private fun MessageMenuFor(
         canDeleteOthers = composer.canRedact,
         onDismiss = { state.menuFor = null },
     )
+}
+
+/** An event's JSON once it's loaded; if gomuks can't give it, a toast says so instead. */
+@Composable
+private fun SourceFor(
+    source: SourceView,
+    onHide: () -> Unit,
+) {
+    val json = source.json
+    if (json != null) {
+        JsonViewer(json, stringResource(R.string.event_source), onHide)
+    } else if (source.failed) {
+        val context = LocalContext.current
+        LaunchedEffect(source, onHide) {
+            Toast.makeText(context, R.string.event_source_failed, Toast.LENGTH_SHORT).show()
+            onHide()
+        }
+    }
 }
 
 /**

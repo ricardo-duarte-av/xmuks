@@ -73,6 +73,9 @@
     <string name="unsubscribe_pack">Unsubscribe</string>
     <string name="add_reaction">Add reaction</string>
     <string name="view_reactions">View reactions</string>
+    <string name="view_source">View source</string>
+    <string name="event_source">Event source</string>
+    <string name="event_source_failed">Couldn\'t load the event\'s source</string>
     <string name="reactions_title">Reactions</string>
     <string name="reactions_unavailable">Who reacted isn\'t available.</string>
     <plurals name="reactions_count">

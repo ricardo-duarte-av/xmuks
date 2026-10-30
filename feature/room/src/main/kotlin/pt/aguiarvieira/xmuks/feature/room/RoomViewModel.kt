@@ -369,6 +369,9 @@ class RoomViewModel
         /** Who reacted to a message with what, being shown. */
         val reactions = ReactionsLoader(viewModelScope, session)
 
+        /** An event's source (its JSON), being shown. */
+        val source = SourceLoader(viewModelScope, session)
+
         fun delete(message: TimelineItem.Message) {
             viewModelScope.launch { session.writer.redact(message.eventId) }
         }

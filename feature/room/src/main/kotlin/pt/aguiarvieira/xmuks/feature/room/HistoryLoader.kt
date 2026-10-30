@@ -55,3 +55,31 @@ class ReactionsLoader internal constructor(
         _shown.value = null
     }
 }
+
+/** Loads an event's source (its JSON), for the source viewer. */
+class SourceLoader internal constructor(
+    private val scope: CoroutineScope,
+    private val session: RoomSession,
+) {
+    private val _shown = MutableStateFlow<SourceView?>(null)
+    val shown: StateFlow<SourceView?> = _shown
+
+    fun show(eventId: String) {
+        _shown.value = SourceView(eventId, json = null)
+        scope.launch {
+            val json = session.sources.json(eventId)
+            if (_shown.value?.eventId == eventId) _shown.value = SourceView(eventId, json, failed = json == null)
+        }
+    }
+
+    fun hide() {
+        _shown.value = null
+    }
+}
+
+/** An event's source being shown: [json] once loaded, or [failed] when gomuks couldn't say. */
+data class SourceView(
+    val eventId: String,
+    val json: String?,
+    val failed: Boolean = false,
+)

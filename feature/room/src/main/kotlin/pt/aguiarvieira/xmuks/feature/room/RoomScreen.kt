@@ -161,6 +161,7 @@ fun RoomRoute(
     val mode by viewModel.modes.current.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
     val reactions by viewModel.reactions.shown.collectAsStateWithLifecycle()
+    val source by viewModel.source.shown.collectAsStateWithLifecycle()
     val commands by viewModel.commands.collectAsStateWithLifecycle()
     val packs by viewModel.emoji.packs.collectAsStateWithLifecycle()
     val recent by viewModel.emoji.recent.collectAsStateWithLifecycle()
@@ -280,6 +281,9 @@ fun RoomRoute(
                     reactions = reactions,
                     onShowReactions = viewModel.reactions::show,
                     onHideReactions = viewModel.reactions::hide,
+                    source = source,
+                    onShowSource = viewModel.source::show,
+                    onHideSource = viewModel.source::hide,
                     onDelete = viewModel::delete,
                     commands = commands,
                     emoji =
@@ -353,6 +357,10 @@ class ComposerActions(
     val reactions: ReactionsView? = null,
     val onShowReactions: (eventId: String, key: String?) -> Unit = { _, _ -> },
     val onHideReactions: () -> Unit = {},
+    /** An event's source (its JSON), being shown. */
+    val source: SourceView? = null,
+    val onShowSource: (eventId: String) -> Unit = {},
+    val onHideSource: () -> Unit = {},
     val onDelete: (TimelineItem.Message) -> Unit = {},
     val commands: List<BotCommand> = emptyList(),
     val emoji: EmojiState = EmojiState(),

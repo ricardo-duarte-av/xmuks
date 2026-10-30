@@ -34,7 +34,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 /**
  * What can be done with a message (long press): react, reply, edit (ours, once sent), thread,
  * pin, save, forward, share to another app, copy its text, delete (ours, or any where our power
- * level allows).
+ * level allows), view its source.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,9 +69,9 @@ internal fun MessageMenu(
     onShare: (() -> Unit)? = null,
     /** We may delete others' messages too (the room's power levels). */
     canDeleteOthers: Boolean = false,
+    /** Its source, the event's JSON. */
+    onSource: () -> Unit = {},
 ) {
-    @Suppress("DEPRECATION") // The suspend Clipboard API needs ClipEntry plumbing for plain text.
-    val clipboard = LocalClipboardManager.current
     val sent = message.localId == null && message.eventId.startsWith("$")
     val text = (message.content as? MessageContent.Text)?.body
     val mayDelete = message.fromMe || canDeleteOthers
@@ -85,12 +85,7 @@ internal fun MessageMenu(
             }
             FileItems(message, sent, onSave, onForward)
             if (onShare != null) Item(R.drawable.ic_share, R.string.share, onShare)
-            if (text != null) {
-                Item(R.drawable.ic_copy, R.string.copy_text) {
-                    clipboard.setText(AnnotatedString(text))
-                    onDismiss()
-                }
-            }
+            CopyAndSource(text, sent, onSource, onDismiss)
             if (sent && mayDelete && message.content != MessageContent.Redacted) {
                 // Past the network's window it still goes here: said so, not dimmed.
                 val label = if (limits.delete != null) R.string.delete_matrix_only else R.string.delete
@@ -98,6 +93,25 @@ internal fun MessageMenu(
             }
         }
     }
+}
+
+/** Copying its text, if it has any, and its source (the event's JSON) once sent. */
+@Composable
+private fun CopyAndSource(
+    text: String?,
+    sent: Boolean,
+    onSource: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    @Suppress("DEPRECATION") // The suspend Clipboard API needs ClipEntry plumbing for plain text.
+    val clipboard = LocalClipboardManager.current
+    if (text != null) {
+        Item(R.drawable.ic_copy, R.string.copy_text) {
+            clipboard.setText(AnnotatedString(text))
+            onDismiss()
+        }
+    }
+    if (sent) Item(R.drawable.ic_code, R.string.view_source, onSource)
 }
 
 /** Saving its file, and forwarding it once sent, as each is possible. */
