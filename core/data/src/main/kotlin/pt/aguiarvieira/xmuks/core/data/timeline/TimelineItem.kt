@@ -103,6 +103,9 @@ sealed interface TimelineItem {
         val type: String,
         val timestamp: Long,
         val senderAvatarMxc: String? = null,
+        val fromMe: Boolean = false,
+        /** Like any event, it can be reacted to (and replied to, and deleted). */
+        val reactions: List<Reaction> = emptyList(),
     ) : TimelineItem
 
     data class DaySeparator(

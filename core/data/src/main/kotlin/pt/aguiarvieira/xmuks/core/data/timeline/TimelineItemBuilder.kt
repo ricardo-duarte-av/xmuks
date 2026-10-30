@@ -108,12 +108,13 @@ class TimelineItemBuilder(
             }
         // Whatever has nothing of its own to show (a reaction, an edit, a state change that changed
         // nothing, a type we don't render) is a hidden event.
-        return shown ?: hidden(event, members)
+        return shown ?: hidden(event, members, myReactions)
     }
 
     private fun hidden(
         event: Event,
         members: Map<String, MemberProfile>,
+        myReactions: Map<String, Map<String, String>>,
     ) = TimelineItem.Hidden(
         key = "hidden:${event.eventId}",
         eventId = event.eventId,
@@ -122,6 +123,8 @@ class TimelineItemBuilder(
         type = event.effectiveType,
         timestamp = event.timestamp,
         senderAvatarMxc = members[event.sender]?.avatarMxc,
+        fromMe = event.sender == me,
+        reactions = reactionsOf(event, myReactions),
     )
 
     private fun callItem(

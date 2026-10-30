@@ -443,6 +443,7 @@ private fun MessageMenuFor(
             state.picker = PickerRequest(PickerMode.Emoji, reactTo = message)
             state.menuFor = null
         },
+        canDeleteOthers = composer.canRedact,
         onDismiss = { state.menuFor = null },
     )
 }

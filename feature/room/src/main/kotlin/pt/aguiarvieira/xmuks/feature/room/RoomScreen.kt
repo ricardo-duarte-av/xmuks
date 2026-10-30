@@ -151,6 +151,7 @@ fun RoomRoute(
     val limited by viewModel.limited.value.collectAsStateWithLifecycle()
     val call by viewModel.call.collectAsStateWithLifecycle()
     val canCall by viewModel.canCall.collectAsStateWithLifecycle()
+    val canRedact by viewModel.canRedact.collectAsStateWithLifecycle()
     val newestEvent by viewModel.newestEvent.collectAsStateWithLifecycle()
     val mentionHints by viewModel.mentions.suggestions.collectAsStateWithLifecycle()
     val loadedEvents by viewModel.loadedEvents.collectAsStateWithLifecycle()
@@ -325,6 +326,7 @@ fun RoomRoute(
                     network = bridge?.protocol,
                     onLimit = viewModel.limited::show,
                     readOnly = preview,
+                    canRedact = canRedact,
                 ),
             onOpenFully = onOpenFully.takeIf { preview },
             modifier = modifier,
@@ -386,6 +388,8 @@ class ComposerActions(
     val onLimit: (Limit) -> Unit = {},
     /** A preview: there's no composer, and all that would send is dimmed ([Limit.Preview]). */
     val readOnly: Boolean = false,
+    /** We may delete others' messages here (the room's power levels). */
+    val canRedact: Boolean = false,
 ) {
     /** [action], unless this is a preview: then it says why it can't. */
     fun <A, B> unlessReadOnly(action: (A, B) -> Unit): (A, B) -> Unit {

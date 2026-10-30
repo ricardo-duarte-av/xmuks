@@ -513,6 +513,16 @@ class TimelineItemBuilderTest {
     }
 
     @Test
+    fun `hidden events carry their reactions and whether they're ours`() {
+        val status = ev(sender = "@me:x", type = "com.beeper.message_send_status", content = "{}") { copy(reactions = mapOf("👍" to 2)) }
+        val mine = ev(sender = "@me:x", type = "m.reaction", content = """{"m.relates_to":{"rel_type":"m.annotation","event_id":"${status.eventId}","key":"👍"}}""")
+        val hidden = build(status, mine).filterIsInstance<TimelineItem.Hidden>().first()
+        assertTrue(hidden.fromMe)
+        assertEquals(listOf("👍"), hidden.reactions.map { it.key })
+        assertTrue(hidden.reactions.single().mine)
+    }
+
+    @Test
     fun `a message mentions us by name or as the room, never our own`() {
         val byName = ev(content = """{"msgtype":"m.text","body":"yeah","m.mentions":{"user_ids":["@me:x"]}}""")
         val room = ev(content = """{"msgtype":"m.text","body":"morning @room","m.mentions":{"room":true}}""")

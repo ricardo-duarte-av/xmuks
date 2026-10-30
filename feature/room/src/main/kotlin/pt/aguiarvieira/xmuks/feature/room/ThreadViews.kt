@@ -175,5 +175,6 @@ internal fun summaryOf(content: MessageContent): String =
         is MessageContent.Location -> content.body
         is MessageContent.Poll -> stringResource(R.string.summary_poll, content.poll.question)
         MessageContent.Redacted -> stringResource(R.string.redacted)
+        is MessageContent.Unsupported -> content.body ?: content.type
         else -> ""
     }

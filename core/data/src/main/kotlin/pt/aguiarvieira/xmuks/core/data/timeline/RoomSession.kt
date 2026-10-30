@@ -247,6 +247,13 @@ class RoomSession(
             me == null || events.isEmpty() || RoomInfo.parse(roomId, events).powerLevels.canCall(me)
         }.distinctUntilChanged()
 
+    /** Whether we may delete others' events here (the room's power levels). */
+    val canRedact: Flow<Boolean> =
+        combine(state, dao.meta().map { it?.userId }.distinctUntilChanged()) { events, me ->
+            val levels = RoomInfo.parse(roomId, events).powerLevels
+            me != null && levels.of(me) >= levels.redact
+        }.distinctUntilChanged()
+
     /** Pinning and unpinning, and the pinned messages themselves. */
     val pinning =
         RoomPinning(

@@ -33,7 +33,8 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 
 /**
  * What can be done with a message (long press): react, reply, edit (ours, once sent), thread,
- * pin, save, forward, share to another app, copy its text, delete.
+ * pin, save, forward, share to another app, copy its text, delete (ours, or any where our power
+ * level allows).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,11 +67,14 @@ internal fun MessageMenu(
     onForward: (() -> Unit)? = null,
     /** Its file (with its caption) or text to another app; null when it has neither. */
     onShare: (() -> Unit)? = null,
+    /** We may delete others' messages too (the room's power levels). */
+    canDeleteOthers: Boolean = false,
 ) {
     @Suppress("DEPRECATION") // The suspend Clipboard API needs ClipEntry plumbing for plain text.
     val clipboard = LocalClipboardManager.current
     val sent = message.localId == null && message.eventId.startsWith("$")
     val text = (message.content as? MessageContent.Text)?.body
+    val mayDelete = message.fromMe || canDeleteOthers
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
             if (sent) QuickReactions(quickReactions, onReact, onMoreReactions, limits)
@@ -87,7 +91,7 @@ internal fun MessageMenu(
                     onDismiss()
                 }
             }
-            if (sent && message.fromMe && message.content != MessageContent.Redacted) {
+            if (sent && mayDelete && message.content != MessageContent.Redacted) {
                 // Past the network's window it still goes here: said so, not dimmed.
                 val label = if (limits.delete != null) R.string.delete_matrix_only else R.string.delete
                 Item(R.drawable.ic_delete, label, limits.write, limits.onLimit) { onDelete() }
