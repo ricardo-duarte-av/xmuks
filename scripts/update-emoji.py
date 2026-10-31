@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Builds feature/room/src/main/resources/emoji.json — the Unicode emoji the picker offers — from
 emojibase (https://emojibase.dev, MIT): groups in order, and per emoji its character, group, name
-and search terms (shortcodes + tags). Skin-tone variants and components are left out.
+and search terms (shortcodes + tags), plus its skin-tone variants when it has any (a long press picks
+one). Components are left out.
 Usage: scripts/update-emoji.py"""
 import json
 import os
@@ -25,7 +26,10 @@ for e in sorted((e for e in compact if "group" in e and e["group"] != COMPONENT)
     codes = shortcodes.get(e["hexcode"], [])
     codes = [codes] if isinstance(codes, str) else codes
     terms = list(dict.fromkeys(codes + e.get("tags", [])))
-    emoji.append([e["unicode"], e["group"], e["label"], terms])
+    row = [e["unicode"], e["group"], e["label"], terms]
+    if e.get("skins"):
+        row.append([s["unicode"] for s in e["skins"]])
+    emoji.append(row)
 
 out = {
     "source": "emojibase (MIT) — https://emojibase.dev",

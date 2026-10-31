@@ -8,12 +8,16 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 
-/** One Unicode emoji: the character, its group, its name, and what a search matches. */
+/**
+ * One Unicode emoji: the character, its group, its name, what a search matches, and its skin-tone
+ * variants (empty when it has none).
+ */
 data class UnicodeEmoji(
     val emoji: String,
     val group: Int,
     val name: String,
     val terms: List<String>,
+    val skins: List<String> = emptyList(),
 )
 
 /**
@@ -49,10 +53,25 @@ object EmojiCatalog {
                     group = (e[1] as JsonPrimitive).intOrNull ?: 0,
                     name = (e[2] as JsonPrimitive).content,
                     terms = (e[3] as? JsonArray)?.map { (it as JsonPrimitive).content }.orEmpty(),
+                    skins =
+                        (e.getOrNull(4) as? JsonArray)
+                            ?.map { (it as JsonPrimitive).content }
+                            ?.filter(paint::hasGlyph)
+                            .orEmpty(),
                 )
             }
         return Catalog(groups, emoji)
     }
+
+    private val skinsByEmoji: Map<String, List<String>> by lazy {
+        catalog.emoji
+            .filter { it.skins.isNotEmpty() }
+            .flatMap { e -> (listOf(e.emoji) + e.skins).map { it to e.skins } }
+            .toMap()
+    }
+
+    /** [emoji]'s skin-tone variants (its siblings', for a variant), or none. */
+    fun skinsOf(emoji: String): List<String> = skinsByEmoji[emoji].orEmpty()
 
     /** Emoji whose name or terms contain [query] (name matches first). */
     fun search(query: String): List<UnicodeEmoji> {

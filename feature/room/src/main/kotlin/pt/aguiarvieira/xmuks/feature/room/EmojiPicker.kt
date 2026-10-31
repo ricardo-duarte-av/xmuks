@@ -1,6 +1,9 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -26,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetState
@@ -33,19 +38,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.emoji.ImagePack
@@ -158,17 +173,11 @@ internal fun EmojiPicker(
             }
         }
         if (q.isEmpty()) {
-            LazyRow(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                itemsIndexed(sections, key = { _, s -> s.id }) { i, section ->
-                    Box(
-                        Modifier
-                            .size(TAB)
-                            .clip(CircleShape)
-                            .clickable { scope.launch { grid.scrollToItem(headerIndex[i]) } },
-                        contentAlignment = Alignment.Center,
-                    ) { SectionIcon(section, resolver) }
-                }
+            // The section the grid is in: the last whose header is at or above the top row.
+            val current by remember(headerIndex) {
+                derivedStateOf { headerIndex.indexOfLast { it <= grid.firstVisibleItemIndex }.coerceAtLeast(0) }
             }
+            SectionTabs(sections, current, resolver) { i -> scope.launch { grid.scrollToItem(headerIndex[i]) } }
         }
         val cell = if (mode == PickerMode.Sticker) STICKER_CELL else EMOJI_CELL
         LazyVerticalGrid(
@@ -182,10 +191,49 @@ internal fun EmojiPicker(
                 }
                 section.items.forEachIndexed { i, picked ->
                     item(key = section.id + ":" + i + ":" + picked.key) {
-                        Cell(picked, resolver, blocked(picked)) { onPick(picked) }
+                        Cell(picked, resolver, blocked, onPick)
                     }
                 }
             }
+        }
+    }
+}
+
+/** The strip of sections to jump to; the one in view sits on a pill, like the home tab bar's. */
+@Composable
+private fun SectionTabs(
+    sections: List<Section>,
+    current: Int,
+    resolver: MediaResolver,
+    onTab: (Int) -> Unit,
+) {
+    val strip = rememberLazyListState()
+    // Keep the highlighted tab on screen as the grid scrolls through the sections.
+    LaunchedEffect(current) {
+        val info = strip.layoutInfo
+        val tab = info.visibleItemsInfo.firstOrNull { it.index == current }
+        val fits =
+            tab != null && tab.offset >= info.viewportStartOffset && tab.offset + tab.size <= info.viewportEndOffset
+        if (!fits) strip.animateScrollToItem((current - 1).coerceAtLeast(0))
+    }
+    LazyRow(
+        state = strip,
+        modifier = Modifier.padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        itemsIndexed(sections, key = { _, s -> s.id }) { i, section ->
+            val pill by animateColorAsState(
+                if (i == current) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                label = "tab",
+            )
+            Box(
+                Modifier
+                    .size(TAB_WIDTH, TAB_HEIGHT)
+                    .clip(CircleShape)
+                    .background(pill)
+                    .clickable { onTab(i) },
+                contentAlignment = Alignment.Center,
+            ) { SectionIcon(section, resolver) }
         }
     }
 }
@@ -238,20 +286,25 @@ private fun SectionHeader(
     }
 }
 
+/** One emoji or sticker; a long press on an emoji with skin tones offers them. */
 @Composable
 private fun Cell(
     picked: Picked,
     resolver: MediaResolver,
-    dimmed: Boolean,
-    onClick: () -> Unit,
+    blocked: (Picked) -> Boolean,
+    onPick: (Picked) -> Unit,
 ) {
+    val skins = remember(picked) { (picked as? Picked.Unicode)?.let { EmojiCatalog.skinsOf(it.emoji) }.orEmpty() }
+    var choosing by remember { mutableStateOf(false) }
     Box(
         Modifier
-            .alpha(if (dimmed) DISABLED_ALPHA else 1f)
+            .alpha(if (blocked(picked)) DISABLED_ALPHA else 1f)
             .aspectRatio(1f)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(4.dp),
+            .combinedClickable(
+                onClick = { onPick(picked) },
+                onLongClick = if (skins.isEmpty()) null else ({ choosing = true }),
+            ).padding(4.dp),
         contentAlignment = Alignment.Center,
     ) {
         when (picked) {
@@ -265,6 +318,68 @@ private fun Cell(
                 AsyncImage(url, picked.image.shortcode, Modifier.fillMaxWidth().aspectRatio(1f))
             }
         }
+    }
+    if (choosing) {
+        SkinTones(skins, blocked, onDismiss = { choosing = false }) {
+            choosing = false
+            onPick(it)
+        }
+    }
+}
+
+/** The skin-tone variants of one emoji, floating above it (below, if there's no room). */
+@Composable
+private fun SkinTones(
+    skins: List<String>,
+    blocked: (Picked) -> Boolean,
+    onDismiss: () -> Unit,
+    onPick: (Picked) -> Unit,
+) {
+    Popup(
+        popupPositionProvider = AboveAnchor,
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true),
+    ) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shadowElevation = 6.dp,
+        ) {
+            Column(Modifier.padding(4.dp)) {
+                skins.chunked(SKIN_COLUMNS).forEach { row ->
+                    Row {
+                        row.forEach { skin ->
+                            val picked = Picked.Unicode(skin)
+                            Box(
+                                Modifier
+                                    .size(EMOJI_CELL)
+                                    .alpha(if (blocked(picked)) DISABLED_ALPHA else 1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { onPick(picked) },
+                                contentAlignment = Alignment.Center,
+                            ) { Text(skin, fontSize = 26.sp) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Centred over the anchor and just above it, kept inside the window. */
+private object AboveAnchor : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val x =
+            (anchorBounds.center.x - popupContentSize.width / 2)
+                .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+        val above = anchorBounds.top - popupContentSize.height
+        val y = if (above >= 0) above else anchorBounds.bottom
+        return IntOffset(x, y)
     }
 }
 
@@ -320,7 +435,11 @@ private fun sections(
 }
 
 private val PICKER_HEIGHT = 480.dp
-private val TAB = 40.dp
+private val TAB_WIDTH = 48.dp
+private val TAB_HEIGHT = 36.dp
 private val EMOJI_CELL = 44.dp
 private val STICKER_CELL = 96.dp
 private const val MAX_RECENT = 32
+
+/** Five tones a row: a two-person emoji's 25 make a square. */
+private const val SKIN_COLUMNS = 5

@@ -100,9 +100,6 @@ import pt.aguiarvieira.xmuks.core.richtext.CodeTheme
 import pt.aguiarvieira.xmuks.core.richtext.LocalRichTextOptions
 import pt.aguiarvieira.xmuks.core.richtext.RichTextOptions
 import pt.aguiarvieira.xmuks.core.richtext.SafeUriHandler
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
 @Composable
 fun RoomRoute(
@@ -877,6 +874,21 @@ private fun Timeline(
     highlighted: String?,
     loadingOlder: Boolean,
 ) {
+    Box(Modifier.fillMaxSize()) {
+        TimelineList(items, list, resolver, actions, highlighted, loadingOlder)
+        FloatingDay(items, list, Modifier.align(Alignment.TopCenter))
+    }
+}
+
+@Composable
+private fun TimelineList(
+    items: List<TimelineItem>,
+    list: LazyListState,
+    resolver: MediaResolver,
+    actions: TimelineActions,
+    highlighted: String?,
+    loadingOlder: Boolean,
+) {
     // Newest first + reverseLayout: the list sits on the bottom and new messages push up from there.
     LazyColumn(
         state = list,
@@ -1013,24 +1025,6 @@ private fun LoadOlderNearTop(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Loading(modifier: Modifier = Modifier) = LoadingIndicator(modifier)
-
-@Composable
-private fun DayRow(
-    day: LocalDate,
-    modifier: Modifier = Modifier,
-) {
-    val text = remember(day) { day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)) }
-    Box(modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
-            Text(
-                text,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-            )
-        }
-    }
-}
 
 private const val PREFETCH_DISTANCE = 10
 private const val FAR_FROM_NEWEST = 20
