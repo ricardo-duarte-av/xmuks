@@ -114,11 +114,7 @@ class HomeViewModel
         /** Unread, and invites waiting for an answer (as loud as a mention: someone wants us). */
         val badges: StateFlow<TabBadges> =
             combine(rooms.tabBadges(), this.invites) { badges, invites ->
-                badges.copy(
-                    chats = badges.chats.plusInvites(invites.count { !it.invite.isSpace }),
-                    dms = badges.dms.plusInvites(invites.count { it.invite.isDirect && !it.invite.isSpace }),
-                    spaces = badges.spaces.plusInvites(invites.count { it.invite.isSpace }),
-                )
+                badges.withInvites(invites.map { it.invite })
             }.stateIn(viewModelScope, WHILE_VISIBLE, TabBadges())
         val account: String = store.credentials()?.let { "${it.username} · ${it.serverUrl.host}" }.orEmpty()
 
@@ -143,11 +139,19 @@ class HomeViewModel
             }
         }
 
-        private fun Unread.plusInvites(count: Int) =
-            if (count == 0) this else copy(notifications = notifications + count, highlights = highlights + count)
-
         private companion object {
             val WHILE_VISIBLE = SharingStarted.WhileSubscribed(5_000)
             const val RESORT_TIMEOUT_MS = 10_000L
         }
     }
+
+/** Unread, and invites waiting for an answer (as loud as a mention: someone wants us). */
+internal fun TabBadges.withInvites(invites: List<Invite>) =
+    copy(
+        chats = chats.plusInvites(invites.count { !it.isSpace }),
+        dms = dms.plusInvites(invites.count { it.isDirect && !it.isSpace }),
+        spaces = spaces.plusInvites(invites.count { it.isSpace }),
+    )
+
+private fun Unread.plusInvites(count: Int) =
+    if (count == 0) this else copy(notifications = notifications + count, highlights = highlights + count)

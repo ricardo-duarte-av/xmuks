@@ -33,8 +33,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
+import pt.aguiarvieira.xmuks.core.data.rooms.TabBadges
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
-import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
@@ -45,6 +45,8 @@ fun SpaceRoute(
     onBack: () -> Unit,
     onOpenRoom: (roomId: String, scope: String) -> Unit,
     modifier: Modifier = Modifier,
+    /** A tab tapped on the bar: back to home, on that tab. */
+    onTabChange: (HomeTab) -> Unit = {},
     /** Shows a room read-only, without marking it read (its long-press menu). */
     onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
     viewModel: SpaceViewModel =
@@ -55,6 +57,7 @@ fun SpaceRoute(
     val rooms by viewModel.rooms.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
     val display by viewModel.display.collectAsStateWithLifecycle()
+    val badges by viewModel.badges.collectAsStateWithLifecycle()
     CompositionLocalProvider(LocalRoomListDisplay provides display) {
         SpaceScreen(
             spaceId = spaceId,
@@ -66,6 +69,8 @@ fun SpaceRoute(
             onBack = onBack,
             onOpenRoom = onOpenRoom,
             modifier = modifier,
+            badges = badges,
+            onTabChange = onTabChange,
             onPreviewRoom = onPreviewRoom,
         )
     }
@@ -84,9 +89,12 @@ fun SpaceScreen(
     onOpenRoom: (roomId: String, scope: String) -> Unit,
     modifier: Modifier = Modifier,
     now: Long = rememberNow(),
+    badges: TabBadges = TabBadges(),
+    onTabChange: (HomeTab) -> Unit = {},
     onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
 ) {
-    // Two cards on a tinted ground, like the room and home: header (with subspace chips), rooms.
+    // Cards on a tinted ground, like the room and home: header (with subspace chips), rooms, and
+    // home's tab bar, still on Spaces.
     Scaffold(
         modifier = modifier,
         containerColor = ScreenCards.ground,
@@ -129,8 +137,10 @@ fun SpaceScreen(
                 }
             }
         },
+        bottomBar = { TabBottomBar(HomeTab.Spaces, badges, onTabChange) },
     ) { padding ->
-        ScreenBody(
+        TabContent(
+            ScreenCards.cards,
             Modifier
                 .padding(padding)
                 .fillMaxSize(),

@@ -11,13 +11,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
+import pt.aguiarvieira.xmuks.core.data.rooms.InvitesRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
+import pt.aguiarvieira.xmuks.core.data.rooms.TabBadges
 
 @HiltViewModel(assistedFactory = SpaceViewModel.Factory::class)
 class SpaceViewModel
@@ -25,6 +28,7 @@ class SpaceViewModel
     constructor(
         @Assisted val spaceId: String,
         rooms: RoomListRepository,
+        invites: InvitesRepository,
         private val preferences: PreferenceStore,
     ) : ViewModel() {
         @AssistedFactory
@@ -52,6 +56,11 @@ class SpaceViewModel
                 .flatMapLatest { rooms.roomsInSpace(it ?: spaceId) }
                 .ordered(preferences.layers())
                 .stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        /** The tab bar's badges, as home has them. */
+        val badges: StateFlow<TabBadges> =
+            combine(rooms.tabBadges(), invites.invites(), TabBadges::withInvites)
+                .stateIn(viewModelScope, WHILE_VISIBLE, TabBadges())
 
         fun select(subspaceId: String?) {
             _filter.value = subspaceId

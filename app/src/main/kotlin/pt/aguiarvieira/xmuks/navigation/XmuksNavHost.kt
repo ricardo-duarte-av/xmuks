@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
@@ -59,6 +60,7 @@ import pt.aguiarvieira.xmuks.feature.room.GalleryRoute
 import pt.aguiarvieira.xmuks.feature.room.RoomRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.DirectoryRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.HomeRoute
+import pt.aguiarvieira.xmuks.feature.roomlist.HomeTab
 import pt.aguiarvieira.xmuks.feature.roomlist.NotificationsRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SearchRoute
 import pt.aguiarvieira.xmuks.feature.roomlist.SpaceRoute
@@ -216,6 +218,8 @@ fun XmuksNavHost(
     links: LinkViewModel = hiltViewModel(),
 ) {
     val backStack = rememberNavBackStack(HomeKey)
+    // Out here, not in home: a space's tab bar switches it too.
+    var homeTab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
     val listDetail = rememberListDetailSceneStrategy<NavKey>()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -295,6 +299,8 @@ fun XmuksNavHost(
                             entry<HomeKey>(metadata = ListDetailSceneStrategy.listPane()) {
                                 Destination {
                                     HomeRoute(
+                                        tab = homeTab,
+                                        onTabChange = { homeTab = it },
                                         onOpenRoom = backStack::openRoom,
                                         onPreviewRoom = backStack::previewRoom,
                                         onOpenSpace = { backStack.add(SpaceKey(it)) },
@@ -323,6 +329,11 @@ fun XmuksNavHost(
                                         onBack = { backStack.back(key) },
                                         onOpenRoom = backStack::openRoom,
                                         onPreviewRoom = backStack::previewRoom,
+                                        // As if back to home, then that tab.
+                                        onTabChange = { tab ->
+                                            backStack.removeAll { it is SpaceKey }
+                                            homeTab = tab
+                                        },
                                     )
                                 }
                             }

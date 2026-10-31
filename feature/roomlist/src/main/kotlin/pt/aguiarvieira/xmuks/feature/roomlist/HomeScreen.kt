@@ -10,9 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -37,6 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarDefaults
 import androidx.compose.material3.ShortNavigationBarItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -52,7 +51,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -88,6 +86,8 @@ import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 @Composable
 fun HomeRoute(
+    tab: HomeTab,
+    onTabChange: (HomeTab) -> Unit,
     onOpenRoom: (roomId: String, scope: String) -> Unit,
     onOpenSpace: (String) -> Unit,
     onOpenProfile: (userId: String) -> Unit,
@@ -101,7 +101,6 @@ fun HomeRoute(
     onOpenDirectory: (spaces: Boolean) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
-    var tab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
     val chats by viewModel.chats.collectAsStateWithLifecycle()
     val dms by viewModel.dms.collectAsStateWithLifecycle()
     val spaces by viewModel.spaces.collectAsStateWithLifecycle()
@@ -126,7 +125,7 @@ fun HomeRoute(
                     badges,
                     invites
                 ),
-            onTabChange = { tab = it },
+            onTabChange = onTabChange,
             onRefresh = viewModel::refresh,
             onOpenRoom = onOpenRoom,
             onOpenSpace = onOpenSpace,
@@ -214,24 +213,10 @@ fun HomeScreen(
                 ConnectionIndicator(state.connection)
             }
         },
-        bottomBar = {
-            if (cards) {
-                ScreenCard(Modifier.navigationBarsPadding().padding(ScreenCards.Gap)) {
-                    TabBar(state, onTabChange, containerColor = Color.Transparent, windowInsets = WindowInsets(0))
-                }
-            } else {
-                // Held to the bar height, so the room's composer bar matches it exactly.
-                TabBar(
-                    state,
-                    onTabChange,
-                    ScreenCards.ground,
-                    Modifier.height(ScreenCards.BarHeight + navigationBarHeight())
-                )
-            }
-        },
+        bottomBar = { TabBottomBar(state.tab, state.badges, onTabChange) },
     ) { padding ->
         val pullState = rememberPullToRefreshState()
-        HomeContent(cards, Modifier.padding(padding).fillMaxSize()) {
+        TabContent(cards, Modifier.padding(padding).fillMaxSize()) {
             PullToRefreshBox(
                 isRefreshing = state.refreshing,
                 onRefresh = onRefresh,
@@ -325,16 +310,19 @@ fun HomeScreen(
     }
 }
 
-/** The tab's content: flat on the surface, or a card [ScreenCards.Gap] from the sides. */
+/**
+ * A screen's content above the [TabBottomBar]: flat on the surface, or a card [ScreenCards.Gap] from
+ * the sides (the bar's card keeps the gap below).
+ */
 @Composable
-private fun HomeContent(
+internal fun TabContent(
     cards: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) = if (cards) {
     ScreenCard(modifier.padding(horizontal = ScreenCards.Gap), content)
 } else {
-    Box(modifier) { content() }
+    Surface(modifier = modifier, color = MaterialTheme.colorScheme.surface, content = content)
 }
 
 /**
@@ -615,7 +603,7 @@ private const val MINUTE_MS = 60_000L
 private const val DRAGGED_SCALE = 1.12f
 
 @Composable
-private fun navigationBarHeight() = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
+internal fun navigationBarHeight() = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
 
 private val HomeTab.title
     get() =
