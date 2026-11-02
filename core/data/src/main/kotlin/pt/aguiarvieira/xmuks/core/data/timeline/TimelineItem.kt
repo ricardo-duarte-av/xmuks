@@ -65,7 +65,10 @@ sealed interface TimelineItem {
         val linkPreviews: List<LinkPreview> = emptyList(),
         /** Ours in a bridged room: how far it got on the other network, as the bridge reports. */
         val bridgeDelivery: BridgeDelivery? = null,
-        /** Someone else's message that mentions us (`m.mentions`: us by name, or the whole room). */
+        /**
+         * Someone else's message that mentions us (`m.mentions`: us by name, or the whole room), or that
+         * a push rule highlighted (one of our keywords).
+         */
         val mentionsMe: Boolean = false,
         /** The sender is a bridged user: the network they're on. */
         val senderNetwork: SenderNetwork? = null,

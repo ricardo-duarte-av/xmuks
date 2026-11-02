@@ -60,6 +60,7 @@ fun RoomInfoRoute(
     onLeft: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenPreferences: () -> Unit = {},
+    onOpenKeywords: () -> Unit = {},
     viewModel: RoomInfoViewModel =
         hiltViewModel<RoomInfoViewModel, RoomInfoViewModel.Factory>(key = roomId) { it.create(roomId) },
 ) {
@@ -86,6 +87,7 @@ fun RoomInfoRoute(
             onOpenState,
             onOpenGallery,
             onOpenPowerLevels,
+            onOpenKeywords,
             context,
         ) {
             RoomInfoActions(
@@ -109,6 +111,7 @@ fun RoomInfoRoute(
                 openGallery = onOpenGallery,
                 openPowerLevels = onOpenPowerLevels,
                 openPhoneNotifications = { context.startActivity(viewModel.phoneNotificationSettings()) },
+                openKeywords = onOpenKeywords,
             )
         }
     RoomInfoScreen(

@@ -185,6 +185,12 @@ internal fun RoomSettingsCard(
                     R.string.room_phone_notifications_summary,
                     onClick = actions.openPhoneNotifications,
                 )
+                SettingRow(
+                    R.drawable.ic_chat,
+                    R.string.keywords,
+                    R.string.room_keywords_summary,
+                    onClick = actions.openKeywords
+                )
             }
             SettingRow(
                 R.drawable.ic_person_add,
@@ -405,7 +411,7 @@ private const val TOPIC = "topic"
 private val AVATAR_SIZE = 96.dp
 
 /** Material's alpha for disabled content. */
-private const val DISABLED_ALPHA = 0.38f
+internal const val DISABLED_ALPHA = 0.38f
 
 internal val JOIN_RULES =
     mapOf(

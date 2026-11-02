@@ -168,18 +168,20 @@ private fun RoomRow(
     ) { Text(room.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }
 }
 
-/** On our own profile: the ways to gomuks' preferences, xmuks' settings and everyone we ignore. */
+/** On our own profile: the ways to gomuks' preferences, xmuks' settings, the push rules and everyone we ignore. */
 @Composable
 internal fun OwnLinksCard(
     onOpenPreferences: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenIgnoredUsers: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenPushRules: () -> Unit = {},
 ) {
     ScreenCard(modifier) {
         Column {
             LinkRow(R.drawable.ic_tune, R.string.preferences, onOpenPreferences)
             LinkRow(R.drawable.ic_settings, R.string.settings, onOpenSettings)
+            LinkRow(R.drawable.ic_notifications, R.string.push_rules, onOpenPushRules)
             LinkRow(R.drawable.ic_block, R.string.ignored_users, onOpenIgnoredUsers)
         }
     }

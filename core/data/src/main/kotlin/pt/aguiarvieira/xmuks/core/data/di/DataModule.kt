@@ -59,6 +59,7 @@ import pt.aguiarvieira.xmuks.core.data.profile.Contacts
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.profile.RoomProfiles
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
+import pt.aguiarvieira.xmuks.core.data.push.PushRuleEditor
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomDirectoryRepository
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
@@ -383,6 +384,12 @@ object DataModule {
         database: XmuksDatabase,
         exec: ExecClient,
     ) = RoomPushRules(database, exec)
+
+    @Provides @Singleton
+    fun pushRuleEditor(
+        database: XmuksDatabase,
+        exec: ExecClient,
+    ) = PushRuleEditor(database, exec)
 
     @Provides @Singleton
     fun bridgeScanner(

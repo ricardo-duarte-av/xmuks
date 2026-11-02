@@ -50,6 +50,8 @@ import pt.aguiarvieira.xmuks.feature.call.OngoingCallStrip
 import pt.aguiarvieira.xmuks.feature.media.MediaViewerRoute
 import pt.aguiarvieira.xmuks.feature.profile.IgnoredUsersRoute
 import pt.aguiarvieira.xmuks.feature.profile.InviteRoute
+import pt.aguiarvieira.xmuks.feature.profile.KeywordsRoute
+import pt.aguiarvieira.xmuks.feature.profile.PushRulesRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomInfoRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomMembersRoute
 import pt.aguiarvieira.xmuks.feature.profile.RoomPowerLevelsRoute
@@ -139,6 +141,14 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
 
 /** Everyone we ignore. */
 @Serializable data object IgnoredUsersKey : NavKey
+
+/** The account's push rules, by kind. */
+@Serializable data object PushRulesKey : NavKey
+
+/** Keywords: the account's ([roomId] null), or one room's. */
+@Serializable data class KeywordsKey(
+    val roomId: String? = null,
+) : NavKey
 
 /** A room's details, members and settings. */
 @Serializable data class RoomInfoKey(
@@ -391,6 +401,7 @@ fun XmuksNavHost(
                                         onOpenGallery = { backStack.add(GalleryKey(key.roomId)) },
                                         onOpenPowerLevels = { backStack.add(RoomPowerLevelsKey(key.roomId)) },
                                         onOpenPreferences = { backStack.add(PreferencesKey(key.roomId)) },
+                                        onOpenKeywords = { backStack.add(KeywordsKey(key.roomId)) },
                                         onLeft = { backStack.leftRoom(key.roomId) },
                                     )
                                 }
@@ -479,6 +490,19 @@ fun XmuksNavHost(
                                     )
                                 }
                             }
+                            entry<PushRulesKey> { key ->
+                                Destination {
+                                    PushRulesRoute(
+                                        onOpenKeywords = { backStack.add(KeywordsKey()) },
+                                        onBack = { backStack.back(key) },
+                                    )
+                                }
+                            }
+                            entry<KeywordsKey> { key ->
+                                Destination(roomId = key.roomId) {
+                                    KeywordsRoute(roomId = key.roomId, onBack = { backStack.back(key) })
+                                }
+                            }
                             entry<IgnoredUsersKey> { key ->
                                 Destination {
                                     IgnoredUsersRoute(
@@ -529,6 +553,7 @@ fun XmuksNavHost(
                                         onOpenIgnoredUsers = { backStack.add(IgnoredUsersKey) },
                                         onOpenPreferences = { backStack.add(PreferencesKey()) },
                                         onOpenSettings = { backStack.add(SettingsKey) },
+                                        onOpenPushRules = { backStack.add(PushRulesKey) },
                                         onBack = { backStack.back(key) },
                                         onOpenMedia = { backStack.add(MediaKey(it)) },
                                     )

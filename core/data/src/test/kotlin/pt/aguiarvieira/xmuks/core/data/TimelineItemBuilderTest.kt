@@ -540,4 +540,11 @@ class TimelineItemBuilderTest {
         val original = ev(content = """{"msgtype":"m.text","body":"hi"}""") { copy(lastEditRowId = edit.rowId) }
         assertTrue(build(original, extra = listOf(edit)).messages().single().mentionsMe)
     }
+
+    @Test
+    fun `a message a push rule highlighted, a keyword say, stands out as a mention does`() {
+        val keyword = ev(content = """{"msgtype":"m.text","body":"the deploy broke"}""") { copy(unreadType = 0b0110) }
+        val notified = ev(content = """{"msgtype":"m.text","body":"hello"}""") { copy(unreadType = 0b0010) }
+        assertEquals(listOf(true, false), build(keyword, notified).messages().map { it.mentionsMe })
+    }
 }

@@ -108,6 +108,7 @@ fun UserInfoRoute(
     onOpenIgnoredUsers: () -> Unit = {},
     onOpenPreferences: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onOpenPushRules: () -> Unit = {},
     viewModel: UserInfoViewModel =
         hiltViewModel<UserInfoViewModel, UserInfoViewModel.Factory>(
             key = "$userId@$roomId"
@@ -166,6 +167,7 @@ fun UserInfoRoute(
                         onOpenIgnoredUsers,
                         onOpenPreferences,
                         onOpenSettings,
+                        onOpenPushRules,
                     )
                 } else {
                     null
@@ -199,6 +201,7 @@ class OwnProfile(
     val onOpenIgnoredUsers: () -> Unit = {},
     val onOpenPreferences: () -> Unit = {},
     val onOpenSettings: () -> Unit = {},
+    val onOpenPushRules: () -> Unit = {},
 )
 
 /**
@@ -311,9 +314,15 @@ private fun ProfileCards(
         }
         if (own != null) {
             item(key = "personas") { PersonasCard(own.personas, media, own.edits.personas, cardModifier) }
-            item(
-                key = "links"
-            ) { OwnLinksCard(own.onOpenPreferences, own.onOpenSettings, own.onOpenIgnoredUsers, cardModifier) }
+            item(key = "links") {
+                OwnLinksCard(
+                    own.onOpenPreferences,
+                    own.onOpenSettings,
+                    own.onOpenIgnoredUsers,
+                    cardModifier,
+                    own.onOpenPushRules
+                )
+            }
             item(key = "account") { AccountCard(own.account, own.connection, own.edits.logout, cardModifier) }
         }
     }

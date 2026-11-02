@@ -34,4 +34,6 @@ class RoomInfoActions(
     val openMedia: (ViewerMedia) -> Unit = {},
     /** Android's notification settings for the room on this phone: its sound, vibration and the like. */
     val openPhoneNotifications: () -> Unit = {},
+    /** The room's keywords: its own, and the account's silenced here or not. */
+    val openKeywords: () -> Unit = {},
 )

@@ -193,7 +193,7 @@ class TimelineItemBuilder(
             thread = threadOf(event, byEventId, members),
             threadReplies = maxOf(threadSizes[event.eventId] ?: 0, event.threadCount()),
             linkPreviews = if (options.showUrlPreviews) linkPreviewsOf(content) else emptyList(),
-            mentionsMe = event.sender != me && mentions(content, me),
+            mentionsMe = event.sender != me && highlights(event, content, me),
             senderNetwork = senderNetworkOf(profile, perMessage, networks),
             bridgeDelivery =
                 if (event.sender != me) {
@@ -412,3 +412,13 @@ class TimelineItemBuilder(
         val HIDDEN_TYPES = setOf("m.reaction", "m.room.redaction")
     }
 }
+
+/** gomuks' `unread_type` bit for an event a push rule highlighted. */
+private const val UNREAD_HIGHLIGHT = 0b0100
+
+/** gomuks' push rules highlighted [event] (a keyword, say), or it names [me] in m.mentions. */
+private fun highlights(
+    event: Event,
+    content: JsonObject,
+    me: String?,
+) = event.unreadType and UNREAD_HIGHLIGHT != 0 || mentions(content, me)
