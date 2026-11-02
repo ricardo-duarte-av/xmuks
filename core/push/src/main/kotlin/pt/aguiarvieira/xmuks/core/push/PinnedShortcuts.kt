@@ -82,7 +82,7 @@ class PinnedShortcuts(
                 // A notification's label is gomuks' name, cut at 50 characters with "…".
                 val named = room.name.startsWith(shortcut.shortLabel.toString().removeSuffix("…"))
                 // Made before there could be several accounts: it doesn't say which one opens it.
-                val accounted = shortcut.intent?.hasExtra(RoomKeys.EXTRA_ACCOUNT) == true
+                val accounted = shortcut.intent.hasExtra(RoomKeys.EXTRA_ACCOUNT)
                 room.takeIf { !named || !accounted || it.avatarMxc.orEmpty() != madeWith }
             }
         if (stale.isNotEmpty()) ShortcutManagerCompat.updateShortcuts(context, stale.map { shortcut(it) })
