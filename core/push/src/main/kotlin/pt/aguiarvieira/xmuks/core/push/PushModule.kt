@@ -13,10 +13,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import pt.aguiarvieira.xmuks.core.account.PushRegistrar
 import pt.aguiarvieira.xmuks.core.account.PushTokenSource
 import pt.aguiarvieira.xmuks.core.data.account.AccountGraph
 import pt.aguiarvieira.xmuks.core.data.account.AccountStarter
+import pt.aguiarvieira.xmuks.core.data.account.Accounts
 import pt.aguiarvieira.xmuks.core.data.account.RoomShortcutsFactory
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.push.RoomNotifications
@@ -34,9 +34,12 @@ import javax.inject.Singleton
 object PushModule {
     @Provides @Singleton
     fun pushTokens(
-        registrar: Provider<PushRegistrar>,
+        accounts: Provider<Accounts>,
         scope: CoroutineScope,
-    ): PushTokenSource = FirebaseTokens(registrar) { work -> scope.launch { runCatching { work() } } }
+    ): PushTokenSource =
+        FirebaseTokens({ accounts.get().signedIn().map { it.pushRegistrar } }) { work ->
+            scope.launch { runCatching { work() } }
+        }
 
     /** Each account's shortcuts: kept in its graph. */
     @Provides @Singleton

@@ -12,14 +12,14 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
-import pt.aguiarvieira.xmuks.core.account.PushRegistrar
-import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
+import pt.aguiarvieira.xmuks.core.data.account.Accounts
 import java.util.concurrent.TimeUnit
 
 /**
- * Every few hours, while the app isn't open: renews the push registration before it expires (it
- * lasts a week, and would otherwise only be renewed by opening the app), and catches up with
- * gomuks so the next open starts from fresh rooms instead of a long catch-up.
+ * Every few hours, while the app isn't open: renews every account's push registration before it
+ * expires (it lasts a week, and would otherwise only be renewed by streaming as that account), and
+ * catches up with the shown account's gomuks so the next open starts from fresh rooms instead of a
+ * long catch-up.
  */
 class CatchUpWorker(
     context: Context,
@@ -28,15 +28,15 @@ class CatchUpWorker(
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     interface Dependencies {
-        fun push(): PushRegistrar
-
-        fun connection(): ForegroundConnection
+        fun accounts(): Accounts
     }
 
     override suspend fun doWork(): Result {
-        val deps = EntryPointAccessors.fromApplication(applicationContext, Dependencies::class.java)
-        runCatching { deps.push().ensureRegistered() }
-        val caughtUp = deps.connection().catchUp(CATCH_UP_TIMEOUT_MS)
+        val accounts = EntryPointAccessors.fromApplication(applicationContext, Dependencies::class.java).accounts()
+        // Every account's: each gomuks pushes to us only while its registration lasts, shown or not.
+        accounts.signedIn().forEach { runCatching { it.pushRegistrar.ensureRegistered() } }
+        // Only the shown account streams; the others catch up when they're shown.
+        val caughtUp = accounts.current().foregroundConnection.catchUp(CATCH_UP_TIMEOUT_MS)
         // Unreachable gomuks: try again sooner than the next period.
         return if (caughtUp) Result.success() else Result.retry()
     }

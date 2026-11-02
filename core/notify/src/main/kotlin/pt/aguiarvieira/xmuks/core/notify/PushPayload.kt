@@ -122,6 +122,16 @@ object PushCodec {
             json.decodeFromString(PushPayload.serializer(), plain.decodeToString())
         }.getOrNull()
 
+    /**
+     * Opens [payload] with whichever of [keys] it was sealed with, handing back that key's owner
+     * (an account: each gomuks seals with its own key, and only the right one opens it, AES-GCM
+     * being authenticated). Null if none does.
+     */
+    fun <T> openWithAny(
+        payload: String,
+        keys: List<Pair<T, ByteArray>>,
+    ): Pair<T, PushPayload>? = keys.firstNotNullOfOrNull { (owner, key) -> open(payload, key)?.let { owner to it } }
+
     private const val IV_BYTES = 12
     private const val TAG_BITS = 128
 }

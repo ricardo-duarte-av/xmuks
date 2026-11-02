@@ -46,6 +46,9 @@ class Accounts(
         return built
     }
 
+    /** Every signed-in account's graph (built if need be), in the order they were added. */
+    fun signedIn(): List<AccountGraph> = registry.ids.value.map(::graph)
+
     /** Keeps the shown account going: built and started as soon as it's switched to. */
     fun start() {
         current()

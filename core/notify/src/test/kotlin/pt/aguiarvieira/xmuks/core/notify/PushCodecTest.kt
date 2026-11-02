@@ -47,6 +47,15 @@ class PushCodecTest {
     }
 
     @Test
+    fun `a push opens as the account whose key sealed it`() {
+        val other = ByteArray(32).also(SecureRandom()::nextBytes)
+        val keys = listOf("first" to key, "second" to other)
+        assertEquals("second", PushCodec.openWithAny(seal(sample, other), keys)?.first)
+        assertEquals("first", PushCodec.openWithAny(seal(sample, key), keys)?.first)
+        assertNull(PushCodec.openWithAny(seal(sample, ByteArray(32)), keys))
+    }
+
+    @Test
     fun `newer gomuks marks DMs`() {
         val payload = PushCodec.open(seal(sample.replace("\"room_name\": \"Alice\",", "\"room_name\": \"Alice\", \"is_dm\": true,")), key)!!
         assertTrue(payload.messages.single().isDm)
