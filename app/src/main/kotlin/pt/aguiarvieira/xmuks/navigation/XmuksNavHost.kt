@@ -227,6 +227,9 @@ fun XmuksNavHost(
     /** A call screen to open (from a call notification, or an answered ring). */
     openCall: CallRequest? = null,
     onOpenCallConsume: () -> Unit = {},
+    /** Back to the room list, whatever is open (an account's home-screen shortcut). */
+    showHome: Boolean = false,
+    onShowHomeConsume: () -> Unit = {},
     /** Whether the logged-in server is on the local network, so Android 17+ must allow reaching it. */
     isLocalServer: suspend () -> Boolean = { false },
     links: LinkViewModel = hiltViewModel(),
@@ -273,6 +276,13 @@ fun XmuksNavHost(
                 backStack.add(CallKey(openCall.roomId, openCall.video, openCall.answer))
             }
             callConsumed()
+        }
+    }
+    val homeConsumed by rememberUpdatedState(onShowHomeConsume)
+    LaunchedEffect(showHome) {
+        if (showHome) {
+            while (backStack.size > 1) backStack.removeLastOrNull()
+            homeConsumed()
         }
     }
     val shareConsumed by rememberUpdatedState(onShareConsume)

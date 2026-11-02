@@ -10,6 +10,9 @@ object RoomKeys {
     /** On intents we make (a room's, a call's): the account it's for. */
     const val EXTRA_ACCOUNT = "pt.aguiarvieira.xmuks.ACCOUNT"
 
+    /** With [EXTRA_ACCOUNT] (an account's own shortcut): show its room list. */
+    const val EXTRA_HOME = "pt.aguiarvieira.xmuks.HOME"
+
     /** [roomId]'s key for [account] (null: the first account's, the plain room ID). */
     fun of(
         account: String?,

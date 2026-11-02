@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.roomlist
 
 import android.text.format.DateFormat
+import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -111,6 +112,7 @@ fun HomeRoute(
 ) {
     val accounts by accountsViewModel.state.collectAsStateWithLifecycle()
     var switcher by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
     val chats by viewModel.chats.collectAsStateWithLifecycle()
     val dms by viewModel.dms.collectAsStateWithLifecycle()
     val spaces by viewModel.spaces.collectAsStateWithLifecycle()
@@ -158,6 +160,11 @@ fun HomeRoute(
                 onSwitch = accountsViewModel::switchTo,
                 onAddAccount = onAddAccount,
                 onDismiss = { switcher = false },
+                onPin = { account ->
+                    accountsViewModel.pinAccount(account) {
+                        Toast.makeText(context, R.string.room_menu_shortcut_unsupported, Toast.LENGTH_SHORT).show()
+                    }
+                },
             )
         }
     }

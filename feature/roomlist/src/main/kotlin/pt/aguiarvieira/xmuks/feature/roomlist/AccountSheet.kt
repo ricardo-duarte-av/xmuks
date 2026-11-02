@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.account.AccountSummary
 import pt.aguiarvieira.xmuks.core.data.account.Accounts
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
@@ -62,6 +63,16 @@ class AccountsViewModel
         /** Shows [id]: the app's screens become its own. */
         fun switchTo(id: String) = accounts.switchTo(id)
 
+        /** Puts [account] on the home screen: tapping it shows the account, on its room list. */
+        fun pinAccount(
+            account: AccountSummary,
+            onRefused: () -> Unit,
+        ) {
+            viewModelScope.launch {
+                if (!accounts.graph(account.id).shortcuts.pinAccount(account.profile, account.login)) onRefused()
+            }
+        }
+
         private companion object {
             const val STOP_TIMEOUT_MS = 5_000L
         }
@@ -79,6 +90,7 @@ internal fun AccountSheet(
     onSwitch: (id: String) -> Unit,
     onAddAccount: () -> Unit,
     onDismiss: () -> Unit,
+    onPin: (AccountSummary) -> Unit = {},
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         AccountSheetContent(
@@ -95,6 +107,10 @@ internal fun AccountSheet(
                 onAddAccount()
                 onDismiss()
             },
+            onPin = {
+                onPin(it)
+                onDismiss()
+            },
         )
     }
 }
@@ -106,9 +122,17 @@ internal fun AccountSheetContent(
     onSwitch: (id: String) -> Unit,
     onAddAccount: () -> Unit,
     modifier: Modifier = Modifier,
+    onPin: (AccountSummary) -> Unit = {},
 ) {
     Column(modifier.padding(bottom = 24.dp)) {
-        state.current?.let { CurrentAccount(it, onOpenProfile) }
+        state.current?.let { current ->
+            CurrentAccount(current, onOpenProfile)
+            ListItem(
+                leadingContent = { Icon(painterResource(R.drawable.ic_add_home), null) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.clickable(role = Role.Button) { onPin(current) },
+            ) { Text(stringResource(R.string.account_add_shortcut)) }
+        }
         if (state.others.isNotEmpty()) {
             HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             state.others.forEach { OtherAccount(it, onClick = { onSwitch(it.id) }) }

@@ -48,7 +48,7 @@ object PushModule {
         images: ImageLoader,
     ) = RoomShortcutsFactory { graph ->
         graph.scoped(PinnedShortcuts::class) {
-            PinnedShortcuts(context, images, graph.mediaUrls, graph.roomAccount, graph::roomIntent)
+            PinnedShortcuts(context, images, graph.mediaUrls, graph.roomAccount, graph::roomIntent, graph.id)
         }
     }
 

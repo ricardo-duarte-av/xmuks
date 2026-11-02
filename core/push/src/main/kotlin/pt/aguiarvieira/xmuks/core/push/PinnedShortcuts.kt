@@ -19,8 +19,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import pt.aguiarvieira.xmuks.core.account.AccountScoped
 import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
+import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.notify.Avatars
@@ -42,7 +44,52 @@ class PinnedShortcuts(
     private val roomIntent: (roomId: String) -> Intent = { roomId ->
         Intent(Intent.ACTION_VIEW, Uri.parse(LinkResolver.roomUri(roomId))).setPackage(context.packageName)
     },
-) : RoomShortcuts {
+    /** The account's own ID (its graph's), for its own shortcut; null: no account shortcut. */
+    private val accountId: String? = null,
+) : RoomShortcuts,
+    AccountScoped {
+    override suspend fun pinAccount(
+        profile: OwnProfile?,
+        login: String,
+    ): Boolean {
+        val id = accountId ?: return false
+        if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) return false
+        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return false
+        val name = profile?.displayName ?: login
+        val avatar = withContext(Dispatchers.IO) { profile?.avatarUrl?.let { bitmap(it) } }
+        val shortcut =
+            ShortcutInfoCompat
+                .Builder(context, accountShortcutId(id))
+                .setShortLabel(name)
+                .setLongLabel(listOfNotNull(profile?.userId, login).joinToString(" · "))
+                .setIcon(Avatars.adaptive(avatar, name, profile?.userId ?: login))
+                .setIntent(
+                    Intent(launch)
+                        .putExtra(RoomKeys.EXTRA_ACCOUNT, id)
+                        .putExtra(RoomKeys.EXTRA_HOME, true),
+                ).build()
+        return runCatching {
+            // Signed out and back in: its old shortcut was disabled.
+            ShortcutManagerCompat.enableShortcuts(context, listOf(shortcut))
+            ShortcutManagerCompat.updateShortcuts(context, listOf(shortcut))
+            ShortcutManagerCompat.requestPinShortcut(context, shortcut, null)
+        }.getOrDefault(false)
+    }
+
+    /** Signing out: the account's shortcut stays on the home screen, greyed out, saying why. */
+    override suspend fun beforeLogout() {
+        val id = accountId ?: return
+        runCatching {
+            ShortcutManagerCompat.disableShortcuts(
+                context,
+                listOf(accountShortcutId(id)),
+                context.getString(R.string.account_shortcut_signed_out),
+            )
+        }
+    }
+
+    override suspend fun clearAccountData() = Unit
+
     override suspend fun pin(room: RoomSummary): Boolean {
         if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) return false
         val shortcut = shortcut(room)
@@ -101,17 +148,16 @@ class PinnedShortcuts(
             .build()
 
     /** The room's avatar thumbnail, through the app's own (authenticated, cached) image loader. */
-    private suspend fun avatar(mxc: String?) =
-        media.avatar(mxc)?.let { url ->
-            val request =
-                ImageRequest
-                    .Builder(context)
-                    .data(url)
-                    .size(AVATAR_PX)
-                    .allowHardware(false)
-                    .build()
-            (images.execute(request) as? SuccessResult)?.image?.toBitmap()
-        }
+    private suspend fun avatar(mxc: String?) = media.avatar(mxc)?.let { bitmap(it) }
+
+    private suspend fun bitmap(url: String) =
+        ImageRequest
+            .Builder(context)
+            .data(url)
+            .size(AVATAR_PX)
+            .allowHardware(false)
+            .build()
+            .let { (images.execute(it) as? SuccessResult)?.image?.toBitmap() }
 
     private companion object {
         const val AVATAR_PX = 192
@@ -125,3 +171,6 @@ class PinnedShortcuts(
                 ShortcutManagerCompat.FLAG_MATCH_DYNAMIC
     }
 }
+
+/** An account's own shortcut (not a room's: room IDs start with `!`). */
+private fun accountShortcutId(account: String) = "account:$account"

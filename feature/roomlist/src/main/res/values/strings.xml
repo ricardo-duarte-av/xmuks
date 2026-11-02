@@ -20,6 +20,7 @@
     <string name="account_options">Options</string>
     <string name="account_profile">Your profile</string>
     <string name="account_add">Add another account</string>
+    <string name="account_add_shortcut">Add this account to the home screen</string>
     <string name="account_switch">Switch to this account</string>
     <string name="account_others_unread">Unread messages in another account</string>
     <string name="account_mentions">Mentions</string>

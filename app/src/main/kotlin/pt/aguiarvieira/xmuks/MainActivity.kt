@@ -80,6 +80,9 @@ class MainActivity : ComponentActivity() {
     /** Something shared to us from another app, until handled. */
     private val share = MutableStateFlow<ShareRequest?>(null)
 
+    /** Back to the room list (an account's shortcut was tapped), until handled. */
+    private val home = MutableStateFlow(false)
+
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         // Kept up until the screen style is known, so a cards user never sees a flat first frame.
@@ -120,6 +123,7 @@ class MainActivity : ComponentActivity() {
             val pending by link.collectAsStateWithLifecycle()
             val shared by share.collectAsStateWithLifecycle()
             val callRoom by call.collectAsStateWithLifecycle()
+            val toHome by home.collectAsStateWithLifecycle()
             if (shown != null) {
                 AccountViewModels(shown, accountViewModels, this@MainActivity) {
                     XmuksNavHost(
@@ -129,6 +133,8 @@ class MainActivity : ComponentActivity() {
                         onShareConsume = { share.value = null },
                         openCall = callRoom,
                         onOpenCallConsume = { call.value = null },
+                        showHome = toHome,
+                        onShowHomeConsume = { home.value = false },
                         isLocalServer = { session.isLocalServer() },
                     )
                 }
@@ -169,6 +175,10 @@ class MainActivity : ComponentActivity() {
 
     /** A Matrix link to open, a call to show, or something shared to send. */
     private fun handle(intent: Intent) {
+        if (intent.getBooleanExtra(RoomKeys.EXTRA_HOME, false)) {
+            home.value = true
+            return
+        }
         intent.getStringExtra(CallService.EXTRA_OPEN_CALL)?.let { roomId ->
             val answer = intent.getBooleanExtra(CallService.EXTRA_ANSWER, false)
             if (answer) incoming.get().answer(roomId)

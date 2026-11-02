@@ -336,7 +336,9 @@ class AccountGraph(
 
     /** Everything wiped when the account signs out. */
     val accountScoped: Set<AccountScoped> by lazy {
-        setOf(
+        setOfNotNull(
+            // Its home-screen shortcut, greyed out once it's signed out.
+            shortcuts as? AccountScoped,
             syncIngestor,
             streamStats,
             timelines,
