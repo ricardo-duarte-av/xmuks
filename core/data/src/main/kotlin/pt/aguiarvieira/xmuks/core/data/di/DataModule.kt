@@ -16,22 +16,24 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import okhttp3.OkHttpClient
 import okio.Path.Companion.toOkioPath
-import pt.aguiarvieira.xmuks.core.account.AccountScoped
+import pt.aguiarvieira.xmuks.core.account.AccountRegistry
 import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import pt.aguiarvieira.xmuks.core.account.KeystoreSecretCipher
 import pt.aguiarvieira.xmuks.core.account.PushRegistrar
 import pt.aguiarvieira.xmuks.core.account.PushTokenSource
+import pt.aguiarvieira.xmuks.core.data.account.AccountGraph
+import pt.aguiarvieira.xmuks.core.data.account.AccountStarter
+import pt.aguiarvieira.xmuks.core.data.account.Accounts
+import pt.aguiarvieira.xmuks.core.data.account.AppDependencies
+import pt.aguiarvieira.xmuks.core.data.account.RoomShortcutsFactory
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.connection.ForegroundConnection
@@ -54,7 +56,6 @@ import pt.aguiarvieira.xmuks.core.data.media.PdfFiles
 import pt.aguiarvieira.xmuks.core.data.media.VideoFrames
 import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
-import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.profile.Contacts
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.profile.RoomProfiles
@@ -84,19 +85,10 @@ import pt.aguiarvieira.xmuks.core.data.timeline.TimelineStore
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.database.outbox.OutboxDatabase
 import pt.aguiarvieira.xmuks.core.network.AuthApi
-import pt.aguiarvieira.xmuks.core.network.AuthInterceptor
-import pt.aguiarvieira.xmuks.core.network.CompressionInterceptor
-import pt.aguiarvieira.xmuks.core.network.ConnectionState
 import pt.aguiarvieira.xmuks.core.network.ExecClient
-import pt.aguiarvieira.xmuks.core.network.ExecMode
-import pt.aguiarvieira.xmuks.core.network.ExecResult
 import pt.aguiarvieira.xmuks.core.network.GomuksConnection
-import pt.aguiarvieira.xmuks.core.network.SseClient
 import pt.aguiarvieira.xmuks.core.notify.MediaCacheStrategy
 import pt.aguiarvieira.xmuks.core.notify.MxcCacheKeys
-import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
-import pt.aguiarvieira.xmuks.core.protocol.PaginationResponse
-import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
 
@@ -111,32 +103,80 @@ object DataModule {
     fun appScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @Provides @Singleton
-    fun credentialStore(
+    fun accountRegistry(
         @ApplicationContext context: Context,
         scope: CoroutineScope,
-    ): CredentialStore {
-        val dataStore = PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("session") }
-        // One small file read, before anything can issue a request: network code reads it synchronously.
-        return CredentialStore(
-            dataStore,
-            KeystoreSecretCipher(),
-            scope
-        ).also { runBlocking(Dispatchers.IO) { it.load() } }
+    ): AccountRegistry {
+        val registry =
+            AccountRegistry(
+                PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("accounts") },
+                sessionStore = { id ->
+                    PreferenceDataStoreFactory.create {
+                        context.preferencesDataStoreFile(AccountRegistry.fileName(id, "session"))
+                    }
+                },
+                KeystoreSecretCipher(),
+                scope,
+            )
+        // Small file reads, before anything can issue a request: network code reads logins synchronously.
+        return registry.also { runBlocking(Dispatchers.IO) { it.load() } }
     }
 
     @Provides @Singleton
-    fun database(
+    fun accounts(
+        registry: AccountRegistry,
+        app: AppDependencies,
+        starters: Set<@JvmSuppressWildcards AccountStarter>,
+        scope: CoroutineScope,
+    ) = Accounts(registry, app, starters, scope)
+
+    @Provides @Singleton
+    fun appDependencies(
         @ApplicationContext context: Context,
-    ) = XmuksDatabase.build(context)
+        @Named("plain") plain: OkHttpClient,
+        @Named("api") api: OkHttpClient,
+        @Named("sse") sse: OkHttpClient,
+        @Named("media") media: OkHttpClient,
+        images: ImageLoader,
+        pdf: PdfFiles,
+        phoneContacts: PhoneContacts,
+        tokens: PushTokenSource,
+        shortcuts: RoomShortcutsFactory,
+    ) = AppDependencies(context, plain, api, sse, media, images, pdf, phoneContacts, tokens, shortcuts::create)
 
-    @Provides @Singleton
-    fun syncIngestor(database: XmuksDatabase) = SyncIngestor(database)
+    /** What runs for every account from the moment its graph is built. */
+    @Provides @IntoSet
+    fun dataStarter(): AccountStarter =
+        AccountStarter { graph ->
+            // The stream follows the app's lifecycle, which is watched from the main thread.
+            graph.scope.launch(Dispatchers.Main) { graph.foregroundConnection.install() }
+            // DM partners in the phone's Contacts, when that's turned on.
+            graph.contactsSync.start()
+            // Messages left unsent by a previous run go out as soon as the app is up.
+            graph.outbox.start()
+        }
 
-    @Provides @Singleton
-    fun streamStats() = StreamStatsTracker()
+    /** The account on screen: what everything below is, for it. */
+    @Provides
+    fun accountGraph(accounts: Accounts): AccountGraph = accounts.current()
 
-    @Provides @Singleton
-    fun streamFrames() = StreamFrames()
+    @Provides
+    fun credentialStore(graph: AccountGraph): CredentialStore = graph.store
+
+    @Provides
+    fun execClient(graph: AccountGraph): ExecClient = graph.exec
+
+    @Provides
+    fun database(graph: AccountGraph): XmuksDatabase = graph.database
+
+    @Provides
+    fun syncIngestor(graph: AccountGraph): SyncIngestor = graph.syncIngestor
+
+    @Provides
+    fun streamStats(graph: AccountGraph): StreamStatsTracker = graph.streamStats
+
+    @Provides
+    fun streamFrames(graph: AccountGraph): StreamFrames = graph.streamFrames
 
     @Provides @Singleton
     fun contactLinks(
@@ -148,343 +188,151 @@ object DataModule {
         @ApplicationContext context: Context,
     ) = PhoneContacts(context)
 
-    @Provides @Singleton
-    fun contactsSync(
-        @ApplicationContext context: Context,
-        phoneContacts: PhoneContacts,
-        rooms: RoomListRepository,
-        preferences: PreferenceStore,
-        database: XmuksDatabase,
-        images: ImageLoader,
-        scope: CoroutineScope,
-    ) = ContactsSync(context, phoneContacts, rooms, preferences, database, images, scope)
+    @Provides
+    fun contactsSync(graph: AccountGraph): ContactsSync = graph.contactsSync
 
-    @Provides @Singleton
-    fun roomCalls(
-        database: XmuksDatabase,
-        exec: ExecClient,
-    ) = RoomCalls(database, exec)
+    @Provides
+    fun roomCalls(graph: AccountGraph): RoomCalls = graph.roomCalls
 
-    /** Everything wiped when the account changes (logout, or login to a different account). */
-    @Provides @Singleton
-    fun accountScoped(
-        ingestor: SyncIngestor,
-        stats: StreamStatsTracker,
-        timelines: TimelineStore,
-        outbox: Outbox,
-        drafts: DraftStore,
-        pinBars: PinBarStore,
-        uploads: MediaSender,
-        push: PushRegistrar,
-        preferences: PreferenceStore,
-        events: EventCache,
-    ): Set<AccountScoped> =
-        setOf(ingestor, stats, timelines, outbox, drafts, pinBars, uploads, push, preferences, events)
+    @Provides
+    fun eventCache(graph: AccountGraph): EventCache = graph.eventCache
 
-    @Provides @Singleton
-    fun eventCache(exec: ExecClient) = EventCache(exec)
+    @Provides
+    fun preferenceStore(graph: AccountGraph): PreferenceStore = graph.preferences
 
-    @Provides @Singleton
-    fun preferenceStore(
-        @ApplicationContext context: Context,
-        exec: ExecClient,
-        database: XmuksDatabase,
-    ) = PreferenceStore(
-        exec,
-        database,
-        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("gomuks-preferences") },
-    )
-
-    @Provides @Singleton
-    fun pushRegistrar(
-        @ApplicationContext context: Context,
-        exec: ExecClient,
-        tokens: PushTokenSource,
-    ) = PushRegistrar(
-        exec,
-        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("push") },
-        KeystoreSecretCipher("xmuks-push"),
-        tokens,
-        appId = context.packageName,
-    )
+    @Provides
+    fun pushRegistrar(graph: AccountGraph): PushRegistrar = graph.pushRegistrar
 
     @Provides @Singleton
     fun mediaPreparer(
         @ApplicationContext context: Context,
     ) = MediaPreparer(context, Dispatchers.IO)
 
+    @Provides
+    fun mediaSender(graph: AccountGraph): MediaSender = graph.mediaSender
+
+    @Provides
+    fun mediaForwarder(graph: AccountGraph): MediaForwarder = graph.mediaForwarder
+
+    @Provides
+    fun draftStore(graph: AccountGraph): DraftStore = graph.drafts
+
+    @Provides
+    fun pinBarStore(graph: AccountGraph): PinBarStore = graph.pinBars
+
+    @Provides
+    fun timelineStore(graph: AccountGraph): TimelineStore = graph.timelines
+
+    @Provides
+    fun gomuksConnection(graph: AccountGraph): GomuksConnection = graph.connection
+
+    @Provides
+    fun foregroundConnection(graph: AccountGraph): ForegroundConnection = graph.foregroundConnection
+
+    @Provides
+    fun mediaUrls(graph: AccountGraph): MediaUrls = graph.mediaUrls
+
+    @Provides
+    fun roomListRepository(graph: AccountGraph): RoomListRepository = graph.roomListRepository
+
+    @Provides
+    fun mediaDownloads(graph: AccountGraph): MediaDownloads = graph.mediaDownloads
+
+    @Provides
+    fun mediaShares(graph: AccountGraph): MediaShares = graph.mediaShares
+
+    @Provides
+    fun mediaUploader(graph: AccountGraph): MediaUploader = graph.mediaUploader
+
+    @Provides
+    fun linkPreviews(graph: AccountGraph): LinkPreviewFetcher = graph.linkPreviews
+
+    @Provides
+    fun codeThemes(graph: AccountGraph): CodeThemes = graph.codeThemes
+
+    @Provides
+    fun profileRepository(graph: AccountGraph): ProfileRepository = graph.profiles
+
+    @Provides
+    fun openRoom(graph: AccountGraph): OpenRoom = graph.openRoom
+
+    @Provides
+    fun roomPushRules(graph: AccountGraph): RoomPushRules = graph.roomPushRules
+
+    @Provides
+    fun pushRuleEditor(graph: AccountGraph): PushRuleEditor = graph.pushRuleEditor
+
+    @Provides
+    fun bridgeScanner(graph: AccountGraph): BridgeScanner = graph.bridgeScanner
+
+    @Provides
+    fun roomGallery(graph: AccountGraph): RoomGallery = graph.roomGallery
+
+    @Provides
+    fun roomShortcuts(graph: AccountGraph): RoomShortcuts = graph.shortcuts
+
+    @Provides
+    fun roomListActions(graph: AccountGraph): RoomListActions = graph.roomListActions
+
+    @Provides
+    fun mentionTargets(graph: AccountGraph): MentionTargets = graph.mentionTargets
+
+    @Provides
+    fun roomProfiles(graph: AccountGraph): RoomProfiles = graph.roomProfiles
+
+    @Provides
+    fun foundEvents(graph: AccountGraph): FoundEvents = graph.foundEvents
+
+    @Provides
+    fun mentions(graph: AccountGraph): Mentions = graph.mentions
+
+    @Provides
+    fun messageSearch(graph: AccountGraph): MessageSearch = graph.messageSearch
+
+    @Provides
+    fun contacts(graph: AccountGraph): Contacts = graph.contacts
+
+    @Provides
+    fun invitesRepository(graph: AccountGraph): InvitesRepository = graph.invites
+
+    @Provides
+    fun roomInfoRepository(graph: AccountGraph): RoomInfoRepository = graph.roomInfo
+
+    @Provides
+    fun roomDirectoryRepository(graph: AccountGraph): RoomDirectoryRepository = graph.roomDirectory
+
+    @Provides
+    fun linkResolver(graph: AccountGraph): LinkResolver = graph.linkResolver
+
+    @Provides
+    fun syncController(graph: AccountGraph): SyncController = graph.syncController
+
+    @Provides
+    fun liveTasks(graph: AccountGraph): LiveTasks = graph.liveTasks
+
+    @Provides
+    fun roomSessions(graph: AccountGraph): RoomSessions = graph.roomSessions
+
+    @Provides
+    fun outboxDatabase(graph: AccountGraph): OutboxDatabase = graph.outboxDatabase
+
+    @Provides
+    fun outbox(graph: AccountGraph): Outbox = graph.outbox
+
     @Provides @Singleton
-    fun mediaSender(
-        uploader: MediaUploader,
-        outbox: Outbox,
+    fun sessionRepository(
+        accounts: Accounts,
+        authApi: AuthApi,
         scope: CoroutineScope,
-    ) = MediaSender(uploader, outbox, scope)
-
-    @Provides @Singleton
-    fun mediaForwarder(
-        exec: ExecClient,
-        outbox: Outbox,
-    ) = MediaForwarder(exec, outbox)
-
-    @Provides @Singleton
-    fun draftStore(
-        @ApplicationContext context: Context,
-        scope: CoroutineScope,
-    ) = DraftStore(PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("drafts") }, scope)
-
-    @Provides @Singleton
-    fun pinBarStore(
-        @ApplicationContext context: Context,
-        scope: CoroutineScope,
-    ) = PinBarStore(PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("pin-bar") }, scope)
-
-    /** Session-only timelines, paged from gomuks with `paginate` and kept live by the stream. */
-    @Provides @Singleton
-    fun timelineStore(
-        exec: ExecClient,
-        scope: CoroutineScope,
-    ) = TimelineStore(
-        paginator = { roomId, maxTimelineId, limit ->
-            val params =
-                buildJsonObject {
-                    put("room_id", JsonPrimitive(roomId))
-                    put("max_timeline_id", JsonPrimitive(maxTimelineId))
-                    put("limit", JsonPrimitive(limit))
-                }
-            (exec.exec("paginate", params, ExecMode.Read) as? ExecResult.Ok)?.let {
-                runCatching { GomuksJson.decodeFromJsonElement(PaginationResponse.serializer(), it.data) }.getOrNull()
-            }
-        },
-        scope = scope,
-    )
-
-    @Provides @Singleton
-    fun gomuksConnection(
-        @Named("sse") sse: OkHttpClient,
-        @Named("api") api: OkHttpClient,
-        store: CredentialStore,
-        ingestor: SyncIngestor,
-        stats: StreamStatsTracker,
-        liveTasks: LiveTasks,
-        timelines: TimelineStore,
-        scope: CoroutineScope,
-        bridges: BridgeScanner,
-        frames: StreamFrames,
-    ): GomuksConnection {
-        val server = { store.credentials()?.serverUrl }
-        val connection =
-            GomuksConnection(
-                SseClient(sse, server, Dispatchers.IO),
-                api,
-                server,
-                ingestor,
-                Dispatchers.IO,
-            ) { frame ->
-                ingestor.apply(frame)
-                timelines.onFrame(frame)
-                stats.accept(frame)
-                liveTasks.onFrame(frame)
-                frames.accept(frame)
-            }
-        // Timelines are only as current as the stream: they learn when it drops (see TimelineStore).
-        scope.launch {
-            connection.state
-                .map { it == ConnectionState.Live }
-                .distinctUntilChanged()
-                .collect {
-                    timelines.streamChanged(it)
-                    bridges.streamChanged(it)
-                }
-        }
-        return connection
-    }
-
-    @Provides @Singleton
-    fun foregroundConnection(
-        @ApplicationContext context: Context,
-        connection: GomuksConnection,
-        store: CredentialStore,
-        scope: CoroutineScope,
-        timelines: TimelineStore,
-        @Named("plain") http: OkHttpClient,
-    ) = ForegroundConnection(
-        context,
-        connection,
-        store.loggedIn,
-        scope,
-        // Back in the foreground: a room still on screen from before may have missed things.
-        onForeground = { scope.launch { timelines.refreshWatched() } },
-        // Every client is built from this one, so they share its pool (images included).
-        dropIdleConnections = { http.connectionPool.evictAll() },
-    )
-
-    @Provides @Singleton
-    fun mediaUrls(store: CredentialStore) = MediaUrls { store.credentials()?.serverUrl }
-
-    @Provides @Singleton
-    fun roomListRepository(
-        database: XmuksDatabase,
-        media: MediaUrls,
-        preferences: PreferenceStore,
-    ) = RoomListRepository(
-        database,
-        media,
-        preferences.layers().map { it.get(Prefs.muteLowPriority) }.distinctUntilChanged(),
-        preferences.layers().map { it.get(Prefs.dmMentions) }.distinctUntilChanged(),
-    )
-
-    @Provides @Singleton
-    fun mediaDownloads(
-        @ApplicationContext context: Context,
-        @Named("media") http: OkHttpClient,
-        media: MediaUrls,
-        scope: CoroutineScope,
-    ) = MediaDownloads(http, media, context.contentResolver, scope, Dispatchers.IO)
-
-    /** Media handed to other apps through the share sheet. */
-    @Provides @Singleton
-    fun mediaShares(
-        @ApplicationContext context: Context,
-        @Named("media") http: OkHttpClient,
-        media: MediaUrls,
-        pdf: PdfFiles,
-    ) = MediaShares(context, http, media, pdf, context.cacheDir.resolve("shares"), Dispatchers.IO)
-
-    @Provides @Singleton
-    fun mediaUploader(
-        @Named("media") http: OkHttpClient,
-        store: CredentialStore,
-    ) = MediaUploader(http, { store.credentials()?.serverUrl }, Dispatchers.IO)
-
-    @Provides @Singleton
-    fun linkPreviews(
-        @Named("media") http: OkHttpClient,
-        store: CredentialStore,
-    ) = LinkPreviewFetcher(http, { store.credentials()?.serverUrl }, Dispatchers.IO)
-
-    @Provides @Singleton
-    fun codeThemes(
-        @Named("media") http: OkHttpClient,
-        store: CredentialStore,
-    ) = CodeThemes(http, { store.credentials()?.serverUrl }, Dispatchers.IO)
-
-    @Provides @Singleton
-    fun profileRepository(
-        exec: ExecClient,
-        uploader: MediaUploader,
-        database: XmuksDatabase,
-        ingestor: SyncIngestor,
-    ) = ProfileRepository(exec, uploader, database, ingestor)
-
-    @Provides @Singleton
-    fun openRoom() = OpenRoom()
-
-    @Provides @Singleton
-    fun roomPushRules(
-        database: XmuksDatabase,
-        exec: ExecClient,
-    ) = RoomPushRules(database, exec)
-
-    @Provides @Singleton
-    fun pushRuleEditor(
-        database: XmuksDatabase,
-        exec: ExecClient,
-    ) = PushRuleEditor(database, exec)
-
-    @Provides @Singleton
-    fun bridgeScanner(
-        exec: ExecClient,
-        database: XmuksDatabase,
-        scope: CoroutineScope,
-    ) = BridgeScanner(exec, database, scope)
-
-    @Provides @Singleton
-    fun roomGallery(
-        exec: ExecClient,
-        database: XmuksDatabase,
-    ) = RoomGallery(exec, database)
-
-    @Provides @Singleton
-    fun roomListActions(
-        exec: ExecClient,
-        database: XmuksDatabase,
-        pushRules: RoomPushRules,
-        preferences: PreferenceStore,
-        shortcuts: RoomShortcuts,
-    ) = RoomListActions(exec, database, pushRules, preferences, shortcuts)
-
-    @Provides @Singleton
-    fun mentionTargets(
-        roomInfo: RoomInfoRepository,
-        database: XmuksDatabase,
-    ) = MentionTargets(roomInfo, database)
-
-    @Provides @Singleton
-    fun roomProfiles(
-        database: XmuksDatabase,
-        rooms: RoomListRepository,
-    ) = RoomProfiles(database, rooms)
-
-    @Provides @Singleton
-    fun foundEvents(
-        database: XmuksDatabase,
-        rooms: RoomListRepository,
-    ) = FoundEvents(database, rooms)
-
-    @Provides @Singleton
-    fun mentions(
-        exec: ExecClient,
-        found: FoundEvents,
-    ) = Mentions(exec, found)
-
-    @Provides @Singleton
-    fun messageSearch(
-        exec: ExecClient,
-        found: FoundEvents,
-    ) = MessageSearch(exec, found)
-
-    @Provides @Singleton
-    fun contacts(
-        exec: ExecClient,
-        database: XmuksDatabase,
-        rooms: RoomListRepository,
-    ) = Contacts(exec, database, rooms)
-
-    @Provides @Singleton
-    fun invitesRepository(
-        database: XmuksDatabase,
-        rooms: RoomInfoRepository,
-        contacts: Contacts,
-        media: MediaUrls,
-    ) = InvitesRepository(database.roomListDao(), rooms, contacts, media)
-
-    @Provides @Singleton
-    fun roomInfoRepository(
-        exec: ExecClient,
-        database: XmuksDatabase,
-        ingestor: SyncIngestor,
-    ) = RoomInfoRepository(exec, database, ingestor)
-
-    @Provides @Singleton
-    fun roomDirectoryRepository(exec: ExecClient) = RoomDirectoryRepository(exec)
-
-    @Provides @Singleton
-    fun linkResolver(
-        exec: ExecClient,
-        rooms: RoomListRepository,
-    ) = LinkResolver(exec, rooms)
-
-    @Provides @Singleton
-    fun syncController(
-        ingestor: SyncIngestor,
-        connection: ForegroundConnection,
-    ) = SyncController(ingestor, connection)
+    ) = SessionRepository(accounts.registry, authApi, Dispatchers.IO, scope) { id -> accounts.graph(id).accountScoped }
 
     /**
      * Coil loads media through the same authenticated client as the API (session cookie, token
      * refresh). Two tiers, each with its own disk cache so neither pushes the other out: this one
      * (the app's default) for avatars, emoji and stickers — small, seen everywhere, kept long —
-     * and [mediaImageLoader] for timeline pictures and the viewer.
+     * and [mediaImageLoader] for timeline pictures and the viewer. Shared by every account: an
+     * mxc:// is the same file whichever account sees it, and each request carries the login of
+     * the account whose gomuks it goes to.
      */
     @Provides
     @Singleton
@@ -550,50 +398,4 @@ object DataModule {
                     .maxSizeBytes(maxBytes)
                     .build()
             }.build()
-
-    @Provides @Singleton
-    fun liveTasks(
-        @ApplicationContext context: Context,
-        push: PushRegistrar,
-        exec: ExecClient,
-        ingestor: SyncIngestor,
-        database: XmuksDatabase,
-        media: MediaUrls,
-        imageLoader: ImageLoader,
-        scope: CoroutineScope,
-    ) = LiveTasks(context, exec, ingestor, database, media, imageLoader, scope, push)
-
-    @Provides @Singleton
-    fun roomSessions(
-        timelines: TimelineStore,
-        exec: ExecClient,
-        database: XmuksDatabase,
-        outbox: Outbox,
-        uploads: MediaSender,
-        scope: CoroutineScope,
-        prefs: PreferenceStore,
-        ingestor: SyncIngestor,
-        events: EventCache,
-    ) = RoomSessions(timelines, exec, database, outbox, uploads, scope, prefs, ingestor.stateChanged, events)
-
-    /** Unsent messages: their own database, which (unlike the cache) survives schema changes. */
-    @Provides @Singleton
-    fun outboxDatabase(
-        @ApplicationContext context: Context,
-    ) = OutboxDatabase.build(context)
-
-    @Provides @Singleton
-    fun outbox(
-        database: OutboxDatabase,
-        exec: ExecClient,
-        timelines: TimelineStore,
-        scope: CoroutineScope,
-    ) = Outbox(database.outboxDao(), exec::execOnce, timelines::addLocalEcho, scope)
-
-    @Provides @Singleton
-    fun sessionRepository(
-        store: CredentialStore,
-        authApi: AuthApi,
-        accountScoped: Set<@JvmSuppressWildcards AccountScoped>,
-    ) = SessionRepository(store, authApi, Dispatchers.IO, accountScoped)
 }

@@ -4,18 +4,19 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.Dispatchers
 import okhttp3.OkHttpClient
-import pt.aguiarvieira.xmuks.core.account.CredentialStore
+import pt.aguiarvieira.xmuks.core.account.AccountRegistry
 import pt.aguiarvieira.xmuks.core.network.AuthApi
 import pt.aguiarvieira.xmuks.core.network.AuthInterceptor
 import pt.aguiarvieira.xmuks.core.network.CompressionInterceptor
-import pt.aguiarvieira.xmuks.core.network.ExecClient
 import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
 
-/** HTTP clients for gomuks: plain (login), api (auth + compression), sse (long read timeout). */
+/**
+ * HTTP clients for gomuks: plain (login), api (auth + compression), sse (long read timeout).
+ * Shared by every account: a request carries the login of the account whose server it goes to.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
@@ -46,13 +47,13 @@ object NetworkModule {
     @Named("api")
     fun apiHttp(
         @Named("plain") plain: OkHttpClient,
-        store: CredentialStore,
+        registry: AccountRegistry,
         authApi: AuthApi,
     ): OkHttpClient =
         plain
             .newBuilder()
             .addInterceptor(CompressionInterceptor())
-            .addInterceptor(AuthInterceptor(store, authApi))
+            .addInterceptor(AuthInterceptor(registry::sessionFor, authApi))
             .build()
 
     /**
@@ -63,19 +64,13 @@ object NetworkModule {
     @Named("media")
     fun mediaHttp(
         @Named("plain") plain: OkHttpClient,
-        store: CredentialStore,
+        registry: AccountRegistry,
         authApi: AuthApi,
-    ): OkHttpClient = plain.newBuilder().addInterceptor(AuthInterceptor(store, authApi)).build()
+    ): OkHttpClient = plain.newBuilder().addInterceptor(AuthInterceptor(registry::sessionFor, authApi)).build()
 
     @Provides @Singleton
     @Named("sse")
     fun sseHttp(
         @Named("api") api: OkHttpClient,
     ): OkHttpClient = api.newBuilder().readTimeout(SSE_READ_TIMEOUT_S, TimeUnit.SECONDS).build()
-
-    @Provides @Singleton
-    fun execClient(
-        @Named("api") api: OkHttpClient,
-        store: CredentialStore,
-    ) = ExecClient(api, { store.credentials()?.serverUrl }, Dispatchers.IO)
 }

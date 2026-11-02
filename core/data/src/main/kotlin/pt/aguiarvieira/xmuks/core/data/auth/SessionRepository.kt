@@ -1,9 +1,14 @@
 package pt.aguiarvieira.xmuks.core.data.auth
 
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
+import pt.aguiarvieira.xmuks.core.account.AccountRegistry
 import pt.aguiarvieira.xmuks.core.account.AccountScoped
-import pt.aguiarvieira.xmuks.core.account.CredentialStore
 import pt.aguiarvieira.xmuks.core.network.AuthApi
 import pt.aguiarvieira.xmuks.core.network.AuthResult
 import pt.aguiarvieira.xmuks.core.network.Credentials
@@ -24,13 +29,18 @@ sealed interface LoginResult {
     ) : LoginResult
 }
 
+/** Signing accounts in and out. A sign-in adds an account and shows it; a sign-out ends only that one. */
 class SessionRepository(
-    private val store: CredentialStore,
+    private val registry: AccountRegistry,
     private val authApi: AuthApi,
     private val io: CoroutineDispatcher,
-    private val accountScoped: Set<AccountScoped>,
+    scope: CoroutineScope,
+    /** What's kept for an account, wiped when it signs out (or its ID is reused). */
+    private val accountScoped: (id: String) -> Set<AccountScoped>,
 ) {
-    val loggedIn = store.loggedIn
+    /** Some account is signed in (and shown). */
+    val loggedIn: StateFlow<Boolean> =
+        registry.active.map { it != null }.stateIn(scope, SharingStarted.Eagerly, registry.active.value != null)
 
     suspend fun login(
         server: String,
@@ -41,9 +51,10 @@ class SessionRepository(
         val credentials = Credentials(url, username.trim(), password)
         return when (val result = withContext(io) { authApi.login(credentials) }) {
             is AuthResult.Success -> {
+                val id = registry.nextId()
                 // Also on login, not just logout: nothing from a previous account may leak into this one.
-                clearAccountData()
-                store.saveLogin(credentials, result.token)
+                clearAccountData(id)
+                registry.signIn(id, credentials, result.token)
                 LoginResult.Success
             }
 
@@ -71,18 +82,23 @@ class SessionRepository(
         return withContext(io) { url.isOnLocalNetwork() }
     }
 
-    /** The same, for the server we're logged in to. */
+    /** The same, for the server of the account shown. */
     suspend fun isLocalServer(): Boolean {
-        val url = store.credentials()?.serverUrl ?: return false
+        val id = registry.active.value ?: return false
+        val url = registry.store(id).credentials()?.serverUrl ?: return false
         return withContext(io) { url.isOnLocalNetwork() }
     }
 
-    /** Forgets the account and everything cached for it. Flipping [loggedIn] stops the stream first. */
+    /**
+     * Signs the shown account out and forgets everything cached for it; the next account (if any)
+     * is shown. It stops being shown (its stream stops) before its login goes.
+     */
     suspend fun logout() {
-        accountScoped.forEach { it.beforeLogout() }
-        store.clear()
-        clearAccountData()
+        val id = registry.active.value ?: return
+        accountScoped(id).forEach { it.beforeLogout() }
+        registry.signOut(id)
+        clearAccountData(id)
     }
 
-    private suspend fun clearAccountData() = accountScoped.forEach { it.clearAccountData() }
+    private suspend fun clearAccountData(id: String) = accountScoped(id).forEach { it.clearAccountData() }
 }

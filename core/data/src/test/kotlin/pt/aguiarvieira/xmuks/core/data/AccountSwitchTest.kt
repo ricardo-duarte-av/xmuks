@@ -15,7 +15,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
-import pt.aguiarvieira.xmuks.core.account.CredentialStore
+import pt.aguiarvieira.xmuks.core.account.AccountRegistry
 import pt.aguiarvieira.xmuks.core.account.SecretCipher
 import pt.aguiarvieira.xmuks.core.data.auth.LoginResult
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
@@ -55,13 +55,17 @@ class AccountSwitchTest {
                 )
             val ingestor = SyncIngestor(db)
             val stats = StreamStatsTracker()
-            val store =
-                CredentialStore(
-                    PreferenceDataStoreFactory.create { tmp.newFile("s.preferences_pb").also { it.delete() } },
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            val registry =
+                AccountRegistry(
+                    PreferenceDataStoreFactory.create { tmp.root.resolve("accounts.preferences_pb") },
+                    { id -> PreferenceDataStoreFactory.create { tmp.root.resolve("session-$id.preferences_pb") } },
                     PlainCipher,
-                    CoroutineScope(SupervisorJob() + Dispatchers.IO),
-                )
-            val session = SessionRepository(store, AcceptAll, Dispatchers.IO, setOf(ingestor, stats))
+                    scope,
+                ).also { it.load() }
+            // The account signing in again gets the same ID (the old files), so the same state is reused.
+            val session = SessionRepository(registry, AcceptAll, Dispatchers.IO, scope) { setOf(ingestor, stats) }
+            val store = registry.store(AccountRegistry.LEGACY)
 
             suspend fun roomCount() =
                 db

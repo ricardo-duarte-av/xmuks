@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -18,13 +19,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pt.aguiarvieira.xmuks.core.call.CallManager
 import pt.aguiarvieira.xmuks.core.call.IncomingCalls
 import pt.aguiarvieira.xmuks.core.call.system.CallService
+import pt.aguiarvieira.xmuks.core.data.account.Accounts
 import pt.aguiarvieira.xmuks.core.data.auth.SessionRepository
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
@@ -38,6 +42,7 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRequest
 import pt.aguiarvieira.xmuks.navigation.CallRequest
 import pt.aguiarvieira.xmuks.navigation.XmuksNavHost
 import javax.inject.Inject
+import javax.inject.Provider
 
 private val CONTACT_ROWS = setOf(PeopleUris.MIME_MESSAGE, PeopleUris.MIME_VOICE_CALL, PeopleUris.MIME_VIDEO_CALL)
 
@@ -48,14 +53,18 @@ private const val STYLE_WAIT_MS = 500L
 class MainActivity : ComponentActivity() {
     @Inject lateinit var session: SessionRepository
 
-    /** Created with the app, so rings arriving over the stream ring while it runs. */
-    @Inject lateinit var incoming: IncomingCalls
+    @Inject lateinit var accounts: Accounts
 
-    @Inject lateinit var calls: CallManager
+    // The account shown's, when asked for: another account may be shown by then.
+    @Inject lateinit var incoming: Provider<IncomingCalls>
 
-    @Inject lateinit var contacts: Contacts
+    @Inject lateinit var calls: Provider<CallManager>
 
-    @Inject lateinit var preferences: PreferenceStore
+    @Inject lateinit var contacts: Provider<Contacts>
+
+    @Inject lateinit var preferences: Provider<PreferenceStore>
+
+    private val accountViewModels: AccountViewModelStores by viewModels()
 
     /** Flat or cards (a setting); null until read, the splash screen staying up meanwhile. */
     private val screenStyle = MutableStateFlow<ScreenStyle?>(null)
@@ -69,6 +78,7 @@ class MainActivity : ComponentActivity() {
     /** Something shared to us from another app, until handled. */
     private val share = MutableStateFlow<ShareRequest?>(null)
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         // Kept up until the screen style is known, so a cards user never sees a flat first frame.
         installSplashScreen().setKeepOnScreenCondition { screenStyle.value == null }
@@ -76,7 +86,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) intent?.let(::take)
         lifecycleScope.launch {
-            preferences.value(Prefs.screenCards).collect { cards ->
+            accounts.active.flatMapLatest { preferences.get().value(Prefs.screenCards) }.collect { cards ->
                 screenStyle.value = if (cards) ScreenStyle.Cards else ScreenStyle.Flat
             }
         }
@@ -87,7 +97,7 @@ class MainActivity : ComponentActivity() {
         }
         // While in a call, the app (the call screen) may show over the lock screen, as a phone's does.
         lifecycleScope.launch {
-            calls.active.collect { active ->
+            accounts.active.flatMapLatest { calls.get().active }.collect { active ->
                 setShowWhenLocked(active != null)
                 setTurnScreenOn(active != null)
             }
@@ -102,21 +112,24 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun Content() {
-        val loggedIn by session.loggedIn.collectAsStateWithLifecycle()
-        AnimatedContent(targetState = loggedIn, label = "session") { signedIn ->
+        // Another account shown is a fresh start of the app's screens, for it (none: signing in).
+        val account by accounts.active.collectAsStateWithLifecycle()
+        AnimatedContent(targetState = account, label = "account") { shown ->
             val pending by link.collectAsStateWithLifecycle()
             val shared by share.collectAsStateWithLifecycle()
             val callRoom by call.collectAsStateWithLifecycle()
-            if (signedIn) {
-                XmuksNavHost(
-                    link = pending,
-                    onLinkConsume = { link.value = null },
-                    share = shared,
-                    onShareConsume = { share.value = null },
-                    openCall = callRoom,
-                    onOpenCallConsume = { call.value = null },
-                    isLocalServer = { session.isLocalServer() },
-                )
+            if (shown != null) {
+                AccountViewModels(shown, accountViewModels, this@MainActivity) {
+                    XmuksNavHost(
+                        link = pending,
+                        onLinkConsume = { link.value = null },
+                        share = shared,
+                        onShareConsume = { share.value = null },
+                        openCall = callRoom,
+                        onOpenCallConsume = { call.value = null },
+                        isLocalServer = { session.isLocalServer() },
+                    )
+                }
             } else {
                 LoginRoute()
             }
@@ -132,7 +145,7 @@ class MainActivity : ComponentActivity() {
     private fun take(intent: Intent) {
         intent.getStringExtra(CallService.EXTRA_OPEN_CALL)?.let { roomId ->
             val answer = intent.getBooleanExtra(CallService.EXTRA_ANSWER, false)
-            if (answer) incoming.answer(roomId)
+            if (answer) incoming.get().answer(roomId)
             call.value = CallRequest(roomId, intent.getBooleanExtra(CallService.EXTRA_VIDEO, false), answer)
             return
         }
@@ -163,7 +176,7 @@ class MainActivity : ComponentActivity() {
                     }.getOrNull()
                 } ?: return@launch
             val userId = PeopleUris.userOf(uri) ?: return@launch
-            val room = contacts.directRoom(userId)
+            val room = contacts.get().directRoom(userId)
             when {
                 room == null -> link.value = uri
                 type == PeopleUris.MIME_MESSAGE -> link.value = "matrix:roomid/${room.removePrefix("!")}"
