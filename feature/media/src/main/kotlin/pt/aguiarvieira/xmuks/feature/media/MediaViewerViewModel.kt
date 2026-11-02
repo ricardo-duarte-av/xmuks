@@ -57,13 +57,24 @@ class MediaViewerViewModel
         private var before: Long? = null
         private var loading = false
 
-        /** A player for [url]: one for the viewer, moved to whichever video is shown. */
+        /** Whether the one opened has started where the timeline left it: once, not on every swipe back. */
+        private var resumed = false
+
+        /**
+         * A player for [url]: one for the viewer, moved to whichever video is shown. The first to
+         * load starts at [startMs]; any other (or the same, swiped back to) from the start.
+         */
         @OptIn(UnstableApi::class)
-        fun player(url: String): ExoPlayer {
+        fun player(
+            url: String,
+            startMs: Long = 0,
+        ): ExoPlayer {
+            val from = if (resumed) 0 else startMs
+            resumed = true
             val existing = player
             if (existing != null) {
                 if (playing != url) {
-                    existing.setMediaItem(MediaItem.fromUri(url))
+                    existing.setMediaItem(MediaItem.fromUri(url), from)
                     existing.prepare()
                     existing.playWhenReady = true
                     playing = url
@@ -76,7 +87,7 @@ class MediaViewerViewModel
                 .setMediaSourceFactory(DefaultMediaSourceFactory(source))
                 .build()
                 .apply {
-                    setMediaItem(MediaItem.fromUri(url))
+                    setMediaItem(MediaItem.fromUri(url), from)
                     playWhenReady = true
                     prepare()
                 }.also {

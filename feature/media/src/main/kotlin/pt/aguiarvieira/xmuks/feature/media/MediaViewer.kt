@@ -108,7 +108,7 @@ fun MediaViewerRoute(
     MediaViewer(
         media,
         onBack,
-        viewModel::player,
+        { url -> viewModel.player(url, if (url == media.url) media.startMs else 0) },
         modifier,
         viewModel.images,
         sequence = sequence,

@@ -74,6 +74,9 @@ class InlinePlayer(
         if (_state.value?.key == key) exo?.pause()
     }
 
+    /** Where [key] has got to; 0 when it isn't what's loaded. */
+    fun position(key: String): Long = if (_state.value?.key == key) exo?.currentPosition ?: 0 else 0
+
     @OptIn(UnstableApi::class) // the media source factory, as the media viewer uses it
     private fun create(): ExoPlayer =
         ExoPlayer

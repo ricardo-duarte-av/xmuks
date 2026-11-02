@@ -34,6 +34,8 @@ data class ViewerMedia(
     val eventId: String? = null,
     /** Which of an MSC4274 gallery's items it is; null for a message's one file. */
     val index: Int? = null,
+    /** Where a video or audio starts playing: where the timeline's player had got to. */
+    val startMs: Long = 0,
 ) {
     /** [File] is any other file: not shown here, but forwarded the same way. */
     enum class Kind { Image, Video, Audio, Pdf, File }

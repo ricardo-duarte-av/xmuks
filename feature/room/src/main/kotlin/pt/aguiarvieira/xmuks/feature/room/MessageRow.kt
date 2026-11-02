@@ -439,7 +439,10 @@ private fun VideoContent(
         if (player != null && url != null && message.uploadProgress == null) {
             InlineVideo(player, message.eventId) {
                 player.pause(message.eventId)
-                onOpen(c.media, ViewerMedia.Kind.Video)
+                // Fullscreen carries on from where it is here.
+                val startMs = player.position(message.eventId)
+                val media = viewerMedia(message, c.media, ViewerMedia.Kind.Video, resolver)
+                actions.openMedia(media.copy(startMs = startMs))
             }
         } else {
             null
