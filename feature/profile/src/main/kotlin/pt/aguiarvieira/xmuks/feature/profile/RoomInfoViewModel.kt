@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import pt.aguiarvieira.xmuks.core.data.account.AccountGraph
 import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.profile.PerMessageProfiles
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
@@ -58,6 +59,7 @@ class RoomInfoViewModel
         val media: MediaUrls,
         @ApplicationContext private val context: Context,
         roomList: RoomListRepository,
+        private val account: AccountGraph,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -85,7 +87,13 @@ class RoomInfoViewModel
         /** Android's notification settings for this room alone, on this phone (sound, vibration…). */
         fun phoneNotificationSettings(): Intent {
             val room = summary.value
-            return roomNotificationSettings(context, roomId, room?.name ?: roomId, room?.isDirect == true)
+            // The room's own channel is this account's: another may be in the same room.
+            return roomNotificationSettings(
+                context,
+                account.roomKey(roomId),
+                room?.name ?: roomId,
+                room?.isDirect == true
+            )
         }
 
         /** Whether the room is listed in our server's directory (not for DMs). */

@@ -29,6 +29,8 @@ class CallManager(
     private val telecom: TelecomCall,
     private val preferences: PreferenceStore,
     private val scope: CoroutineScope,
+    /** The account its calls are made as (graph ID): opening the call screen shows it. */
+    val account: String? = null,
 ) {
     /** The current call's audio goes through Telecom (else LiveKit routes it itself). */
     @Volatile var systemAudio: Boolean = false

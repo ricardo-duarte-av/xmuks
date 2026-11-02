@@ -40,6 +40,7 @@ import pt.aguiarvieira.xmuks.core.call.R
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.notify.Avatars
 import pt.aguiarvieira.xmuks.core.notify.PeopleUris
+import pt.aguiarvieira.xmuks.core.notify.RoomKeys
 import javax.inject.Inject
 
 /**
@@ -155,7 +156,7 @@ class CallService : Service() {
                 .Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_call_notification)
                 .setStyle(NotificationCompat.CallStyle.forOngoingCall(person, servicePending(ACTION_HANG_UP)))
-                .setContentIntent(openCall(this, room.roomId))
+                .setContentIntent(openCall(this, room.roomId, account = manager.account))
                 .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
@@ -275,6 +276,9 @@ class CallService : Service() {
         /** With [EXTRA_OPEN_CALL]: join with the camera on. */
         const val EXTRA_VIDEO = "pt.aguiarvieira.xmuks.CALL_VIDEO"
 
+        /** With [EXTRA_OPEN_CALL]: the account the call is in (shown first). */
+        const val EXTRA_ACCOUNT = RoomKeys.EXTRA_ACCOUNT
+
         /** With [EXTRA_OPEN_CALL]: this is answering a ring. */
         const val EXTRA_ANSWER = "pt.aguiarvieira.xmuks.CALL_ANSWER"
 
@@ -288,16 +292,18 @@ class CallService : Service() {
             roomId: String,
             video: Boolean = false,
             answer: Boolean = false,
+            account: String? = null,
         ): PendingIntent {
             val launch =
                 (context.packageManager.getLaunchIntentForPackage(context.packageName) ?: Intent())
                     .putExtra(EXTRA_OPEN_CALL, roomId)
                     .putExtra(EXTRA_VIDEO, video)
                     .putExtra(EXTRA_ANSWER, answer)
+                    .apply { if (account != null) putExtra(EXTRA_ACCOUNT, account) }
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             return PendingIntent.getActivity(
                 context,
-                (roomId + answer).hashCode(),
+                (roomId + answer + account).hashCode(),
                 launch,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )

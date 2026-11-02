@@ -56,8 +56,13 @@ class RoomNotifier(
     /** The whole event (gomuks' `get_event`), for its formatting and media; null when it can't be had. */
     private val eventOf: suspend (roomId: String, eventId: String) -> Event? = { _, _ -> null },
     private val clock: () -> Long = System::currentTimeMillis,
+    /** The account it's for, in the system's names for its rooms ([RoomKeys]); null for the first. */
+    private val account: String? = null,
 ) {
     private val manager = NotificationManagerCompat.from(context)
+
+    /** A room's name in the system (notification tag, shortcut, channel), for this account. */
+    private val key = { roomId: String -> RoomKeys.of(account, roomId) }
 
     /** Rooms replied to from their notification: gomuks' dismissal (it marks them read) is ignored meanwhile. */
     private val guardUntil = ConcurrentHashMap<String, Long>()
@@ -81,7 +86,7 @@ class RoomNotifier(
         clear(roomId)
     }
 
-    fun clear(roomId: String) = manager.cancel(roomId, NOTIFICATION_ID)
+    fun clear(roomId: String) = manager.cancel(key(roomId), NOTIFICATION_ID)
 
     /** Our reply from the notification: shown in it at once, and the dismissal it causes held off. */
     fun replied(
@@ -139,7 +144,7 @@ class RoomNotifier(
         // keyword: highlighted, which the default rules leave silent; or a DM, when set to) in a
         // room we haven't muted.
         val loud = fresh.any { it.sound } || ((highlighted || (direct && dmSound())) && !isMuted(roomId))
-        val channel = Channels.forRoom(context, roomId, latest.roomName, direct)
+        val channel = Channels.forRoom(context, key(roomId), latest.roomName, direct)
         val notification =
             NotificationCompat
                 .Builder(context, channel)
@@ -154,11 +159,11 @@ class RoomNotifier(
                 .setSilent(!loud)
                 .apply {
                     if (intent != null) {
-                        setShortcutId(roomId)
-                        setLocusId(LocusIdCompat(roomId))
+                        setShortcutId(key(roomId))
+                        setLocusId(LocusIdCompat(key(roomId)))
                         setContentIntent(openRoom(roomId, intent))
                     }
-                    actions.add(this, context, roomId, latest.eventId)
+                    actions.add(this, context, roomId, latest.eventId, account)
                 }.build()
         post(roomId, notification)
     }
@@ -244,11 +249,11 @@ class RoomNotifier(
     ) {
         val shortcut =
             ShortcutInfoCompat
-                .Builder(context, roomId)
+                .Builder(context, key(roomId))
                 .setShortLabel(name)
                 .setLongLived(true)
                 .setIcon(icon)
-                .setLocusId(LocusIdCompat(roomId))
+                .setLocusId(LocusIdCompat(key(roomId)))
                 .setIntent(intent)
                 .setPersons(people.toTypedArray())
                 .setCategories(setOf(SHORTCUT_CATEGORY))
@@ -262,7 +267,7 @@ class RoomNotifier(
     ): PendingIntent =
         PendingIntent.getActivity(
             context,
-            roomId.hashCode(),
+            key(roomId).hashCode(),
             Intent(intent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
@@ -331,7 +336,7 @@ class RoomNotifier(
     private fun String.looksLikeFileName() = isBlank() || FILE_NAME.matches(trim())
 
     private fun active(roomId: String): Notification? =
-        manager.activeNotifications.firstOrNull { it.tag == roomId && it.id == NOTIFICATION_ID }?.notification
+        manager.activeNotifications.firstOrNull { it.tag == key(roomId) && it.id == NOTIFICATION_ID }?.notification
 
     @SuppressLint("MissingPermission") // checked just above
     private fun post(
@@ -343,11 +348,11 @@ class RoomNotifier(
         ) {
             return
         }
-        manager.notify(roomId, NOTIFICATION_ID, notification)
+        manager.notify(key(roomId), NOTIFICATION_ID, notification)
     }
 
     companion object {
-        /** Notifications are tagged with their room ID; the ID itself is constant. */
+        /** Notifications are tagged with their room's key ([RoomKeys]); the ID itself is constant. */
         const val NOTIFICATION_ID = 1
         const val EVENT_ID = "xmuks.event_id"
         const val SHORTCUT_CATEGORY = "pt.aguiarvieira.xmuks.category.ROOM"

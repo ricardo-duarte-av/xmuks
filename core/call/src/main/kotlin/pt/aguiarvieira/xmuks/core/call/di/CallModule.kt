@@ -8,8 +8,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
-import kotlinx.coroutines.Dispatchers
 import okhttp3.OkHttpClient
+import pt.aguiarvieira.xmuks.core.call.AccountCalls
 import pt.aguiarvieira.xmuks.core.call.CallManager
 import pt.aguiarvieira.xmuks.core.call.IncomingCalls
 import pt.aguiarvieira.xmuks.core.call.media.SfuTokens
@@ -25,73 +25,50 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object CallModule {
-    @Provides
-    fun rtcApi(graph: AccountGraph) = graph.scoped(RtcApi::class) { RtcApi(graph.exec) }
+    @Provides @Singleton
+    fun accountCalls(
+        @ApplicationContext context: Context,
+        images: ImageLoader,
+        @Named("plain") http: OkHttpClient,
+        telecom: TelecomCall,
+    ) = AccountCalls(context, images, http, telecom)
 
-    /** The JWT service is not gomuks: plain HTTP, no gomuks auth. */
+    @Provides
+    fun rtcApi(
+        calls: AccountCalls,
+        graph: AccountGraph,
+    ): RtcApi = calls.rtcApi(graph)
+
     @Provides
     fun sfuTokens(
+        calls: AccountCalls,
         graph: AccountGraph,
-        @Named("plain") http: OkHttpClient,
-    ) = graph.scoped(SfuTokens::class) { SfuTokens(rtcApi(graph), http, Dispatchers.IO) }
+    ): SfuTokens = calls.sfuTokens(graph)
 
     @Provides
     fun callManager(
-        @ApplicationContext context: Context,
+        calls: AccountCalls,
         graph: AccountGraph,
-        @Named("plain") http: OkHttpClient,
-        telecom: TelecomCall,
-    ) = graph.scoped(CallManager::class) {
-        CallManager(
-            context,
-            rtcApi(graph),
-            sfuTokens(graph, http),
-            graph.streamFrames,
-            graph.database,
-            graph.roomCalls,
-            telecom,
-            graph.preferences,
-            graph.scope,
-        )
-    }
+    ): CallManager = calls.manager(graph)
 
     @Provides @Singleton
     fun callAudio() = CallAudio()
 
     @Provides
     fun ringer(
-        @ApplicationContext context: Context,
-        images: ImageLoader,
+        calls: AccountCalls,
         graph: AccountGraph,
-    ) = graph.scoped(Ringer::class) { Ringer(context, images, graph.roomListRepository, graph.scope) }
+    ): Ringer = calls.ringer(graph)
 
     @Provides
     fun incomingCalls(
-        @ApplicationContext context: Context,
-        images: ImageLoader,
+        calls: AccountCalls,
         graph: AccountGraph,
-        @Named("plain") http: OkHttpClient,
-        telecom: TelecomCall,
-    ) = graph.scoped(IncomingCalls::class) {
-        IncomingCalls(
-            rtcApi(graph),
-            graph.roomCalls,
-            callManager(context, graph, http, telecom),
-            graph.database,
-            ringer(context, images, graph),
-            graph.streamFrames,
-            graph.scope,
-        )
-    }
+    ): IncomingCalls = calls.incoming(graph)
 
     /** Rings arriving over an account's stream ring from the moment its graph is built. */
     @Provides @IntoSet
-    fun callStarter(
-        @ApplicationContext context: Context,
-        images: ImageLoader,
-        @Named("plain") http: OkHttpClient,
-        telecom: TelecomCall,
-    ): AccountStarter = AccountStarter { graph -> incomingCalls(context, images, graph, http, telecom) }
+    fun callStarter(calls: AccountCalls): AccountStarter = AccountStarter { graph -> calls.incoming(graph) }
 
     @Provides @Singleton
     fun telecomCall(

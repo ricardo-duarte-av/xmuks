@@ -24,6 +24,7 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.notify.Avatars
+import pt.aguiarvieira.xmuks.core.notify.RoomKeys
 import pt.aguiarvieira.xmuks.core.notify.RoomNotifier
 
 /**
@@ -35,6 +36,12 @@ class PinnedShortcuts(
     private val context: Context,
     private val images: ImageLoader,
     private val media: MediaUrls,
+    /** The account they're for ([RoomKeys]); null for the first. */
+    private val account: String? = null,
+    /** Opening a room in the app, as this account. */
+    private val roomIntent: (roomId: String) -> Intent = { roomId ->
+        Intent(Intent.ACTION_VIEW, Uri.parse(LinkResolver.roomUri(roomId))).setPackage(context.packageName)
+    },
 ) : RoomShortcuts {
     override suspend fun pin(room: RoomSummary): Boolean {
         if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) return false
@@ -63,33 +70,33 @@ class PinnedShortcuts(
     }
 
     private suspend fun update(rooms: List<RoomSummary>) {
-        val existing = ShortcutManagerCompat.getShortcuts(context, KINDS)
+        // Only this account's: another's may be in the same rooms.
+        val existing =
+            ShortcutManagerCompat.getShortcuts(context, KINDS).filter { RoomKeys.accountOf(it.id) == account }
         if (existing.isEmpty()) return
         val byId = rooms.associateBy { it.roomId }
         val stale =
             existing.mapNotNull { shortcut ->
-                val room = byId[shortcut.id] ?: return@mapNotNull null
+                val room = byId[RoomKeys.roomOf(shortcut.id)] ?: return@mapNotNull null
                 val madeWith = shortcut.extras?.getString(AVATAR)
                 // A notification's label is gomuks' name, cut at 50 characters with "…".
                 val named = room.name.startsWith(shortcut.shortLabel.toString().removeSuffix("…"))
-                room.takeIf { !named || it.avatarMxc.orEmpty() != madeWith }
+                // Made before there could be several accounts: it doesn't say which one opens it.
+                val accounted = shortcut.intent?.hasExtra(RoomKeys.EXTRA_ACCOUNT) == true
+                room.takeIf { !named || !accounted || it.avatarMxc.orEmpty() != madeWith }
             }
         if (stale.isNotEmpty()) ShortcutManagerCompat.updateShortcuts(context, stale.map { shortcut(it) })
     }
 
     private suspend fun shortcut(room: RoomSummary): ShortcutInfoCompat =
         ShortcutInfoCompat
-            .Builder(context, room.roomId)
+            .Builder(context, RoomKeys.of(account, room.roomId))
             .setShortLabel(room.name)
             .setLongLived(true)
             .setIcon(Avatars.adaptive(avatar(room.avatarMxc), room.name, room.roomId))
-            .setLocusId(LocusIdCompat(room.roomId))
-            .setIntent(
-                Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse(LinkResolver.roomUri(room.roomId))
-                ).setPackage(context.packageName),
-            ).setCategories(setOf(RoomNotifier.SHORTCUT_CATEGORY))
+            .setLocusId(LocusIdCompat(RoomKeys.of(account, room.roomId)))
+            .setIntent(roomIntent(room.roomId))
+            .setCategories(setOf(RoomNotifier.SHORTCUT_CATEGORY))
             .setExtras(PersistableBundle().apply { putString(AVATAR, room.avatarMxc.orEmpty()) })
             .build()
 

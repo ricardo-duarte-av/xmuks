@@ -23,12 +23,15 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import pt.aguiarvieira.xmuks.core.account.AccountRegistry
+import pt.aguiarvieira.xmuks.core.call.AccountCalls
 import pt.aguiarvieira.xmuks.core.call.IncomingCall
-import pt.aguiarvieira.xmuks.core.call.IncomingCalls
 import pt.aguiarvieira.xmuks.core.call.R
+import pt.aguiarvieira.xmuks.core.data.account.Accounts
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.notify.Avatars
 import pt.aguiarvieira.xmuks.core.notify.PeopleUris
+import pt.aguiarvieira.xmuks.core.notify.RoomKeys
 import javax.inject.Inject
 
 /**
@@ -41,6 +44,8 @@ class Ringer(
     private val images: ImageLoader,
     private val rooms: RoomListRepository,
     private val scope: CoroutineScope,
+    /** The account it rings for (graph ID): answering, declining and the ring screen act as it. */
+    private val account: String? = null,
 ) {
     @Volatile private var showing: String? = null
 
@@ -85,15 +90,20 @@ class Ringer(
             PendingIntent.getActivity(
                 context,
                 call.eventId.hashCode(),
-                Intent(ACTION_RING).setPackage(context.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                Intent(ACTION_RING)
+                    .setPackage(context.packageName)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    .apply { if (account != null) putExtra(RoomKeys.EXTRA_ACCOUNT, account) },
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-        val answer = CallService.openCall(context, call.roomId, video = call.video, answer = true)
+        val answer = CallService.openCall(context, call.roomId, video = call.video, answer = true, account = account)
         val decline =
             PendingIntent.getBroadcast(
                 context,
                 call.eventId.hashCode(),
-                Intent(context, DeclineReceiver::class.java).putExtra(EXTRA_EVENT, call.eventId),
+                Intent(context, DeclineReceiver::class.java)
+                    .putExtra(EXTRA_EVENT, call.eventId)
+                    .apply { if (account != null) putExtra(RoomKeys.EXTRA_ACCOUNT, account) },
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
         val text =
@@ -171,12 +181,16 @@ class Ringer(
 /** Decline, from the ringing notification. */
 @AndroidEntryPoint
 class DeclineReceiver : BroadcastReceiver() {
-    @Inject lateinit var incoming: IncomingCalls
+    @Inject lateinit var accounts: Accounts
+
+    @Inject lateinit var calls: AccountCalls
 
     override fun onReceive(
         context: Context,
         intent: Intent,
     ) {
-        incoming.decline(intent.getStringExtra(Ringer.EXTRA_EVENT))
+        // The ring's account, whichever is shown; none (an older ring): the first account's.
+        val account = intent.getStringExtra(RoomKeys.EXTRA_ACCOUNT) ?: AccountRegistry.LEGACY
+        calls.incoming(accounts.graph(account)).decline(intent.getStringExtra(Ringer.EXTRA_EVENT))
     }
 }

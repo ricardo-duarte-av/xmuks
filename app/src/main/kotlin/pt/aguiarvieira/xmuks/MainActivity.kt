@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import pt.aguiarvieira.xmuks.core.account.AccountRegistry
 import pt.aguiarvieira.xmuks.core.call.CallManager
 import pt.aguiarvieira.xmuks.core.call.IncomingCalls
 import pt.aguiarvieira.xmuks.core.call.system.CallService
@@ -37,6 +38,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.LocalScreenStyle
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenStyle
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 import pt.aguiarvieira.xmuks.core.notify.PeopleUris
+import pt.aguiarvieira.xmuks.core.notify.RoomKeys
 import pt.aguiarvieira.xmuks.feature.login.LoginRoute
 import pt.aguiarvieira.xmuks.feature.share.ShareRequest
 import pt.aguiarvieira.xmuks.navigation.CallRequest
@@ -141,8 +143,29 @@ class MainActivity : ComponentActivity() {
         take(intent)
     }
 
-    /** A Matrix link to open, or something shared to send. */
+    /**
+     * What [intent] asks for, as the account it's for: one of our notifications, shortcuts or call
+     * screens says which, and that account is shown first. Anything else is for the one shown.
+     */
     private fun take(intent: Intent) {
+        val account =
+            intent.getStringExtra(RoomKeys.EXTRA_ACCOUNT)
+                // Shared to a conversation shortcut: its ID says whose (none: the first account's).
+                ?: intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID)?.let {
+                    RoomKeys.accountOf(it) ?: AccountRegistry.LEGACY
+                }
+        if (account == null || account == accounts.active.value) {
+            handle(intent)
+        } else {
+            lifecycleScope.launch {
+                accounts.registry.activate(account)
+                handle(intent)
+            }
+        }
+    }
+
+    /** A Matrix link to open, a call to show, or something shared to send. */
+    private fun handle(intent: Intent) {
         intent.getStringExtra(CallService.EXTRA_OPEN_CALL)?.let { roomId ->
             val answer = intent.getBooleanExtra(CallService.EXTRA_ANSWER, false)
             if (answer) incoming.get().answer(roomId)
@@ -194,8 +217,8 @@ class MainActivity : ComponentActivity() {
             }
         val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
         if (uris.isEmpty() && text.isNullOrBlank()) return null
-        // Shared to one of our conversation shortcuts: its ID is the room's.
-        val room = intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID)
+        // Shared to one of our conversation shortcuts: its ID is the room's key.
+        val room = intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID)?.let(RoomKeys::roomOf)
         return ShareRequest(uris.map(Uri::toString), text, room)
     }
 }

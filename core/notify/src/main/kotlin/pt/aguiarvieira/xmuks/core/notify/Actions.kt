@@ -19,6 +19,8 @@ class Actions(
         context: Context,
         roomId: String,
         latestEventId: String,
+        /** The account the room is in; null for the first. */
+        account: String? = null,
     ) {
         val input = RemoteInput.Builder(REPLY_TEXT).setLabel(context.getString(R.string.reply_hint)).build()
         val reply =
@@ -26,7 +28,7 @@ class Actions(
                 .Builder(
                     0,
                     context.getString(R.string.action_reply),
-                    intent(context, REPLY, roomId, latestEventId, mutable = true)
+                    intent(context, REPLY, roomId, latestEventId, account, mutable = true)
                 ).addRemoteInput(input)
                 .setAllowGeneratedReplies(true)
                 .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
@@ -37,7 +39,7 @@ class Actions(
                 .Builder(
                     0,
                     context.getString(R.string.action_mark_read),
-                    intent(context, MARK_READ, roomId, latestEventId, mutable = false)
+                    intent(context, MARK_READ, roomId, latestEventId, account, mutable = false)
                 ).setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ)
                 .setShowsUserInterface(false)
                 .build()
@@ -49,6 +51,7 @@ class Actions(
         action: String,
         roomId: String,
         eventId: String,
+        account: String?,
         mutable: Boolean,
     ): PendingIntent {
         val intent =
@@ -56,11 +59,12 @@ class Actions(
                 .setAction(action)
                 .putExtra(ROOM_ID, roomId)
                 .putExtra(EVENT_ID, eventId)
+                .apply { if (account != null) putExtra(RoomKeys.EXTRA_ACCOUNT, account) }
         // A reply's intent must be mutable: the system fills in the typed text.
         val flags =
             PendingIntent.FLAG_UPDATE_CURRENT or
                 if (mutable) PendingIntent.FLAG_MUTABLE else PendingIntent.FLAG_IMMUTABLE
-        return PendingIntent.getBroadcast(context, (action + roomId).hashCode(), intent, flags)
+        return PendingIntent.getBroadcast(context, (action + RoomKeys.of(account, roomId)).hashCode(), intent, flags)
     }
 
     companion object {

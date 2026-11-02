@@ -10,24 +10,24 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import pt.aguiarvieira.xmuks.core.data.outbox.Outbox
-import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
+import pt.aguiarvieira.xmuks.core.account.AccountRegistry
+import pt.aguiarvieira.xmuks.core.data.account.AccountGraph
+import pt.aguiarvieira.xmuks.core.data.account.Accounts
 import pt.aguiarvieira.xmuks.core.notify.Actions
-import pt.aguiarvieira.xmuks.core.notify.RoomNotifier
+import pt.aguiarvieira.xmuks.core.notify.RoomKeys
 import javax.inject.Inject
 
 /**
  * Runs the notification's actions. A reply joins the outbox (durable: it goes out even if we're
  * killed, and never twice) and shows in the notification at once; we stay up a few seconds for it
- * to leave. Mark as read tells gomuks and clears the notification.
+ * to leave. Mark as read tells gomuks and clears the notification. Both run as the notification's
+ * account, whichever one is shown.
  */
 @AndroidEntryPoint
 class ActionReceiver : BroadcastReceiver() {
-    @Inject lateinit var sessions: RoomSessions
+    @Inject lateinit var accounts: Accounts
 
-    @Inject lateinit var outbox: Outbox
-
-    @Inject lateinit var notifier: RoomNotifier
+    @Inject lateinit var notifiers: RoomNotifiers
 
     override fun onReceive(
         context: Context,
@@ -35,12 +35,15 @@ class ActionReceiver : BroadcastReceiver() {
     ) {
         val roomId = intent.getStringExtra(Actions.ROOM_ID) ?: return
         val eventId = intent.getStringExtra(Actions.EVENT_ID)
+        // None given: from before there could be several accounts, so the first one's.
+        val account = intent.getStringExtra(RoomKeys.EXTRA_ACCOUNT) ?: AccountRegistry.LEGACY
         val pending = goAsync()
         scope.launch {
             try {
+                val graph = accounts.graph(account)
                 when (intent.action) {
-                    Actions.REPLY -> Actions.replyText(intent)?.let { reply(roomId, it) }
-                    Actions.MARK_READ -> markRead(roomId, eventId)
+                    Actions.REPLY -> Actions.replyText(intent)?.let { graph.reply(roomId, it) }
+                    Actions.MARK_READ -> graph.markRead(roomId, eventId)
                 }
             } finally {
                 pending.finish()
@@ -48,22 +51,22 @@ class ActionReceiver : BroadcastReceiver() {
         }
     }
 
-    private suspend fun reply(
+    private suspend fun AccountGraph.reply(
         roomId: String,
         text: String,
     ) {
-        notifier.replied(roomId, text)
-        sessions.open(roomId).writer.send(text)
+        notifiers.of(this).replied(roomId, text)
+        roomSessions.open(roomId).writer.send(text)
         // Give it the chance to go out before the process may be let go (the outbox retries anyway).
         withTimeoutOrNull(SEND_WAIT_MS) { outbox.observe(roomId).first { it.isEmpty() } }
     }
 
-    private suspend fun markRead(
+    private suspend fun AccountGraph.markRead(
         roomId: String,
         eventId: String?,
     ) {
-        notifier.clear(roomId)
-        if (eventId != null) sessions.open(roomId).writer.markRead(eventId)
+        notifiers.of(this).clear(roomId)
+        if (eventId != null) roomSessions.open(roomId).writer.markRead(eventId)
     }
 
     private companion object {

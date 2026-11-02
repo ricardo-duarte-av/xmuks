@@ -1,6 +1,8 @@
 package pt.aguiarvieira.xmuks.core.data.account
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
 import coil3.ImageLoader
@@ -73,6 +75,7 @@ import pt.aguiarvieira.xmuks.core.network.ExecMode
 import pt.aguiarvieira.xmuks.core.network.ExecResult
 import pt.aguiarvieira.xmuks.core.network.GomuksConnection
 import pt.aguiarvieira.xmuks.core.network.SseClient
+import pt.aguiarvieira.xmuks.core.notify.RoomKeys
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 import pt.aguiarvieira.xmuks.core.protocol.PaginationResponse
 
@@ -117,6 +120,18 @@ class AccountGraph(
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private fun file(base: String) = AccountRegistry.fileName(id, base)
+
+    /** This account in the system's names for its rooms ([RoomKeys]): null for the first account. */
+    val roomAccount: String? = id.takeUnless { it == AccountRegistry.LEGACY }
+
+    /** [roomId] as the system knows it, for this account (notification, shortcut, channel). */
+    fun roomKey(roomId: String): String = RoomKeys.of(roomAccount, roomId)
+
+    /** Opening [roomId] in the app, as this account (its `matrix:roomid/…` link). */
+    fun roomIntent(roomId: String): Intent =
+        Intent(Intent.ACTION_VIEW, Uri.parse(LinkResolver.roomUri(roomId)))
+            .setPackage(context.packageName)
+            .putExtra(RoomKeys.EXTRA_ACCOUNT, id)
 
     private fun dataStore(base: String) =
         PreferenceDataStoreFactory.create { context.preferencesDataStoreFile(file(base)) }

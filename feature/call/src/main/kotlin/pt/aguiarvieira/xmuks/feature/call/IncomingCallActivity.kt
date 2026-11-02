@@ -32,12 +32,16 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
+import pt.aguiarvieira.xmuks.core.account.AccountRegistry
+import pt.aguiarvieira.xmuks.core.call.AccountCalls
 import pt.aguiarvieira.xmuks.core.call.IncomingCall
 import pt.aguiarvieira.xmuks.core.call.IncomingCalls
 import pt.aguiarvieira.xmuks.core.call.system.CallService
+import pt.aguiarvieira.xmuks.core.data.account.Accounts
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
+import pt.aguiarvieira.xmuks.core.notify.RoomKeys
 import javax.inject.Inject
 
 /**
@@ -46,9 +50,18 @@ import javax.inject.Inject
  */
 @AndroidEntryPoint
 class IncomingCallActivity : ComponentActivity() {
-    @Inject lateinit var incoming: IncomingCalls
+    @Inject lateinit var accounts: Accounts
 
-    @Inject lateinit var rooms: RoomListRepository
+    @Inject lateinit var calls: AccountCalls
+
+    /** The ring's account, whichever is shown; none (an older ring): the first account's. */
+    private val account by lazy {
+        accounts.graph(intent.getStringExtra(RoomKeys.EXTRA_ACCOUNT) ?: AccountRegistry.LEGACY)
+    }
+
+    private val incoming: IncomingCalls get() = calls.incoming(account)
+
+    private val rooms: RoomListRepository get() = account.roomListRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         WindowCompat.enableEdgeToEdge(window)
@@ -75,7 +88,9 @@ class IncomingCallActivity : ComponentActivity() {
 
     private fun answer(call: IncomingCall) {
         incoming.answer(call.roomId)
-        runCatching { CallService.openCall(this, call.roomId, video = call.video, answer = true).send() }
+        runCatching {
+            CallService.openCall(this, call.roomId, video = call.video, answer = true, account = account.id).send()
+        }
         finish()
     }
 }
