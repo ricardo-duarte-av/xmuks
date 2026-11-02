@@ -113,6 +113,8 @@ class AccountGraph(
     /** Whether this is the account on screen: only that one streams. */
     val isActive: StateFlow<Boolean>,
     private val app: AppDependencies,
+    /** Every signed-in account's Matrix user (as their caches know them). */
+    private val signedInUsers: suspend () -> Set<String> = { emptySet() },
 ) {
     private val context = app.context
 
@@ -152,7 +154,16 @@ class AccountGraph(
     val streamFrames by lazy { StreamFrames() }
 
     val contactsSync by lazy {
-        ContactsSync(context, app.phoneContacts, roomListRepository, preferences, database, app.images, scope)
+        ContactsSync(
+            context,
+            app.phoneContacts,
+            roomListRepository,
+            preferences,
+            database,
+            app.images,
+            scope,
+            signedInUsers,
+        )
     }
 
     val roomCalls by lazy { RoomCalls(database, exec) }

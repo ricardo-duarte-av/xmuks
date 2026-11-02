@@ -46,14 +46,16 @@ class PhoneContacts(
     fun sync(
         ownUserId: String,
         people: List<ContactPerson>,
+        /** The other signed-in accounts' users: their contacts stay. */
+        others: Set<String> = emptySet(),
     ) {
         val account = account(ownUserId)
         AccountManager.get(context).addAccountExplicitly(account, null, null)
-        // Another account's leftovers (a different login) go first.
+        // A signed-out account's leftovers go first.
         AccountManager
             .get(context)
             .getAccountsByType(ACCOUNT_TYPE)
-            .filter { it != account }
+            .filter { it != account && it.name !in others }
             .forEach { remove(it) }
         val existing = existing(account)
         val labels = messageLabels()
@@ -83,6 +85,15 @@ class PhoneContacts(
     /** Removes every xmuks contact (and the account): the setting was turned off, or we logged out. */
     fun clear() {
         AccountManager.get(context).getAccountsByType(ACCOUNT_TYPE).forEach { remove(it) }
+    }
+
+    /** Removes [ownUserId]'s contacts (and its account) only: another account's stay. */
+    fun clear(ownUserId: String) {
+        AccountManager
+            .get(context)
+            .getAccountsByType(ACCOUNT_TYPE)
+            .filter { it.name == ownUserId }
+            .forEach { remove(it) }
     }
 
     private fun remove(account: Account) {

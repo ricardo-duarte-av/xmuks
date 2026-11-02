@@ -6,12 +6,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.account.AccountRegistry
+import pt.aguiarvieira.xmuks.core.data.commands.MatrixLink
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.Unread
 import java.util.concurrent.ConcurrentHashMap
@@ -58,7 +60,7 @@ class Accounts(
                 graphs[id]?.let { return it }
                 val isActive =
                     registry.active.map { it == id }.stateIn(scope, SharingStarted.Eagerly, registry.active.value == id)
-                AccountGraph(id, registry.store(id), isActive, app).also { graphs[id] = it }
+                AccountGraph(id, registry.store(id), isActive, app, ::userIds).also { graphs[id] = it }
             }
         starters.forEach { it.start(built) }
         return built
@@ -86,6 +88,31 @@ class Accounts(
                     .orEmpty()
             AccountSummary(graph.id, profile, login, badges.chats)
         }
+    }
+
+    /** Every signed-in account's Matrix user, as its cache knows it (none yet: not listed). */
+    private suspend fun userIds(): Set<String> = signedIn().mapNotNull { userOf(it) }.toSet()
+
+    private suspend fun userOf(graph: AccountGraph) =
+        graph.database
+            .syncDao()
+            .meta()
+            ?.userId
+
+    /** The signed-in account that is the Matrix user [userId], if any. */
+    suspend fun accountOfUser(userId: String): String? = signedIn().firstOrNull { userOf(it) == userId }?.id
+
+    /**
+     * The account to open a room link from elsewhere in: the shown one if it's in the room (or the
+     * link isn't to a room ID), else another signed-in account that is. Null: the shown one.
+     */
+    suspend fun accountForLink(uri: String): String? {
+        val roomId = MatrixLink.parse(uri)?.id?.takeIf { it.startsWith("!") } ?: return null
+        val active = registry.active.value ?: return null
+
+        suspend fun AccountGraph.isIn() = roomListRepository.room(roomId).first() != null
+        if (graph(active).isIn()) return null
+        return signedIn().firstOrNull { it.id != active && it.isIn() }?.id
     }
 
     /** Every signed-in account's graph (built if need be), in the order they were added. */

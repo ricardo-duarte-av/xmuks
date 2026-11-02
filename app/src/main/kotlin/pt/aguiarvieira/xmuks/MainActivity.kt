@@ -144,8 +144,9 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * What [intent] asks for, as the account it's for: one of our notifications, shortcuts or call
-     * screens says which, and that account is shown first. Anything else is for the one shown.
+     * What [intent] asks for, as the account it's for, shown first: one of our notifications,
+     * shortcuts or call screens says which; a room link from elsewhere goes to an account in the
+     * room. Anything else is for the one shown.
      */
     private fun take(intent: Intent) {
         val account =
@@ -154,14 +155,16 @@ class MainActivity : ComponentActivity() {
                 ?: intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID)?.let {
                     RoomKeys.accountOf(it) ?: AccountRegistry.LEGACY
                 }
-        if (account == null || account == accounts.active.value) {
+        lifecycleScope.launch {
+            val link = intent.data?.takeIf { intent.action == Intent.ACTION_VIEW && account == null }
+            show(account ?: link?.let { accounts.accountForLink(it.toString()) })
             handle(intent)
-        } else {
-            lifecycleScope.launch {
-                accounts.registry.activate(account)
-                handle(intent)
-            }
         }
+    }
+
+    /** Shows [account] (signed in), if it isn't already. */
+    private suspend fun show(account: String?) {
+        if (account != null && account != accounts.active.value) accounts.registry.activate(account)
     }
 
     /** A Matrix link to open, a call to show, or something shared to send. */
@@ -190,15 +193,11 @@ class MainActivity : ComponentActivity() {
         val row = intent.data ?: return
         val type = intent.type
         lifecycleScope.launch {
-            val uri =
-                withContext(Dispatchers.IO) {
-                    runCatching {
-                        contentResolver.query(row, arrayOf(ContactsContract.Data.DATA1), null, null, null)?.use { c ->
-                            if (c.moveToFirst()) c.getString(0) else null
-                        }
-                    }.getOrNull()
-                } ?: return@launch
+            val uri = withContext(Dispatchers.IO) { column(row, ContactsContract.Data.DATA1) } ?: return@launch
             val userId = PeopleUris.userOf(uri) ?: return@launch
+            // The account whose contact it is: its Android account is named after our user.
+            val owner = withContext(Dispatchers.IO) { column(row, ContactsContract.RawContacts.ACCOUNT_NAME) }
+            show(owner?.let { accounts.accountOfUser(it) })
             val room = contacts.get().directRoom(userId)
             when {
                 room == null -> link.value = uri
@@ -207,6 +206,17 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    /** [row]'s [column], if it can be read. */
+    private fun column(
+        row: Uri,
+        column: String,
+    ): String? =
+        runCatching {
+            contentResolver.query(row, arrayOf(column), null, null, null)?.use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            }
+        }.getOrNull()
 
     private fun shareOf(intent: Intent): ShareRequest? {
         val uris =

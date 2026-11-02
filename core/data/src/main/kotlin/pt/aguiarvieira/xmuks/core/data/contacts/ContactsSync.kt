@@ -26,8 +26,9 @@ import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import java.io.ByteArrayOutputStream
 
 /**
- * Keeps xmuks' phone contacts (DM partners) in step with the DMs, while the setting is on and we
- * may write contacts; turning it off takes them all away again.
+ * Keeps an account's phone contacts (its DM partners) in step with its DMs, while the setting is on
+ * and we may write contacts; turning it off takes them away again. Each account has its own (an
+ * Android account named after its Matrix user), and leaves the others' be.
  */
 class ContactsSync(
     private val context: Context,
@@ -37,6 +38,8 @@ class ContactsSync(
     private val database: XmuksDatabase,
     private val images: ImageLoader,
     private val scope: CoroutineScope,
+    /** Every signed-in account's Matrix user: one account's sync leaves the others' contacts be. */
+    private val signedInUsers: suspend () -> Set<String> = { emptySet() },
 ) {
     /** Photos already fetched, by avatar URL: a rename shouldn't download every avatar again. */
     private val photos = HashMap<String, ByteArray>()
@@ -64,9 +67,14 @@ class ContactsSync(
                         ) {
                             contacts.sync(
                                 me,
-                                list.map { dm -> ContactPerson(dm.userId, dm.name, photo(dm.avatarUrl), dm.network) }
+                                list.map { dm -> ContactPerson(dm.userId, dm.name, photo(dm.avatarUrl), dm.network) },
+                                others = signedInUsers() - me,
                             )
-                        } else {
+                        } else if (me != null) {
+                            // Off for this account: its contacts go, another account's stay.
+                            contacts.clear(me)
+                        } else if (signedInUsers().isEmpty()) {
+                            // Signed out, and nobody left whose contacts they could be.
                             contacts.clear()
                         }
                     }
