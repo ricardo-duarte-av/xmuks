@@ -142,6 +142,12 @@ fun TimelineSnapshot.currentContent(eventId: String): JsonObject? {
     return edit?.effectiveContent?.obj("m.new_content") ?: event.effectiveContent
 }
 
+/** Synapse's mark on an event it soft-failed, sent only when its admin lets those through. */
+internal val Event.softFailed: Boolean
+    get() = (unsigned?.get(SOFT_FAILED) as? JsonPrimitive)?.booleanOrNull == true
+
+private const val SOFT_FAILED = "io.element.synapse.soft_failed"
+
 internal fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
 
 internal fun JsonObject.obj(key: String) = get(key) as? JsonObject

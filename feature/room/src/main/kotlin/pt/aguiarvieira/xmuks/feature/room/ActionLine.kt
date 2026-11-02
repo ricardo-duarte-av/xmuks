@@ -193,7 +193,12 @@ internal fun StateChangeRow(
         resolver = resolver,
         actions = actions,
         highlighted = highlighted,
-        footer = { Text(time, color = muted, style = MaterialTheme.typography.labelSmall) },
+        footer = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (item.softFailed) SoftFailedTag()
+                Text(time, color = muted, style = MaterialTheme.typography.labelSmall)
+            }
+        },
         // Held, it offers what any event does (react, reply, its source).
         modifier =
             modifier.combinedClickable(

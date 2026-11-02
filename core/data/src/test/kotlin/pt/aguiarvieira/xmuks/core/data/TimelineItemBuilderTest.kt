@@ -111,6 +111,17 @@ class TimelineItemBuilderTest {
     }
 
     @Test
+    fun `soft-failed events are marked, as Synapse marks them`() {
+        val softFailed: Event.() -> Event = { copy(unsigned = json("""{"io.element.synapse.soft_failed":true}""")) }
+        val items =
+            build(
+                ev(block = softFailed),
+                ev(ts = t0 + 1_000),
+            ).messages()
+        assertEquals(listOf(true, false), items.map { it.softFailed })
+    }
+
+    @Test
     fun `bridged senders carry their network, matched by protocol ID`() {
         val whatsapp = SenderNetwork("WhatsApp", "mxc://maunium.net/wa")
         val signal = SenderNetwork("Signal", "mxc://maunium.net/signal")

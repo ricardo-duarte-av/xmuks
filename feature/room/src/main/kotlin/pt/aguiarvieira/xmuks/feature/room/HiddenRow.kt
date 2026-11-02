@@ -108,6 +108,7 @@ private fun Header(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+        if (item.softFailed) SoftFailedTag()
         Text(rememberTime(item.timestamp), color = muted, style = MaterialTheme.typography.labelSmall)
     }
 }

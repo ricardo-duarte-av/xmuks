@@ -72,6 +72,8 @@ sealed interface TimelineItem {
         val mentionsMe: Boolean = false,
         /** The sender is a bridged user: the network they're on. */
         val senderNetwork: SenderNetwork? = null,
+        /** The server soft-failed it (see [softFailed]). */
+        val softFailed: Boolean = false,
     ) : TimelineItem {
         /** The label as plain text ("profile via sender", or the sender's name). */
         val senderName: String get() = label.text
@@ -92,6 +94,8 @@ sealed interface TimelineItem {
         val timestamp: Long,
         val reactions: List<Reaction> = emptyList(),
         val readBy: List<Reader> = emptyList(),
+        /** The server soft-failed it (see [softFailed]). */
+        val softFailed: Boolean = false,
     ) : TimelineItem
 
     /**
@@ -109,6 +113,8 @@ sealed interface TimelineItem {
         val fromMe: Boolean = false,
         /** Like any event, it can be reacted to (and replied to, and deleted). */
         val reactions: List<Reaction> = emptyList(),
+        /** The server soft-failed it (see [softFailed]). */
+        val softFailed: Boolean = false,
     ) : TimelineItem
 
     data class DaySeparator(
@@ -134,6 +140,19 @@ sealed interface TimelineItem {
         override val key: String = "unread-separator"
     }
 }
+
+/**
+ * An event the server soft-failed: it passed the auth checks against its own history, but not
+ * against the room's current state. Hidden from clients unless the server's admin lets them through.
+ */
+val TimelineItem.softFailed: Boolean
+    get() =
+        when (this) {
+            is TimelineItem.Message -> softFailed
+            is TimelineItem.StateChange -> softFailed
+            is TimelineItem.Hidden -> softFailed
+            else -> false
+        }
 
 sealed interface Change {
     data object Joined : Change

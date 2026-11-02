@@ -91,6 +91,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.Typist
+import pt.aguiarvieira.xmuks.core.data.timeline.softFailed
 import pt.aguiarvieira.xmuks.core.designsystem.component.HeaderTitle
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
@@ -898,10 +899,12 @@ private fun TimelineList(
     ) {
         items(items, key = { it.key }, contentType = { it::class }) { item ->
             val lit = item.eventId != null && item.eventId == highlighted
+            // Soft-failed: shown (the server's admin let it through), but faded.
+            val row = Modifier.animateItem().then(if (item.softFailed) Modifier.alpha(SOFT_FAILED_ALPHA) else Modifier)
             when (item) {
-                is TimelineItem.Message -> MessageRow(item, resolver, actions, Modifier.animateItem(), lit)
-                is TimelineItem.StateChange -> StateChangeRow(item, resolver, actions, Modifier.animateItem(), lit)
-                is TimelineItem.Hidden -> HiddenRow(item, resolver, actions, Modifier.animateItem())
+                is TimelineItem.Message -> MessageRow(item, resolver, actions, row, lit)
+                is TimelineItem.StateChange -> StateChangeRow(item, resolver, actions, row, lit)
+                is TimelineItem.Hidden -> HiddenRow(item, resolver, actions, row)
                 is TimelineItem.DaySeparator -> DayRow(item.day, Modifier.animateItem())
                 is TimelineItem.Call -> CallRow(item, actions, Modifier.animateItem(), lit)
                 TimelineItem.UnreadSeparator -> UnreadRow(Modifier.animateItem())

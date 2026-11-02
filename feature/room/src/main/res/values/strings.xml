@@ -4,6 +4,8 @@
     <string name="undecryptable">Waiting for this message\'s encryption key</string>
     <string name="unsupported">Unsupported message (%1$s)</string>
     <string name="edited">edited</string>
+    <string name="soft_failed">soft-failed</string>
+    <string name="soft_failed_why">The server soft-failed this event: it doesn\'t fit the room\'s current state (a ban, or lost permissions), so the room never took it in. Your server\'s admin lets these show.</string>
     <string name="reply_unavailable">Reply to a message that isn\'t loaded</string>
     <string name="sticker">Sticker</string>
     <string name="audio">Audio message</string>

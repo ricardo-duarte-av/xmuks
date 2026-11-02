@@ -1,5 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -11,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -19,6 +22,21 @@ import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import java.text.DateFormat
 import java.util.Date
+
+/** Beside the time of an event the server soft-failed; tapped, it says what that means. */
+@Composable
+internal fun SoftFailedTag() {
+    val context = LocalContext.current
+    Text(
+        stringResource(R.string.soft_failed),
+        color = MaterialTheme.colorScheme.error,
+        style = MaterialTheme.typography.labelSmall,
+        modifier = Modifier.clickable { Toast.makeText(context, R.string.soft_failed_why, Toast.LENGTH_LONG).show() },
+    )
+}
+
+/** How faded a soft-failed event is: there, but plainly not part of the room. */
+internal const val SOFT_FAILED_ALPHA = 0.5f
 
 /** The short local time of [timestamp]. */
 @Composable
@@ -45,6 +63,7 @@ internal fun Footer(
                 style = MaterialTheme.typography.labelSmall
             )
         }
+        if (message.softFailed) SoftFailedTag()
         if (message.edited) {
             Text(
                 stringResource(R.string.edited),

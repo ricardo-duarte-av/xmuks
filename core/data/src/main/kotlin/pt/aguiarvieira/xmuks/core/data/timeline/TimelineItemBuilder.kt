@@ -125,6 +125,7 @@ class TimelineItemBuilder(
         senderAvatarMxc = members[event.sender]?.avatarMxc,
         fromMe = event.sender == me,
         reactions = reactionsOf(event, myReactions),
+        softFailed = event.softFailed,
     )
 
     private fun callItem(
@@ -195,6 +196,7 @@ class TimelineItemBuilder(
             linkPreviews = if (options.showUrlPreviews) linkPreviewsOf(content) else emptyList(),
             mentionsMe = event.sender != me && highlights(event, content, me),
             senderNetwork = senderNetworkOf(profile, perMessage, networks),
+            softFailed = event.softFailed,
             bridgeDelivery =
                 if (event.sender != me) {
                     null
@@ -368,6 +370,7 @@ class TimelineItemBuilder(
             timestamp = event.timestamp,
             reactions = reactionsOf(event, myReactions),
             readBy = readers[event.eventId].orEmpty().toReaders(me, event.sender, members),
+            softFailed = event.softFailed,
         )
     }
 
