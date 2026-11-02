@@ -62,6 +62,8 @@ import pt.aguiarvieira.xmuks.core.designsystem.R as DesignR
 @Composable
 fun LoginRoute(
     modifier: Modifier = Modifier,
+    /** Adding an account (one is signed in already): the way back to it. Null on first sign-in. */
+    onClose: (() -> Unit)? = null,
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val status by viewModel.status.collectAsStateWithLifecycle()
@@ -86,6 +88,7 @@ fun LoginRoute(
         onEdit = viewModel::clearError,
         onSubmit = viewModel::submit,
         modifier = modifier,
+        onClose = onClose,
     )
 }
 
@@ -97,6 +100,8 @@ fun LoginScreen(
     onEdit: () -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Adding an account: closes the screen, back to the one shown. */
+    onClose: (() -> Unit)? = null,
 ) {
     val currentOnEdit by rememberUpdatedState(onEdit)
     LaunchedEffect(form) {
@@ -122,7 +127,7 @@ fun LoginScreen(
                 modifier = Modifier.widthIn(max = 480.dp).padding(horizontal = 24.dp, vertical = 48.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Header()
+                Header(adding = onClose != null)
                 OutlinedTextField(
                     state = form.server,
                     label = { Text(stringResource(R.string.login_server)) },
@@ -161,13 +166,18 @@ fun LoginScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            if (onClose != null) {
+                IconButton(onClick = onClose, modifier = Modifier.align(Alignment.TopStart).padding(4.dp)) {
+                    Icon(painterResource(R.drawable.ic_close), stringResource(R.string.login_close))
+                }
+            }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun Header() {
+private fun Header(adding: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Box(
             modifier =
@@ -183,12 +193,12 @@ private fun Header() {
             )
         }
         Text(
-            stringResource(R.string.login_title),
+            stringResource(if (adding) R.string.login_add_title else R.string.login_title),
             style = MaterialTheme.typography.displaySmallEmphasized,
             modifier = Modifier.padding(top = 8.dp),
         )
         Text(
-            stringResource(R.string.login_subtitle),
+            stringResource(if (adding) R.string.login_add_subtitle else R.string.login_subtitle),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -66,6 +66,14 @@ class AccountRegistry(
     /** [id]'s login (empty for an ID not signed in). */
     fun store(id: String): CredentialStore = stores.getOrPut(id) { CredentialStore(sessionStore(id), cipher, scope) }
 
+    /** The signed-in account that is [credentials]' user on [credentials]' gomuks, if any. */
+    fun idFor(credentials: Credentials): String? =
+        _ids.value.firstOrNull { id ->
+            store(id).credentials()?.let {
+                it.serverUrl == credentials.serverUrl && it.username == credentials.username
+            } == true
+        }
+
     /** The ID a new sign-in will use: the old files' while they're free, else a fresh one. */
     fun nextId(): String =
         pending ?: synchronized(this) {

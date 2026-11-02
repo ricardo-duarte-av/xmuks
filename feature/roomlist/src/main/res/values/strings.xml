@@ -18,6 +18,10 @@
     <string name="back">Back</string>
     <string name="account">Account</string>
     <string name="account_options">Options</string>
+    <string name="account_profile">Your profile</string>
+    <string name="account_add">Add another account</string>
+    <string name="account_switch">Switch to this account</string>
+    <string name="account_others_unread">Unread messages in another account</string>
     <string name="account_mentions">Mentions</string>
     <string name="account_search">Search</string>
     <string name="status_connecting">Connecting…</string>

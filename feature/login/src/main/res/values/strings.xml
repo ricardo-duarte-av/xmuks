@@ -1,5 +1,8 @@
 <resources>
     <string name="login_title">Welcome to xmuks</string>
+    <string name="login_add_title">Add an account</string>
+    <string name="login_add_subtitle">Connect to another gomuks backend. Switch between your accounts from your avatar on the room list.</string>
+    <string name="login_close">Close</string>
     <string name="login_subtitle">Connect to your gomuks backend.</string>
     <string name="login_server">gomuks server</string>
     <string name="login_username">Username</string>

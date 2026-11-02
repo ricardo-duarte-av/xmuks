@@ -47,6 +47,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.LocalSharedTransitionSc
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import pt.aguiarvieira.xmuks.feature.call.CallRoute
 import pt.aguiarvieira.xmuks.feature.call.OngoingCallStrip
+import pt.aguiarvieira.xmuks.feature.login.LoginRoute
 import pt.aguiarvieira.xmuks.feature.media.MediaViewerRoute
 import pt.aguiarvieira.xmuks.feature.profile.IgnoredUsersRoute
 import pt.aguiarvieira.xmuks.feature.profile.InviteRoute
@@ -195,6 +196,9 @@ import pt.aguiarvieira.xmuks.feature.share.ShareRoute
     val answer: Boolean = false,
 ) : NavKey
 
+/** Signing in to another gomuks (from the account switcher); done, the app shows that account. */
+@Serializable data object AddAccountKey : NavKey
+
 /** A call screen asked for from outside navigation (a notification). */
 data class CallRequest(
     val roomId: String,
@@ -319,6 +323,7 @@ fun XmuksNavHost(
                                         onSearchMessages = { backStack.add(SearchKey()) },
                                         onOpenInvite = { backStack.add(InviteKey(it)) },
                                         onOpenDirectory = { backStack.add(DirectoryKey(it)) },
+                                        onAddAccount = { backStack.add(AddAccountKey) },
                                     )
                                 }
                             }
@@ -455,6 +460,11 @@ fun XmuksNavHost(
                             entry<PreferencesKey> { key ->
                                 Destination(roomId = key.roomId) {
                                     PreferencesRoute(roomId = key.roomId, onBack = { backStack.back(key) })
+                                }
+                            }
+                            entry<AddAccountKey> { key ->
+                                Destination {
+                                    LoginRoute(onClose = { backStack.back(key) })
                                 }
                             }
                             entry<SettingsKey> { key ->

@@ -51,9 +51,11 @@ class SessionRepository(
         val credentials = Credentials(url, username.trim(), password)
         return when (val result = withContext(io) { authApi.login(credentials) }) {
             is AuthResult.Success -> {
-                val id = registry.nextId()
+                // Signing in again as an account we have: that one, shown, its login refreshed.
+                val existing = registry.idFor(credentials)
+                val id = existing ?: registry.nextId()
                 // Also on login, not just logout: nothing from a previous account may leak into this one.
-                clearAccountData(id)
+                if (existing == null) clearAccountData(id)
                 registry.signIn(id, credentials, result.token)
                 LoginResult.Success
             }

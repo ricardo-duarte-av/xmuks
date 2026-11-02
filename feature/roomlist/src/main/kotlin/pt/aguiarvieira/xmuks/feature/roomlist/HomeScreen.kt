@@ -51,6 +51,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -65,6 +66,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -99,8 +102,13 @@ fun HomeRoute(
     onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
     /** Our server's room directory; [spaces] when opened from the Spaces tab. */
     onOpenDirectory: (spaces: Boolean) -> Unit = {},
+    /** Signing in to another gomuks, from the account switcher. */
+    onAddAccount: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
+    accountsViewModel: AccountsViewModel = hiltViewModel(),
 ) {
+    val accounts by accountsViewModel.state.collectAsStateWithLifecycle()
+    var switcher by rememberSaveable { mutableStateOf(false) }
     val chats by viewModel.chats.collectAsStateWithLifecycle()
     val dms by viewModel.dms.collectAsStateWithLifecycle()
     val spaces by viewModel.spaces.collectAsStateWithLifecycle()
@@ -123,13 +131,14 @@ fun HomeRoute(
                     viewModel.account,
                     profile,
                     badges,
-                    invites
+                    invites,
+                    othersUnread = accounts.othersUnread,
                 ),
             onTabChange = onTabChange,
             onRefresh = viewModel::refresh,
             onOpenRoom = onOpenRoom,
             onOpenSpace = onOpenSpace,
-            onAccountClick = { profile?.userId?.let(onOpenProfile) },
+            onAccountClick = { switcher = true },
             modifier = modifier,
             onOpenNotifications = onOpenNotifications,
             onSearchMessages = onSearchMessages,
@@ -139,6 +148,15 @@ fun HomeRoute(
             onOpenDirectory = onOpenDirectory,
             onReorderSpaces = viewModel::reorderSpaces,
         )
+        if (switcher) {
+            AccountSheet(
+                state = accounts,
+                onOpenProfile = onOpenProfile,
+                onSwitch = accountsViewModel::switchTo,
+                onAddAccount = onAddAccount,
+                onDismiss = { switcher = false },
+            )
+        }
     }
 }
 
@@ -154,6 +172,8 @@ data class HomeUiState(
     val badges: TabBadges = TabBadges(),
     /** Pending invites, newest first; each tab shows its own kind. */
     val invites: List<InviteRow> = emptyList(),
+    /** Another signed-in account has something unread: a dot on our avatar. */
+    val othersUnread: Boolean = false,
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -326,8 +346,9 @@ internal fun TabContent(
 }
 
 /**
- * Our display name and Matrix ID beside our avatar; tapping any of it opens the options (mentions,
- * search and the room directory are on the bar).
+ * Our display name and Matrix ID beside our avatar; tapping any of it opens the account switcher
+ * (mentions, search and the room directory are on the bar). A dot on the avatar: another account
+ * has something unread.
  */
 @Composable
 private fun AccountChip(
@@ -364,12 +385,24 @@ private fun AccountChip(
                 )
             }
         }
-        RoomAvatar(
-            name = state.profile?.displayName ?: state.account,
-            id = state.profile?.userId ?: state.account,
-            avatarUrl = state.profile?.avatarUrl,
-            size = 32.dp,
-        )
+        val othersUnread = stringResource(R.string.account_others_unread)
+        BadgedBox(
+            badge = {
+                if (state.othersUnread) {
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.semantics { contentDescription = othersUnread },
+                    )
+                }
+            },
+        ) {
+            RoomAvatar(
+                name = state.profile?.displayName ?: state.account,
+                id = state.profile?.userId ?: state.account,
+                avatarUrl = state.profile?.avatarUrl,
+                size = 32.dp,
+            )
+        }
     }
 }
 
