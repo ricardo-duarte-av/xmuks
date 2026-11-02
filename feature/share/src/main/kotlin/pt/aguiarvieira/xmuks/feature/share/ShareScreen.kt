@@ -108,6 +108,8 @@ fun ShareRoute(
     val chosen = room?.let { id -> rooms?.firstOrNull { it.roomId == id } }
     // Forwarding a message whole: the tap on a room sends it (once).
     var forwarding by rememberSaveable { mutableStateOf(false) }
+    // Sending the files: once, however often Send is tapped while they're prepared.
+    var sending by rememberSaveable { mutableStateOf(false) }
     if (request.message != null) {
         RoomPicker(
             rooms,
@@ -149,7 +151,13 @@ fun ShareRoute(
             onChangeRoom = { viewModel.choose(null) },
             onRemove = viewModel::remove,
             sizes = Sizes(sizes, size, viewModel::chooseSize).takeIf { sizes.size > 1 },
-            onSend = { captions -> scope.launch { onDone(viewModel.send(captions)) } },
+            sending = sending,
+            onSend = { captions ->
+                if (!sending) {
+                    sending = true
+                    scope.launch { onDone(viewModel.send(captions)) }
+                }
+            },
             onBack = { if (request.roomId == null) viewModel.choose(null) else onDone(null) },
             modifier = modifier,
         )
@@ -281,6 +289,8 @@ internal fun CaptionScreen(
     modifier: Modifier = Modifier,
     /** A forwarded picture's sizes to choose from; null when there's no choice. */
     sizes: Sizes? = null,
+    /** Send was tapped: it shrinks to a spinner and takes no more taps. */
+    sending: Boolean = false,
 ) {
     // Captions by item; the shared text starts as the first one's.
     val captions = remember { mutableStateMapOf<String, TextFieldState>() }
@@ -311,8 +321,15 @@ internal fun CaptionScreen(
                             },
                         )
                     },
-                    icon = { Icon(painterResource(R.drawable.ic_send), null) },
+                    icon = {
+                        if (sending) {
+                            CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(painterResource(R.drawable.ic_send), null)
+                        }
+                    },
                     text = { Text(stringResource(R.string.share_send)) },
+                    expanded = !sending,
                     modifier = Modifier.imePadding(),
                 )
             }
