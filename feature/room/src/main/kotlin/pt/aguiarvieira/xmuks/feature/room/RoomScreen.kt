@@ -145,6 +145,7 @@ fun RoomRoute(
     val hasMoreBefore by viewModel.hasMoreBefore.collectAsStateWithLifecycle()
     val linkPreviews by viewModel.linkPreviews.previews.collectAsStateWithLifecycle()
     val bridge by viewModel.bridge.collectAsStateWithLifecycle()
+    val account by viewModel.account.collectAsStateWithLifecycle()
     val features by viewModel.features.collectAsStateWithLifecycle()
     val limited by viewModel.limited.value.collectAsStateWithLifecycle()
     val call by viewModel.call.collectAsStateWithLifecycle()
@@ -214,6 +215,7 @@ fun RoomRoute(
             timeline =
                 TimelineState(items, loadingOlder, hasMoreBefore, loadedEvents, unread, newestEvent, refreshing),
             bridge = bridge,
+            account = account,
             context = context,
             typing = typing,
             resolver = resolver,
@@ -479,6 +481,8 @@ fun RoomScreen(
     pins: PinsUi = PinsUi(),
     /** What the room is bridged to: the composer and header say so. */
     bridge: BridgeInfo? = null,
+    /** The account it's written in as, while there are several: a badge on the room's avatar. */
+    account: SendingAccount? = null,
     /** Set in a preview: opening the room for real, from the bar that stands in for the composer. */
     onOpenFully: (() -> Unit)? = null,
 ) {
@@ -595,6 +599,7 @@ fun RoomScreen(
                     onNetworkLimits = composer.features?.let { { limitsShown = true } },
                     pinned = pins.menuCount(inThread),
                     onPins = { overlays.pinsShown = true },
+                    account = account,
                 )
                 UnderHeader(
                     call,
@@ -686,6 +691,7 @@ private fun HeaderCard(
     /** How many messages are pinned: the menu lists them when there are any. */
     pinned: Int = 0,
     onPins: () -> Unit = {},
+    account: SendingAccount? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     var startSheet by remember { mutableStateOf(false) }
@@ -720,6 +726,7 @@ private fun HeaderCard(
                                 fontSize = (it.fontSize.value - 2).sp
                             )
                         },
+                    avatarBadge = accountBadge(account, sharedScope),
                 )
             },
             actions = {

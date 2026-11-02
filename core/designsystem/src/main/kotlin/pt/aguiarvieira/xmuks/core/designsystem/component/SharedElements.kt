@@ -36,6 +36,12 @@ object SharedKeys {
         scope: String,
     ) = "bridge:$scope:$id"
 
+    /** The account shown: the room list's avatar chip, the room header's badge on the room avatar. */
+    fun account(
+        id: String,
+        scope: String,
+    ) = "account:$scope:$id"
+
     /** A piece of media (by event ID) growing into the viewer. */
     fun media(id: String) = "media:$id"
 }

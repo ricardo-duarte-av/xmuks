@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import pt.aguiarvieira.xmuks.core.account.AccountRegistry
+import pt.aguiarvieira.xmuks.core.data.account.AccountGraph
 import pt.aguiarvieira.xmuks.core.data.calls.RoomCall
 import pt.aguiarvieira.xmuks.core.data.calls.RoomCalls
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
@@ -87,6 +89,9 @@ class RoomViewModel
         private val preferences: PreferenceStore,
         /** Code blocks' colours, as gomuks serves them for its `code_block_theme`. */
         val codeThemes: CodeThemes,
+        /** The account this room is seen (and written in) as. */
+        graph: AccountGraph,
+        registry: AccountRegistry,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -134,6 +139,21 @@ class RoomViewModel
 
         /** The room's call, while there is one. */
         val call: StateFlow<RoomCall?> = roomCalls.of(roomId).stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        /**
+         * The account messages here go as, while there's more than one to tell apart: a badge on
+         * the room's avatar. Null with one account.
+         */
+        val account: StateFlow<SendingAccount?> =
+            combine(rooms.ownProfile(), registry.ids) { me, ids ->
+                if (ids.size < 2) return@combine null
+                val login =
+                    graph.store
+                        .credentials()
+                        ?.username
+                        .orEmpty()
+                SendingAccount(graph.id, me?.displayName ?: login, me?.userId ?: login, me?.avatarUrl)
+            }.stateIn(viewModelScope, WHILE_VISIBLE, null)
 
         /** What this room is bridged to, if it is. */
         val bridge: StateFlow<BridgeInfo?> = session.bridge.stateIn(viewModelScope, WHILE_VISIBLE, null)

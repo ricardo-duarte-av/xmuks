@@ -82,7 +82,9 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
+import pt.aguiarvieira.xmuks.core.designsystem.component.SharedKeys
 import pt.aguiarvieira.xmuks.core.designsystem.component.UnreadLevel
+import pt.aguiarvieira.xmuks.core.designsystem.component.sharedElement
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
@@ -133,6 +135,7 @@ fun HomeRoute(
                     badges,
                     invites,
                     othersUnread = accounts.othersUnread,
+                    accountId = accounts.current?.id,
                 ),
             onTabChange = onTabChange,
             onRefresh = viewModel::refresh,
@@ -174,6 +177,8 @@ data class HomeUiState(
     val invites: List<InviteRow> = emptyList(),
     /** Another signed-in account has something unread: a dot on our avatar. */
     val othersUnread: Boolean = false,
+    /** The account shown: its avatar flies to the badge on an opened room's avatar. */
+    val accountId: String? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -401,6 +406,10 @@ private fun AccountChip(
                 id = state.profile?.userId ?: state.account,
                 avatarUrl = state.profile?.avatarUrl,
                 size = 32.dp,
+                // Keyed by the tab's list: only a room opened from it takes the avatar as its badge.
+                modifier =
+                    state.accountId?.let { Modifier.sharedElement(SharedKeys.account(it, state.tab.sharedScope)) }
+                        ?: Modifier,
             )
         }
     }
@@ -644,4 +653,13 @@ private val HomeTab.title
             HomeTab.Chats -> R.string.title_chats
             HomeTab.Dms -> R.string.title_dms
             HomeTab.Spaces -> R.string.title_spaces
+        }
+
+/** The shared-element scope of the tab's room list (see [SharedScopes]). */
+private val HomeTab.sharedScope
+    get() =
+        when (this) {
+            HomeTab.Chats -> SharedScopes.CHATS
+            HomeTab.Dms -> SharedScopes.DMS
+            HomeTab.Spaces -> SharedScopes.SPACES
         }

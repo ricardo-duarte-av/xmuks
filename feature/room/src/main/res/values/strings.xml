@@ -210,6 +210,7 @@
     <string name="bridge_failed">The bridge couldn’t deliver it</string>
     <string name="composer_hint_network">%1$s message</string>
     <string name="bridged_to">Bridged to %1$s</string>
+    <string name="sending_as">Sending as %1$s</string>
     <string name="sender_network">On %1$s</string>
     <string name="gallery">Media</string>
     <string name="gallery_all">All</string>

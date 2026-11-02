@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.share
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,27 +11,28 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import pt.aguiarvieira.xmuks.core.data.account.AccountSummary
+import pt.aguiarvieira.xmuks.core.data.account.Accounts
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.media.MediaKind
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
-import pt.aguiarvieira.xmuks.core.data.media.MediaSender
 import pt.aguiarvieira.xmuks.core.data.media.MediaShares
 import pt.aguiarvieira.xmuks.core.data.media.PickedFile
 import pt.aguiarvieira.xmuks.core.data.media.SizeOption
-import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
-import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
-import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
 import pt.aguiarvieira.xmuks.core.data.timeline.MediaForwarder
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
 import java.io.File
@@ -63,19 +65,17 @@ data class ForwardedMessage(
     val eventId: String,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel(assistedFactory = ShareViewModel.Factory::class)
 class ShareViewModel
     @AssistedInject
     constructor(
         @Assisted private val request: ShareRequest,
         @ApplicationContext private val context: Context,
-        repository: RoomListRepository,
+        private val accounts: Accounts,
         private val preparer: MediaPreparer,
-        private val sender: MediaSender,
-        private val drafts: DraftStore,
         private val forwarder: MediaForwarder,
         private val shares: MediaShares,
-        preferences: PreferenceStore,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -98,9 +98,28 @@ class ShareViewModel
          */
         private var order: Map<String, Int>? = null
 
-        /** Every room (DMs too), in [order], narrowed by [query]. */
+        /** The account it's shared as: the one shown, unless another is chosen. */
+        private val _account = MutableStateFlow(accounts.current().id)
+        val account: StateFlow<String> = _account.asStateFlow()
+
+        private val graph get() = accounts.graph(_account.value)
+
+        /** Forwarding a message or its media, not sharing files from another app. */
+        val forwarding: Boolean = request.forward != null || request.message != null
+
+        /**
+         * The accounts it could go as: a share from another app, with more than one signed in.
+         * Forwarding stays in the account it's forwarded from, as does a share to a given room.
+         */
+        val choices: StateFlow<List<AccountSummary>> =
+            accounts
+                .summaries()
+                .map { all -> if (forwarding || request.roomId != null || all.size < 2) emptyList() else all }
+                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+        /** Every room (DMs too) of the [account], in [order], narrowed by [query]. */
         val rooms: StateFlow<List<RoomSummary>?> =
-            combine(repository.chats(), query) { all, q ->
+            combine(_account.flatMapLatest { accounts.graph(it).roomListRepository.chats() }, query) { all, q ->
                 val fixed = order ?: all.withIndex().associate { (i, room) -> room.roomId to i }.also { order = it }
                 val stable = all.sortedBy { fixed[it.roomId] ?: Int.MAX_VALUE }
                 val needle = q.trim()
@@ -113,14 +132,15 @@ class ShareViewModel
 
         /** Several files go as one gallery (xmuks' setting), with one caption: [GALLERY_CAPTION]. */
         val gallery: StateFlow<Boolean> =
-            combine(preferences.value(Prefs.sendGallery), _items) { on, list -> on && (list?.size ?: 0) > 1 }
-                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+            combine(
+                _account.flatMapLatest { accounts.graph(it).preferences.value(Prefs.sendGallery) },
+                _items
+            ) { on, list ->
+                on && (list?.size ?: 0) > 1
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
         /** The text that came with the share: the first file's caption, or the message itself. */
         val text: String? = request.text?.takeIf { it.isNotBlank() }
-
-        /** Forwarding a message or its media, not sharing files from another app. */
-        val forwarding: Boolean = request.forward != null || request.message != null
 
         /** A forwarded picture's sizes: Original, then the smaller ones (once its copy is here). */
         private val _sizes = MutableStateFlow<List<SizeOption>>(emptyList())
@@ -150,6 +170,20 @@ class ShareViewModel
         fun choose(roomId: String?) {
             _room.value = roomId
         }
+
+        /** Shares as [id] instead: its rooms to choose from (in their own order). */
+        fun chooseAccount(id: String) {
+            if (id == _account.value) return
+            order = null
+            _room.value = null
+            _account.value = id
+        }
+
+        /**
+         * Opening [roomId] as the account shared as, when that isn't the one shown (it's shown
+         * first); null when it is, and the room opens here.
+         */
+        fun elsewhere(roomId: String): Intent? = graph.takeIf { it.id != accounts.active.value }?.roomIntent(roomId)
 
         fun chooseSize(size: ImageSize) {
             _size.value = size
@@ -199,6 +233,7 @@ class ShareViewModel
          */
         suspend fun send(captions: Map<String, String>): String? {
             val roomId = _room.value ?: return null
+            val sender = graph.mediaSender
             val forward = request.forward
             if (forward != null) {
                 val from = forward.roomId ?: return null
@@ -219,7 +254,7 @@ class ShareViewModel
             }
             val files = _items.value.orEmpty()
             if (files.isEmpty()) {
-                text?.let { drafts.save(roomId, it) }
+                text?.let { graph.drafts.save(roomId, it) }
                 return roomId
             }
             val encrypted = rooms.value?.firstOrNull { it.roomId == roomId }?.encrypted == true

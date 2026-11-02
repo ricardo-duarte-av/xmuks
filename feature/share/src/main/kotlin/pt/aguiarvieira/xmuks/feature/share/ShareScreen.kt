@@ -32,6 +32,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -45,6 +46,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -70,6 +72,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import pt.aguiarvieira.xmuks.core.data.account.AccountSummary
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.media.MediaKind
 import pt.aguiarvieira.xmuks.core.data.media.SizeOption
@@ -103,6 +106,8 @@ fun ShareRoute(
     val gallery by viewModel.gallery.collectAsStateWithLifecycle()
     val sizes by viewModel.sizes.collectAsStateWithLifecycle()
     val size by viewModel.size.collectAsStateWithLifecycle()
+    val choices by viewModel.choices.collectAsStateWithLifecycle()
+    val account by viewModel.account.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val chosen = room?.let { id -> rooms?.firstOrNull { it.roomId == id } }
@@ -138,6 +143,7 @@ fun ShareRoute(
             { onDone(null) },
             modifier,
             title = stringResource(if (viewModel.forwarding) R.string.forward_to else R.string.share_to),
+            accounts = AccountChoice(choices, account, viewModel::chooseAccount),
         )
     } else {
         // Back from the captions goes to the picker, unless the room was given by the share.
@@ -155,7 +161,17 @@ fun ShareRoute(
             onSend = { captions ->
                 if (!sending) {
                     sending = true
-                    scope.launch { onDone(viewModel.send(captions)) }
+                    scope.launch {
+                        val sent = viewModel.send(captions)
+                        // Sent as an account not shown: it's shown, with the room open.
+                        val elsewhere = sent?.let(viewModel::elsewhere)
+                        if (elsewhere == null) {
+                            onDone(sent)
+                        } else {
+                            onDone(null)
+                            context.startActivity(elsewhere)
+                        }
+                    }
                 }
             },
             onBack = { if (request.roomId == null) viewModel.choose(null) else onDone(null) },
@@ -173,6 +189,7 @@ private fun RoomPicker(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     title: String = stringResource(R.string.share_to),
+    accounts: AccountChoice? = null,
 ) {
     val search = rememberTextFieldState()
     val query by rememberUpdatedState(onQuery)
@@ -193,6 +210,7 @@ private fun RoomPicker(
                         colors = ScreenCards.pillColors,
                         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                     )
+                    accounts?.takeIf { it.accounts.isNotEmpty() }?.let { AccountChips(it) }
                 }
             }
         },
@@ -205,6 +223,44 @@ private fun RoomPicker(
                 .fillMaxSize(),
         ) {
             RoomList(rooms, onChoose)
+        }
+    }
+}
+
+/** The accounts a share could go as, which one it goes as, and choosing another. */
+@Immutable
+internal data class AccountChoice(
+    val accounts: List<AccountSummary>,
+    val chosen: String,
+    val onChoose: (String) -> Unit,
+)
+
+/** One chip per signed-in account, the one shared as selected: its rooms are the ones listed. */
+@Composable
+private fun AccountChips(choice: AccountChoice) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+    ) {
+        choice.accounts.forEach { account ->
+            val name = account.profile?.displayName ?: account.login
+            FilterChip(
+                selected = account.id == choice.chosen,
+                onClick = { choice.onChoose(account.id) },
+                label = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                leadingIcon = {
+                    RoomAvatar(
+                        name,
+                        account.profile?.userId ?: account.login,
+                        account.profile?.avatarUrl,
+                        size = FilterChipDefaults.IconSize,
+                    )
+                },
+            )
         }
     }
 }

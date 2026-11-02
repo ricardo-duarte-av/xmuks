@@ -2,8 +2,10 @@ package pt.aguiarvieira.xmuks.core.designsystem.component
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -30,30 +32,39 @@ fun HeaderTitle(
     /** Tapping the name (and subtitle): a room's header opens its info. */
     onTitleClick: (() -> Unit)? = null,
     titleStyle: TextStyle = MaterialTheme.typography.titleLarge,
+    /** A small mark on the avatar's top right corner (a room's: the account it's seen as). */
+    avatarBadge: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        RoomAvatar(
-            name = name,
-            id = id,
-            avatarUrl = avatarUrl,
-            size = 40.dp,
-            modifier =
-                Modifier
-                    .sharedElement(SharedKeys.avatar(id, sharedScope))
-                    .then(
-                        if (onAvatarClick !=
-                            null
-                        ) {
-                            Modifier.clip(CircleShape).clickable(onClick = onAvatarClick)
-                        } else {
-                            Modifier
-                        }
-                    ),
-        )
+        Box {
+            RoomAvatar(
+                name = name,
+                id = id,
+                avatarUrl = avatarUrl,
+                size = 40.dp,
+                modifier =
+                    Modifier
+                        .sharedElement(SharedKeys.avatar(id, sharedScope))
+                        .then(
+                            if (onAvatarClick !=
+                                null
+                            ) {
+                                Modifier.clip(CircleShape).clickable(onClick = onAvatarClick)
+                            } else {
+                                Modifier
+                            }
+                        ),
+            )
+            avatarBadge?.let { badge ->
+                Box(Modifier.align(Alignment.TopEnd).offset(x = AVATAR_BADGE_OFFSET, y = -AVATAR_BADGE_OFFSET)) {
+                    badge()
+                }
+            }
+        }
         Column(
             if (onTitleClick != null) {
                 Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onTitleClick)
@@ -80,3 +91,6 @@ fun HeaderTitle(
         }
     }
 }
+
+/** How far a badge peeks out past the avatar's corner. */
+private val AVATAR_BADGE_OFFSET = 4.dp
