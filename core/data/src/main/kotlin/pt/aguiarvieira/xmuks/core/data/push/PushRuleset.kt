@@ -56,14 +56,13 @@ enum class NotifyPreset {
                         notify = true
                     }
 
-                    name == DONT_NOTIFY -> {
-                        Unit
-                    }
+                    // Deprecated, and the same as no actions at all.
+                    name == DONT_NOTIFY -> {}
 
                     // A highlight tweak with no value means true; false is as if it weren't there.
                     tweak == HIGHLIGHT -> {
                         highlight =
-                            ((action as JsonObject)["value"] as? JsonPrimitive)?.booleanOrNull != false
+                            (action["value"] as? JsonPrimitive)?.booleanOrNull != false
                     }
 
                     tweak == SOUND -> {
