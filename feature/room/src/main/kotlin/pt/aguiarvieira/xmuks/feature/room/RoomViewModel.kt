@@ -282,12 +282,16 @@ class RoomViewModel
         /** Whether the next send is a new message, a reply or an edit. */
         val modes = ComposeModes(draft)
 
-        /** People and rooms offered as a mention is typed. */
-        internal val mentions = ComposerMentions(viewModelScope, draft, roomId, mentionTargets)
+        /** Our custom emoji usable here, for completing `:shortcode`s. */
+        private val customEmoji =
+            emoji.packs.map { packs -> packs.flatMap { it.emojis } }.stateIn(viewModelScope, WHILE_VISIBLE, emptyList())
+
+        /** People, rooms and emoji offered as a mention or `:shortcode` is typed. */
+        internal val mentions = ComposerMentions(viewModelScope, draft, roomId, mentionTargets, customEmoji)
 
         /** The same, in another box (a media caption's), for as long as [scope] lasts. */
         val mentionsIn: (TextFieldState, CoroutineScope) -> ComposerMentions =
-            { field, scope -> ComposerMentions(scope, field, roomId, mentionTargets) }
+            { field, scope -> ComposerMentions(scope, field, roomId, mentionTargets, customEmoji) }
 
         /** Previews offered for the links being written, bundled when sent. */
         internal val linkPreviews =

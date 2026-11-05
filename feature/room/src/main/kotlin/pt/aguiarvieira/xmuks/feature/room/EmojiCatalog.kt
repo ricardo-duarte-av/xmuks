@@ -9,16 +9,20 @@ import kotlinx.serialization.json.jsonArray
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 
 /**
- * One Unicode emoji: the character, its group, its name, what a search matches, and its skin-tone
- * variants (empty when it has none).
+ * One Unicode emoji: the character, its group, its name, its shortcodes (`memo` for `:memo:`), what
+ * else a search matches, and its skin-tone variants (empty when it has none).
  */
 data class UnicodeEmoji(
     val emoji: String,
     val group: Int,
     val name: String,
-    val terms: List<String>,
+    val shortcodes: List<String>,
+    val tags: List<String>,
     val skins: List<String> = emptyList(),
-)
+) {
+    /** What a search matches besides the name: shortcodes, then tags. */
+    val terms: List<String> = shortcodes + tags
+}
 
 /**
  * The Unicode emoji the picker offers (bundled from emojibase by scripts/update-emoji.py), minus
@@ -52,9 +56,10 @@ object EmojiCatalog {
                     emoji = char,
                     group = (e[1] as JsonPrimitive).intOrNull ?: 0,
                     name = (e[2] as JsonPrimitive).content,
-                    terms = (e[3] as? JsonArray)?.map { (it as JsonPrimitive).content }.orEmpty(),
+                    shortcodes = e.strings(3),
+                    tags = e.strings(4),
                     skins =
-                        (e.getOrNull(4) as? JsonArray)
+                        (e.getOrNull(5) as? JsonArray)
                             ?.map { (it as JsonPrimitive).content }
                             ?.filter(paint::hasGlyph)
                             .orEmpty(),
@@ -62,6 +67,16 @@ object EmojiCatalog {
             }
         return Catalog(groups, emoji)
     }
+
+    private fun JsonArray.strings(index: Int) =
+        (getOrNull(index) as? JsonArray)?.map { (it as JsonPrimitive).content }.orEmpty()
+
+    private val byShortcode: Map<String, UnicodeEmoji> by lazy {
+        buildMap { catalog.emoji.forEach { e -> e.shortcodes.forEach { putIfAbsent(it, e) } } }
+    }
+
+    /** The emoji `:[shortcode]:` stands for, or null. */
+    fun byShortcode(shortcode: String): UnicodeEmoji? = byShortcode[shortcode.lowercase()]
 
     private val skinsByEmoji: Map<String, List<String>> by lazy {
         catalog.emoji

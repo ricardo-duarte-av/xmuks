@@ -153,6 +153,7 @@ fun RoomRoute(
     val canRedact by viewModel.canRedact.collectAsStateWithLifecycle()
     val newestEvent by viewModel.newestEvent.collectAsStateWithLifecycle()
     val mentionHints by viewModel.mentions.suggestions.collectAsStateWithLifecycle()
+    val emojiHints by viewModel.mentions.emoji.collectAsStateWithLifecycle()
     val loadedEvents by viewModel.loadedEvents.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val unread by viewModel.unread.collectAsStateWithLifecycle()
@@ -313,12 +314,22 @@ fun RoomRoute(
                     onPickMany = { uris -> onSendFiles(uris.map { it.toString() }) },
                     onSendNow = viewModel.attach::sendNow,
                     onChooseSize = viewModel.attach::choose,
-                    onSendMedia = viewModel.attach::send,
+                    // Our custom emoji's `:shortcode:`s expanded in the caption, as in a message.
+                    onSendMedia = { caption, spoiler ->
+                        viewModel.attach.send(viewModel.emoji.expandShortcodes(caption), spoiler)
+                    },
                     onCancelMedia = viewModel.attach::cancel,
                     onSendVoice = viewModel.attach::sendVoice,
                     onSendLocation = viewModel::sendLocation,
                     polls = viewModel.polls,
-                    mentions = MentionHintsUi(mentionHints, viewModel.media::avatar, viewModel.mentions::pick),
+                    mentions =
+                        MentionHintsUi(
+                            mentionHints,
+                            viewModel.media::avatar,
+                            viewModel.mentions::pick,
+                            emojiHints,
+                            viewModel.mentions::pickEmoji,
+                        ),
                     captionMentions = viewModel.mentionsIn,
                     linkPreviews =
                         LinkPreviewsUi(

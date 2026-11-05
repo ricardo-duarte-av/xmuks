@@ -105,6 +105,7 @@ private fun MediaSendContent(
     // Once per caption box: a new one would fetch the members again.
     val completing = remember(caption) { mentions?.start?.invoke(caption, scope) }
     val hints by (completing?.suggestions ?: NO_HINTS).collectAsStateWithLifecycle()
+    val emojiHints by (completing?.emoji ?: NO_EMOJI).collectAsStateWithLifecycle()
     var spoiler by rememberSaveable { mutableStateOf(draft.replacing?.spoiler == true) }
     Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
         Column(
@@ -157,7 +158,9 @@ private fun MediaSendContent(
                 )
             }
             if (completing != null && mentions != null) {
-                MentionHints(MentionHintsUi(hints, mentions.avatar, completing::pick))
+                MentionHints(
+                    MentionHintsUi(hints, mentions.avatar, completing::pick, emojiHints, completing::pickEmoji)
+                )
             }
             Row(
                 modifier = Modifier.padding(12.dp),
@@ -317,3 +320,4 @@ class CaptionMentions(
 )
 
 private val NO_HINTS = MutableStateFlow(emptyList<MentionTarget>())
+private val NO_EMOJI = MutableStateFlow(emptyList<EmojiHint>())
