@@ -18,6 +18,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pt.aguiarvieira.xmuks.core.account.AccountScoped
@@ -53,28 +54,84 @@ class PinnedShortcuts(
         profile: OwnProfile?,
         login: String,
     ): Boolean {
-        val id = accountId ?: return false
         if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) return false
-        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return false
-        val name = profile?.displayName ?: login
-        val avatar = withContext(Dispatchers.IO) { profile?.avatarUrl?.let { bitmap(it) } }
-        val shortcut =
-            ShortcutInfoCompat
-                .Builder(context, accountShortcutId(id))
-                .setShortLabel(name)
-                .setLongLabel(listOfNotNull(profile?.userId, login).joinToString(" · "))
-                .setIcon(Avatars.adaptive(avatar, name, profile?.userId ?: login))
-                .setIntent(
-                    Intent(launch)
-                        .putExtra(RoomKeys.EXTRA_ACCOUNT, id)
-                        .putExtra(RoomKeys.EXTRA_HOME, true),
-                ).build()
+        val shortcut = accountShortcut(profile, login) ?: return false
         return runCatching {
             // Signed out and back in: its old shortcut was disabled.
             ShortcutManagerCompat.enableShortcuts(context, listOf(shortcut))
-            ShortcutManagerCompat.updateShortcuts(context, listOf(shortcut))
+            publishAccount(profile, login)
             ShortcutManagerCompat.requestPinShortcut(context, shortcut, null)
         }.getOrDefault(false)
+    }
+
+    /**
+     * Keeps the account's own shortcut, if it has one, in step with its [profile]: its name and
+     * avatar (the avatar it was made with is kept in its extras, to tell). [login] as for [pinAccount].
+     */
+    @OptIn(FlowPreview::class)
+    fun followAccount(
+        profile: Flow<OwnProfile?>,
+        login: suspend () -> String,
+        scope: CoroutineScope,
+    ) {
+        val id = accountId ?: return
+        scope.launch {
+            profile.filterNotNull().debounce(SETTLE_MS).collect { me ->
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        val existing =
+                            ShortcutManagerCompat
+                                .getShortcuts(context, ShortcutManagerCompat.FLAG_MATCH_PINNED)
+                                .firstOrNull { it.id == accountShortcutId(id) && it.isEnabled }
+                                ?: return@withContext
+                        val stale =
+                            existing.shortLabel.toString() != me.displayName ||
+                                existing.extras?.getString(AVATAR) != me.avatarUrl.orEmpty()
+                        if (stale) publishAccount(me, login())
+                    }
+                }
+            }
+        }
+    }
+
+    /** The account's shortcut updated, as [publish] does a room's. */
+    private suspend fun publishAccount(
+        profile: OwnProfile?,
+        login: String,
+    ) {
+        val shortcut = accountShortcut(profile, login) ?: return
+        ShortcutManagerCompat.updateShortcuts(context, listOf(shortcut))
+        delay(ICON_WRITTEN_MS)
+        accountShortcut(
+            profile,
+            login,
+            icon = false
+        )?.let { ShortcutManagerCompat.updateShortcuts(context, listOf(it)) }
+    }
+
+    private suspend fun accountShortcut(
+        profile: OwnProfile?,
+        login: String,
+        icon: Boolean = true,
+    ): ShortcutInfoCompat? {
+        val id = accountId ?: return null
+        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return null
+        val name = profile?.displayName ?: login
+        return ShortcutInfoCompat
+            .Builder(context, accountShortcutId(id))
+            .setShortLabel(name)
+            .setLongLabel(listOfNotNull(profile?.userId, login).joinToString(" · "))
+            .apply {
+                if (icon) {
+                    val avatar = withContext(Dispatchers.IO) { profile?.avatarUrl?.let { bitmap(it) } }
+                    setIcon(Avatars.adaptive(avatar, name, profile?.userId ?: login))
+                }
+            }.setIntent(
+                Intent(launch)
+                    .putExtra(RoomKeys.EXTRA_ACCOUNT, id)
+                    .putExtra(RoomKeys.EXTRA_HOME, true),
+            ).setExtras(PersistableBundle().apply { putString(AVATAR, profile?.avatarUrl.orEmpty()) })
+            .build()
     }
 
     /** Signing out: the account's shortcut stays on the home screen, greyed out, saying why. */
@@ -177,7 +234,7 @@ class PinnedShortcuts(
     private companion object {
         const val AVATAR_PX = 192
 
-        /** The extra holding the avatar (mxc) a shortcut was made with; empty for none. */
+        /** The extra holding the avatar a shortcut was made with (a room's mxc, an account's URL); empty for none. */
         const val AVATAR = "xmuks.avatar"
         const val SETTLE_MS = 2_000L
         const val ICON_WRITTEN_MS = 1_000L

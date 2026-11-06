@@ -72,7 +72,19 @@ object PushModule {
     fun pushStarter(notifiers: RoomNotifiers): AccountStarter =
         AccountStarter { graph ->
             // Home-screen and conversation shortcuts follow their room's name and avatar.
-            (graph.shortcuts as PinnedShortcuts).follow(graph.roomListRepository.chats(), graph.scope)
+            val shortcuts = graph.shortcuts as PinnedShortcuts
+            shortcuts.follow(graph.roomListRepository.chats(), graph.scope)
+            // And the account's own, its profile (the login as the account switcher shows it).
+            shortcuts.followAccount(
+                graph.roomListRepository.ownProfile(),
+                {
+                    graph.store
+                        .credentials()
+                        ?.let { "${it.username} · ${it.serverUrl.host}" }
+                        .orEmpty()
+                },
+                graph.scope,
+            )
             // Opening a room is reading it: its notification goes.
             graph.openRoom.onOpened = notifiers.of(graph)::clear
         }
