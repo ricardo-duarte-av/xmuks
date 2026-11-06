@@ -15,6 +15,7 @@ import coil3.toBitmap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
@@ -95,7 +96,7 @@ class PinnedShortcuts(
         val shortcut = shortcut(room)
         return runCatching {
             // Pinning an ID the system already has pins what it has: brought up to date first.
-            ShortcutManagerCompat.updateShortcuts(context, listOf(shortcut))
+            publish(listOf(room))
             ShortcutManagerCompat.requestPinShortcut(context, shortcut, null)
         }.getOrDefault(false)
     }
@@ -132,15 +133,29 @@ class PinnedShortcuts(
                 val accounted = shortcut.intent.hasExtra(RoomKeys.EXTRA_ACCOUNT)
                 room.takeIf { !named || !accounted || it.avatarMxc.orEmpty() != madeWith }
             }
-        if (stale.isNotEmpty()) ShortcutManagerCompat.updateShortcuts(context, stale.map { shortcut(it) })
+        if (stale.isNotEmpty()) publish(stale)
     }
 
-    private suspend fun shortcut(room: RoomSummary): ShortcutInfoCompat =
+    /**
+     * Updates [rooms]' shortcuts. The system writes a new icon out in the background and tells the
+     * launcher of the change before it's done: the launcher loads (and keeps) the icon there was.
+     * Told again once it's written, by an update that leaves the icon be, it loads the new one.
+     */
+    private suspend fun publish(rooms: List<RoomSummary>) {
+        ShortcutManagerCompat.updateShortcuts(context, rooms.map { shortcut(it) })
+        delay(ICON_WRITTEN_MS)
+        ShortcutManagerCompat.updateShortcuts(context, rooms.map { shortcut(it, icon = false) })
+    }
+
+    private suspend fun shortcut(
+        room: RoomSummary,
+        icon: Boolean = true,
+    ): ShortcutInfoCompat =
         ShortcutInfoCompat
             .Builder(context, RoomKeys.of(account, room.roomId))
             .setShortLabel(room.name)
             .setLongLived(true)
-            .setIcon(Avatars.adaptive(avatar(room.avatarMxc), room.name, room.roomId))
+            .apply { if (icon) setIcon(Avatars.adaptive(avatar(room.avatarMxc), room.name, room.roomId)) }
             .setLocusId(LocusIdCompat(RoomKeys.of(account, room.roomId)))
             .setIntent(roomIntent(room.roomId))
             .setCategories(setOf(RoomNotifier.SHORTCUT_CATEGORY))
@@ -165,6 +180,7 @@ class PinnedShortcuts(
         /** The extra holding the avatar (mxc) a shortcut was made with; empty for none. */
         const val AVATAR = "xmuks.avatar"
         const val SETTLE_MS = 2_000L
+        const val ICON_WRITTEN_MS = 1_000L
         const val KINDS =
             ShortcutManagerCompat.FLAG_MATCH_PINNED or
                 ShortcutManagerCompat.FLAG_MATCH_CACHED or
