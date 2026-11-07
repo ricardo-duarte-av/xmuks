@@ -2,19 +2,11 @@ package pt.aguiarvieira.xmuks.feature.room
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.imeAnimationTarget
-import androidx.compose.foundation.layout.isImeVisible
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -33,10 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -95,31 +84,30 @@ private fun TextFieldState.insertAtCursor(text: String) {
 }
 
 /**
- * The emoji/sticker picker in place of the keyboard, under the message box, so the box and the
- * timeline move up exactly as they do for the keyboard. It takes the keyboard's last height (or a
- * shorter one while its own search field has the keyboard up).
+ * The emoji/sticker picker in place of the keyboard, under the message box: [height] tall, the
+ * keyboard's (see [ComposerArea]), or less while its own search field has the keyboard up.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ComposerPanel(
     request: PickerRequest,
     composer: ComposerActions,
     resolver: MediaResolver,
-    keyboardHeight: Dp,
+    height: Dp,
+    /** Its search field is shown (it has the keyboard, when that's up). */
+    searching: Boolean,
+    onToggleSearch: () -> Unit,
     onModeChange: (PickerMode) -> Unit,
     onExpand: () -> Unit,
     onClose: () -> Unit,
 ) {
     BackHandler(onBack = onClose)
-    val searching = WindowInsets.isImeVisible
     ScreenCard(
         Modifier
             .fillMaxWidth()
             .padding(start = ScreenCards.Gap, end = ScreenCards.Gap, bottom = ScreenCards.Gap)
-            // The card's bottom margin counts against the keyboard's height, so the box doesn't move.
-            .height(if (searching) SEARCHING_HEIGHT else (keyboardHeight - ScreenCards.Gap).coerceAtLeast(MIN_PANEL)),
+            // The card's bottom margin counts in its height, so the box doesn't move.
+            .height(height - ScreenCards.Gap),
     ) {
-        var searching by remember(request.mode) { mutableStateOf(false) }
         Column {
             PickerHeader(
                 request.mode,
@@ -127,7 +115,7 @@ internal fun ComposerPanel(
                 expanded = false,
                 onToggleFullScreen = onExpand,
                 searching = searching,
-                onToggleSearch = { searching = !searching },
+                onToggleSearch = onToggleSearch,
             )
             PickerContent(request, composer, resolver, searching, onClose)
         }
@@ -226,6 +214,3 @@ private fun PickerContent(
         )
     }
 }
-
-private val MIN_PANEL = 280.dp
-private val SEARCHING_HEIGHT = 200.dp

@@ -1,8 +1,11 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import android.content.Context
+import android.content.res.Configuration
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
@@ -12,10 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imeAnimationTarget
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,16 +30,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.SoftwareKeyboardController
@@ -46,6 +51,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import pt.aguiarvieira.xmuks.core.data.timeline.Action
 import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
@@ -72,6 +80,17 @@ internal class OverlayState {
     /** Our message whose file is being replaced: the photo picker is up for it. */
     var replacing by mutableStateOf<TimelineItem.Message?>(null)
     var picker by mutableStateOf<PickerRequest?>(null)
+
+    /**
+     * The message box was tapped with the composer's panel open: the keyboard is coming up over
+     * it, and the panel goes once it's there (so nothing under the box moves meanwhile).
+     */
+    var keyboardTakingOver by mutableStateOf(false)
+
+    /** The message box got focus: with the composer's panel open, the keyboard comes up over it. */
+    fun keyboardComing() {
+        if (picker != null && picker?.reactTo == null) keyboardTakingOver = true
+    }
 
     /** The + sheet is open. */
     var attaching by mutableStateOf(false)
@@ -187,8 +206,10 @@ private fun reactionLimit(
 ): Limit? = composer.features?.reactionBlock(picked.key, picked is Picked.Custom)
 
 /**
- * The message box, with the composer's emoji/sticker panel under it when open: together they ride
- * the navigation bar and the keyboard, so opening either lifts the timeline the same way.
+ * The message box, with the composer's emoji/sticker panel under it when open. Under the box is
+ * always as tall as the taller of the keyboard and the panel, which is the keyboard's height: the
+ * keyboard slides away over the panel, or up over it (the panel goes once it's up), and the box
+ * and the timeline stay where they are.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -199,27 +220,76 @@ internal fun ComposerArea(
     box: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
+    val targetInsets = WindowInsets.imeAnimationTarget
+    val navInsets = WindowInsets.navigationBars
+    val nav = navInsets.getBottom(density)
     // Where the keyboard is heading, not where it is mid-animation: sampling it while it slides
     // away would remember a sliver.
-    val ime = WindowInsets.imeAnimationTarget.getBottom(density)
-    val nav = WindowInsets.navigationBars.getBottom(density)
-    // The keyboard's height, remembered from the last time it was up: the panel matches it.
-    var keyboardHeight by remember { mutableStateOf(0.dp) }
-    if (ime > nav) keyboardHeight = with(density) { (ime - nav).toDp() }
-    Column(Modifier.windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))) {
-        box()
-        // Stays under its full-screen sheet, so shrinking back finds it as it was.
-        overlays.picker?.takeIf { it.reactTo == null }?.let { request ->
-            ComposerPanel(
-                request,
-                composer,
-                resolver,
-                keyboardHeight,
-                onModeChange = { overlays.picker = PickerRequest(it) },
-                onExpand = { overlays.picker = PickerRequest(request.mode, expanded = true) },
-            ) { overlays.picker = null }
+    val target = targetInsets.getBottom(density)
+    val keyboardHeight = rememberKeyboardHeight(if (target > nav) with(density) { (target - nav).toDp() } else null)
+    // The keyboard as it is now, above the navigation bar.
+    val keyboardNow = with(density) { (imeInsets.getBottom(density) - nav).coerceAtLeast(0).toDp() }
+    val request = overlays.picker?.takeIf { it.reactTo == null }
+    if (overlays.keyboardTakingOver) {
+        LaunchedEffect(Unit) {
+            // Until the keyboard is all the way up (or never comes: a hardware keyboard).
+            withTimeoutOrNull(TAKEOVER_MS) {
+                snapshotFlow { targetInsets.getBottom(density) to imeInsets.getBottom(density) }
+                    .first { (to, now) -> to > navInsets.getBottom(density) && now >= to }
+            }
+            overlays.picker = null
+            overlays.keyboardTakingOver = false
         }
     }
+    val panelHeight = keyboardHeight.coerceAtLeast(MIN_PANEL)
+    // The panel's search field, shown: fresh with each tab (and each time the panel opens).
+    var searchShown by remember(request?.mode, request != null) { mutableStateOf(false) }
+    // ...and it has the keyboard up: the panel shrinks to sit above it.
+    val searching = request != null && searchShown && !overlays.keyboardTakingOver && target > nav
+    val under =
+        when {
+            request == null -> keyboardNow
+            searching -> maxOf(panelHeight, keyboardNow + SEARCHING_PANEL)
+            else -> maxOf(panelHeight, keyboardNow)
+        }
+    Column(Modifier.windowInsetsPadding(navInsets)) {
+        box()
+        Box(Modifier.fillMaxWidth().height(under)) {
+            // Stays under its full-screen sheet, so shrinking back finds it as it was.
+            request?.let { request ->
+                ComposerPanel(
+                    request,
+                    composer,
+                    resolver,
+                    if (searching) under - keyboardNow else panelHeight,
+                    searching = searchShown,
+                    onToggleSearch = { searchShown = !searchShown },
+                    onModeChange = { overlays.picker = PickerRequest(it) },
+                    onExpand = { overlays.picker = PickerRequest(request.mode, expanded = true) },
+                ) { overlays.picker = null }
+            }
+        }
+    }
+}
+
+/**
+ * The keyboard's height (above the navigation bar), from [now] while it's up, else the last time it
+ * was: kept for each orientation across rooms and launches, so the panel matches it even before the
+ * keyboard has been up this time. Zero until it ever has.
+ */
+@Composable
+private fun rememberKeyboardHeight(now: Dp?): Dp {
+    val context = LocalContext.current
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val key = if (landscape) "keyboard_landscape" else "keyboard_portrait"
+    val store = remember(context) { context.getSharedPreferences(KEYBOARD_PREFS, Context.MODE_PRIVATE) }
+    var remembered by remember(key) { mutableFloatStateOf(store.getFloat(key, 0f)) }
+    if (now != null && now.value != remembered) {
+        remembered = now.value
+        SideEffect { store.edit { putFloat(key, now.value) } }
+    }
+    return remembered.dp
 }
 
 /** Opens a composer picker in place of the keyboard (which goes away; so does the field's focus). */
@@ -231,8 +301,14 @@ internal fun openPanel(
 ) {
     keyboard?.hide()
     focus.clearFocus()
+    overlays.keyboardTakingOver = false
     overlays.picker = PickerRequest(mode)
 }
+
+private const val KEYBOARD_PREFS = "composer_panel"
+private const val TAKEOVER_MS = 1_000L
+private val MIN_PANEL = 280.dp
+private val SEARCHING_PANEL = 200.dp
 
 /** The composer's own: the + sheet, an attachment's preview, and choosing who to send as. */
 @Composable

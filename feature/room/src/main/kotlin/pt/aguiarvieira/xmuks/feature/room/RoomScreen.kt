@@ -638,7 +638,7 @@ fun RoomScreen(
                         stickerButton = composer.stickerButton,
                         onSticker = { openPanel(overlays, PickerMode.Sticker, keyboard, focus) },
                         onAttach = { overlays.attaching = true },
-                        onFocus = { if (overlays.picker?.reactTo == null) overlays.picker = null },
+                        onFocus = overlays::keyboardComing,
                         personas = composer.personas,
                         avatarUrl = resolver.avatar,
                         onChoosePersona = composer.onChoosePersona,
