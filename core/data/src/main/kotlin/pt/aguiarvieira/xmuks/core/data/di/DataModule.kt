@@ -73,6 +73,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.MessageSearch
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListActions
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
+import pt.aguiarvieira.xmuks.core.data.rooms.SpaceEditRepository
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.CodeThemes
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
@@ -297,6 +298,9 @@ object DataModule {
 
     @Provides
     fun roomInfoRepository(graph: AccountGraph): RoomInfoRepository = graph.roomInfo
+
+    @Provides
+    fun spaceEditRepository(graph: AccountGraph): SpaceEditRepository = graph.spaceEdits
 
     @Provides
     fun roomDirectoryRepository(graph: AccountGraph): RoomDirectoryRepository = graph.roomDirectory

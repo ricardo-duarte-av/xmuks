@@ -14,6 +14,26 @@
     <string name="empty_spaces">You haven\'t joined any spaces</string>
     <string name="empty_space">No rooms here</string>
     <string name="space_all">All</string>
+    <string name="space_edit">Edit rooms in this space</string>
+    <string name="space_edit_save">Save</string>
+    <string name="space_edit_cancel">Stop editing without saving</string>
+    <string name="space_edit_filter">Filter rooms</string>
+    <string name="space_edit_in_space">In this space</string>
+    <string name="space_edit_other">Other rooms</string>
+    <string name="space_edit_none">No rooms match</string>
+    <string name="space_edit_kind_space">Space</string>
+    <string name="space_edit_kind_dm">Direct message</string>
+    <string name="space_edit_also_in">In %1$s</string>
+    <string name="space_edit_editing">Editing %1$s</string>
+    <string name="space_edit_saved">Space updated</string>
+    <plurals name="space_edit_failed">
+        <item quantity="one">%d change didn\'t go through. Save again to retry.</item>
+        <item quantity="other">%d changes didn\'t go through. Save again to retry.</item>
+    </plurals>
+    <plurals name="space_edit_parent_kept">
+        <item quantity="one">%d room still names this space as its parent, and you can\'t change that room.</item>
+        <item quantity="other">%d rooms still name this space as their parent, and you can\'t change those rooms.</item>
+    </plurals>
     <string name="space_rooms">%1$d rooms</string>
     <string name="back">Back</string>
     <string name="account">Account</string>

@@ -119,6 +119,10 @@ interface RoomListDao {
     )
     fun spaceChildren(spaceId: String): Flow<List<RoomEntity>>
 
+    /** Every space's children, as gomuks last sent them (rooms we're not in included). */
+    @Query("SELECT * FROM space_edges")
+    fun spaceEdges(): Flow<List<SpaceEdgeEntity>>
+
     /** Every joined non-space room, DMs included, most recent first. */
     @Query(
         """

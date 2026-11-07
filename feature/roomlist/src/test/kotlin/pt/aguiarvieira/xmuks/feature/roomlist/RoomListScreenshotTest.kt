@@ -16,6 +16,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
 import pt.aguiarvieira.xmuks.core.data.rooms.Preview
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.SearchQuery
+import pt.aguiarvieira.xmuks.core.data.rooms.SpaceEditCandidate
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceSummary
 import pt.aguiarvieira.xmuks.core.data.rooms.TabBadges
 import pt.aguiarvieira.xmuks.core.data.rooms.Unread
@@ -181,6 +182,51 @@ class RoomListScreenshotTest {
                 now = now,
             )
         }
+
+    private fun editing(dark: Boolean) =
+        capture(if (dark) "space_editor_cards_dark" else "space_editor", dark = dark, cards = dark) {
+            fun row(
+                id: String,
+                name: String,
+                wasIn: Boolean,
+                space: Boolean = false,
+                dm: Boolean = false,
+                parents: List<String> = emptyList(),
+            ) = SpaceEditRow(SpaceEditCandidate(id, name, null, space, dm, parents), wasIn)
+            val rows =
+                listOf(
+                    row("!dev", "Development", wasIn = true, space = true),
+                    row("!general", "Matrix General", wasIn = true),
+                    row("!offtopic", "Off-topic", wasIn = true),
+                    row("!clients", "Client developers", wasIn = false, parents = listOf("Development")),
+                    row("!ana", "Ana Ribeiro", wasIn = false, dm = true),
+                    row("!photo", "Photography and friends", wasIn = false, space = true),
+                )
+            val session =
+                SpaceEditSession(
+                    "!matrix",
+                    initial = setOf("!dev", "!general", "!offtopic"),
+                    selected = setOf("!dev", "!general", "!clients"),
+                )
+            SpaceScreen(
+                spaceId = "!matrix",
+                space = spaces.first(),
+                subspaces = listOf(SpaceSummary("!dev", "Development", null, 0, Unread())),
+                filter = null,
+                rooms = chats.take(4),
+                onSelect = {},
+                onBack = {},
+                onOpenRoom = { _, _ -> },
+                now = now,
+                editor = SpaceEditorState(canEdit = true, session = session, rows = rows),
+            )
+        }
+
+    @Test
+    fun spaceEditor() = editing(dark = false)
+
+    @Test
+    fun spaceEditorCardsDark() = editing(dark = true)
 
     @Test
     fun rowStates() =
