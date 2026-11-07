@@ -107,7 +107,6 @@ fun UserInfoRoute(
     onOpenRoom: (roomId: String) -> Unit = {},
     onOpenIgnoredUsers: () -> Unit = {},
     onOpenPreferences: () -> Unit = {},
-    onOpenSettings: () -> Unit = {},
     onOpenPushRules: () -> Unit = {},
     viewModel: UserInfoViewModel =
         hiltViewModel<UserInfoViewModel, UserInfoViewModel.Factory>(
@@ -166,7 +165,6 @@ fun UserInfoRoute(
                         connection,
                         onOpenIgnoredUsers,
                         onOpenPreferences,
-                        onOpenSettings,
                         onOpenPushRules,
                     )
                 } else {
@@ -200,7 +198,6 @@ class OwnProfile(
     val connection: ConnectionState,
     val onOpenIgnoredUsers: () -> Unit = {},
     val onOpenPreferences: () -> Unit = {},
-    val onOpenSettings: () -> Unit = {},
     val onOpenPushRules: () -> Unit = {},
 )
 
@@ -317,7 +314,6 @@ private fun ProfileCards(
             item(key = "links") {
                 OwnLinksCard(
                     own.onOpenPreferences,
-                    own.onOpenSettings,
                     own.onOpenIgnoredUsers,
                     cardModifier,
                     own.onOpenPushRules

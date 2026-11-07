@@ -80,7 +80,7 @@ class AccountsViewModel
 
 /**
  * The account switcher, from our avatar on the room list: the account shown (its profile a tap
- * away), the other signed-in accounts with what's unread in them (tap to switch), and adding one.
+ * away), xmuks' own settings, the other signed-in accounts with what's unread in them (tap to switch), and adding one.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,6 +91,7 @@ internal fun AccountSheet(
     onAddAccount: () -> Unit,
     onDismiss: () -> Unit,
     onPin: (AccountSummary) -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         AccountSheetContent(
@@ -111,6 +112,10 @@ internal fun AccountSheet(
                 onPin(it)
                 onDismiss()
             },
+            onOpenSettings = {
+                onOpenSettings()
+                onDismiss()
+            },
         )
     }
 }
@@ -123,6 +128,7 @@ internal fun AccountSheetContent(
     onAddAccount: () -> Unit,
     modifier: Modifier = Modifier,
     onPin: (AccountSummary) -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     Column(modifier.padding(bottom = 24.dp)) {
         state.current?.let { current ->
@@ -133,6 +139,11 @@ internal fun AccountSheetContent(
                 modifier = Modifier.clickable(role = Role.Button) { onPin(current) },
             ) { Text(stringResource(R.string.account_add_shortcut)) }
         }
+        ListItem(
+            leadingContent = { Icon(painterResource(R.drawable.ic_settings), null) },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            modifier = Modifier.clickable(role = Role.Button, onClick = onOpenSettings),
+        ) { Text(stringResource(R.string.app_settings)) }
         if (state.others.isNotEmpty()) {
             HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             state.others.forEach { OtherAccount(it, onClick = { onSwitch(it.id) }) }

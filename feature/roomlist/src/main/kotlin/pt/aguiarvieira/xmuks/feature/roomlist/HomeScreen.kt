@@ -107,6 +107,8 @@ fun HomeRoute(
     onOpenDirectory: (spaces: Boolean) -> Unit = {},
     /** Signing in to another gomuks, from the account switcher. */
     onAddAccount: () -> Unit = {},
+    /** xmuks' own settings (this device), from the account switcher. */
+    onOpenSettings: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
     accountsViewModel: AccountsViewModel = hiltViewModel(),
 ) {
@@ -160,6 +162,7 @@ fun HomeRoute(
                 onSwitch = accountsViewModel::switchTo,
                 onAddAccount = onAddAccount,
                 onDismiss = { switcher = false },
+                onOpenSettings = onOpenSettings,
                 onPin = { account ->
                     accountsViewModel.pinAccount(account) {
                         Toast.makeText(context, R.string.room_menu_shortcut_unsupported, Toast.LENGTH_SHORT).show()

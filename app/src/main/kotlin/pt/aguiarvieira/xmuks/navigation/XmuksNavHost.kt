@@ -334,6 +334,7 @@ fun XmuksNavHost(
                                         onOpenInvite = { backStack.add(InviteKey(it)) },
                                         onOpenDirectory = { backStack.add(DirectoryKey(it)) },
                                         onAddAccount = { backStack.add(AddAccountKey) },
+                                        onOpenSettings = { backStack.add(SettingsKey) },
                                     )
                                 }
                             }
@@ -572,7 +573,6 @@ fun XmuksNavHost(
                                         onOpenRoom = { backStack.openRoom(it, LINK_SCOPE) },
                                         onOpenIgnoredUsers = { backStack.add(IgnoredUsersKey) },
                                         onOpenPreferences = { backStack.add(PreferencesKey()) },
-                                        onOpenSettings = { backStack.add(SettingsKey) },
                                         onOpenPushRules = { backStack.add(PushRulesKey) },
                                         onBack = { backStack.back(key) },
                                         onOpenMedia = { backStack.add(MediaKey(it)) },
