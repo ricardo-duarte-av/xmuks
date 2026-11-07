@@ -340,6 +340,7 @@ fun RoomRoute(
                     onLimit = viewModel.limited::show,
                     readOnly = preview,
                     canRedact = canRedact,
+                    stickerButton = prefs.get(Prefs.stickerButton),
                 ),
             onOpenFully = onOpenFully.takeIf { preview },
             modifier = modifier,
@@ -407,6 +408,8 @@ class ComposerActions(
     val readOnly: Boolean = false,
     /** We may delete others' messages here (the room's power levels). */
     val canRedact: Boolean = false,
+    /** Stickers get a button of their own beside the emoji one (xmuks' setting). */
+    val stickerButton: Boolean = false,
 ) {
     /** [action], unless this is a preview: then it says why it can't. */
     fun <A, B> unlessReadOnly(action: (A, B) -> Unit): (A, B) -> Unit {
@@ -632,6 +635,8 @@ fun RoomScreen(
                         composer.onCancelMode,
                         commands = composer.commands,
                         onEmoji = { openPanel(overlays, PickerMode.Emoji, keyboard, focus) },
+                        stickerButton = composer.stickerButton,
+                        onSticker = { openPanel(overlays, PickerMode.Sticker, keyboard, focus) },
                         onAttach = { overlays.attaching = true },
                         onFocus = { if (overlays.picker?.reactTo == null) overlays.picker = null },
                         personas = composer.personas,

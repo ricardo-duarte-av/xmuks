@@ -63,6 +63,10 @@ internal fun ComposerCard(
     modifier: Modifier = Modifier,
     commands: List<BotCommand> = emptyList(),
     onEmoji: () -> Unit = {},
+    /** Stickers have a button of their own beside the emoji one (xmuks' setting). */
+    stickerButton: Boolean = false,
+    /** Opens the picker on its stickers, from that button. */
+    onSticker: () -> Unit = {},
     onAttach: () -> Unit = {},
     /** The message box got focus (a tap into it): the keyboard is coming back. */
     onFocus: () -> Unit = {},
@@ -110,6 +114,14 @@ internal fun ComposerCard(
                     }
                     IconButton(onClick = onEmoji) {
                         Icon(painterResource(R.drawable.ic_mood), contentDescription = stringResource(R.string.emoji))
+                    }
+                    if (stickerButton) {
+                        IconButton(onClick = onSticker) {
+                            Icon(
+                                painterResource(R.drawable.ic_sticker),
+                                contentDescription = stringResource(R.string.sticker_button),
+                            )
+                        }
                     }
                 }
                 val style = MaterialTheme.typography.bodyLarge.copy(color = colors.onSurface)

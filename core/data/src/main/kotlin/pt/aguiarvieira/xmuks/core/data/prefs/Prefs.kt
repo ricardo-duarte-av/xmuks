@@ -96,6 +96,9 @@ object Prefs {
      */
     val dmSound = Pref.Bool("xmuks_dm_sound", true, DEVICE_GLOBAL)
 
+    /** The composer has a sticker button of its own beside the emoji one, instead of one for both. */
+    val stickerButton = Pref.Bool("xmuks_sticker_button", false, DEVICE_GLOBAL)
+
     /** Every preference, in gomuks' order (its settings screen's). */
     val all: List<Pref<*>> =
         listOf(
