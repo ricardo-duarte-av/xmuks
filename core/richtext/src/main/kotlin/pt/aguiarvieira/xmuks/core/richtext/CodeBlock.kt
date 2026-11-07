@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.isSpecified
 
 /**
  * A code block in a message: a size smaller than the text around it, in gomuks' highlighting
- * colours, its first lines only. Long lines scroll sideways unless `code_block_line_wrap` is on.
+ * colours, its first lines only. Long lines scroll sideways (the viewer can wrap them).
  * Tapping opens the whole of it in [CodeViewer]; holding is the message's menu, as elsewhere.
  */
 @Composable
@@ -41,7 +41,6 @@ internal fun CodeBlock(
 ) {
     val options = LocalRichTextOptions.current
     val theme = options.codeTheme
-    val wrap = options.wrapCode
     var viewing by remember { mutableStateOf(false) }
     val text = remember(block, theme) { highlighted(block, theme) }
     val lines = remember(block.code) { block.code.count { it == '\n' } + 1 }
@@ -60,10 +59,10 @@ internal fun CodeBlock(
             text,
             style = codeStyle,
             color = foreground,
-            softWrap = wrap,
+            softWrap = false,
             maxLines = PREVIEW_LINES,
             overflow = TextOverflow.Clip,
-            modifier = if (wrap) Modifier else Modifier.horizontalScroll(sideways),
+            modifier = Modifier.horizontalScroll(sideways),
         )
         if (lines > PREVIEW_LINES) {
             Text(

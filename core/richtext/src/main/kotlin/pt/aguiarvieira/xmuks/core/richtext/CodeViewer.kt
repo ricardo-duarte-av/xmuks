@@ -53,8 +53,7 @@ internal fun CodeViewer(
     /** What it is, above its line count; else its language, else "Code". */
     title: String? = null,
 ) {
-    val wrapByDefault = LocalRichTextOptions.current.wrapCode
-    var wrap by rememberSaveable { mutableStateOf(wrapByDefault) }
+    var wrap by rememberSaveable { mutableStateOf(false) }
 
     @Suppress("DEPRECATION") // The suspend Clipboard API needs ClipEntry plumbing for plain text.
     val clipboard = LocalClipboardManager.current

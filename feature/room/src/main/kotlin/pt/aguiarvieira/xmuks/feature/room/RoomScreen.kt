@@ -203,7 +203,6 @@ fun RoomRoute(
         LocalUriHandler provides uriHandler,
         LocalRichTextOptions provides
             RichTextOptions(
-                wrapCode = prefs.get(Prefs.codeBlockLineWrap),
                 inlineImages = prefs.get(Prefs.showInlineImages),
                 codeTheme = codeTheme,
             ),
@@ -250,7 +249,6 @@ fun RoomRoute(
             onShareMessage = rememberMessageSharer(),
             onForwardMessage = onForward.takeUnless { preview },
             onOpenThread = if (threadRoot == null) onOpenThread else null,
-            compactThreads = prefs.get(Prefs.smallThreads),
             inThread = threadRoot != null,
             pins =
                 PinsUi(
@@ -486,7 +484,6 @@ fun RoomScreen(
     onForwardMessage: ((String) -> Unit)? = null,
     /** Opening threads; null when this is one. */
     onOpenThread: ((String) -> Unit)? = null,
-    compactThreads: Boolean = true,
     /** Shown in a thread: the header says so. */
     inThread: Boolean = false,
     pins: PinsUi = PinsUi(),
@@ -514,14 +511,13 @@ fun RoomScreen(
     val showContext by rememberUpdatedState(onShowContext)
     val currentComposer by rememberUpdatedState(composer)
     val actions =
-        remember(onOpenMedia, onOpenUser, player, onSaveMedia, onOpenThread, compactThreads, onCall, call != null) {
+        remember(onOpenMedia, onOpenUser, player, onSaveMedia, onOpenThread, onCall, call != null) {
             TimelineActions(
                 onSwipeReply = { currentComposer.replyOrSayWhy(it) },
                 joinCall = onCall,
                 callOngoing = call != null,
                 saveMedia = onSaveMedia,
                 openThread = onOpenThread,
-                compactThreads = compactThreads,
                 openMedia = { onOpenMedia(it.inRoom(roomId)) },
                 openUser = onOpenUser,
                 player = player,

@@ -70,7 +70,7 @@ class TimelineActions(
     val saveMedia: (Media) -> Unit = {},
     /** Opens a thread from its root; null inside a thread (nothing to open from there). */
     val openThread: ((rootId: String) -> Unit)? = null,
-    /** Threads' messages in the main timeline as one line each (gomuks' `small_threads`). */
+    /** Threads' messages in the main timeline as one line each (the history view draws them whole). */
     val compactThreads: Boolean = true,
     /** Answering a poll: our picks become these. */
     val onVote: (TimelineItem.Message, List<String>) -> Unit = { _, _ -> },

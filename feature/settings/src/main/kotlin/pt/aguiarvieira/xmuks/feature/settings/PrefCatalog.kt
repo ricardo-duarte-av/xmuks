@@ -36,8 +36,6 @@ internal class PrefEntry(
 internal val CHOICE_LABELS: Map<String?, Int> =
     mapOf(
         "default" to R.string.choice_default,
-        "compact" to R.string.choice_compact,
-        "spacious" to R.string.choice_spacious,
         "auto" to R.string.choice_call_auto,
         "legacy" to R.string.choice_call_legacy,
         "sticky" to R.string.choice_call_sticky,
@@ -110,22 +108,10 @@ internal val ENTRIES: List<PrefEntry> =
             Section.Timeline
         ),
         PrefEntry(
-            Prefs.smallThreads,
-            R.string.pref_small_threads,
-            R.string.pref_small_threads_desc,
-            Section.Timeline
-        ),
-        PrefEntry(
             Prefs.renderUrlPreviews,
             R.string.pref_render_url_previews,
             R.string.pref_render_url_previews_desc,
             Section.Timeline,
-        ),
-        PrefEntry(
-            Prefs.codeBlockLineWrap,
-            R.string.pref_code_block_line_wrap,
-            R.string.pref_code_block_line_wrap_desc,
-            Section.Timeline
         ),
         PrefEntry(
             Prefs.showMediaPreviews,
@@ -161,12 +147,6 @@ internal val ENTRIES: List<PrefEntry> =
             Prefs.roomListPreview,
             R.string.pref_room_list_preview,
             R.string.pref_room_list_preview_desc,
-            Section.RoomList
-        ),
-        PrefEntry(
-            Prefs.roomListStyle,
-            R.string.pref_room_list_style,
-            R.string.pref_room_list_style_desc,
             Section.RoomList
         ),
         PrefEntry(

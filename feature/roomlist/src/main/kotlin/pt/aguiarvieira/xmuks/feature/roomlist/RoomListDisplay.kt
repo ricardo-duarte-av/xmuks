@@ -12,7 +12,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import java.text.Collator
 
 /**
- * How room list rows look, from gomuks' preferences (`room_list_preview`, `room_list_style`) and
+ * How room list rows look, from gomuks' preferences (`room_list_preview`; `room_list_style` is web-only) and
  * xmuks' own unread badge ones.
  */
 @Immutable
@@ -26,19 +26,12 @@ data class RoomListDisplay(
     val mentionAt: Boolean = false,
 ) {
     companion object {
-        fun of(layers: PrefLayers): RoomListDisplay {
-            val base =
-                RoomListDisplay(
-                    showPreview = layers.get(Prefs.roomListPreview),
-                    unreadCount = layers.get(Prefs.unreadCount),
-                    mentionAt = layers.get(Prefs.mentionAt),
-                )
-            return when (layers.get(Prefs.roomListStyle)) {
-                "compact" -> base.copy(avatar = 36.dp, verticalPadding = 6.dp)
-                "spacious" -> base.copy(avatar = 56.dp, verticalPadding = 14.dp)
-                else -> base
-            }
-        }
+        fun of(layers: PrefLayers): RoomListDisplay =
+            RoomListDisplay(
+                showPreview = layers.get(Prefs.roomListPreview),
+                unreadCount = layers.get(Prefs.unreadCount),
+                mentionAt = layers.get(Prefs.mentionAt),
+            )
     }
 }
 
