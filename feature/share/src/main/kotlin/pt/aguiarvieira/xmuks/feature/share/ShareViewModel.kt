@@ -18,13 +18,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pt.aguiarvieira.xmuks.core.data.account.AccountSummary
 import pt.aguiarvieira.xmuks.core.data.account.Accounts
+import pt.aguiarvieira.xmuks.core.data.emoji.ImagePack
+import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.media.MediaKind
 import pt.aguiarvieira.xmuks.core.data.media.MediaPreparer
@@ -35,6 +39,9 @@ import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.MediaForwarder
 import pt.aguiarvieira.xmuks.core.designsystem.component.ViewerMedia
+import pt.aguiarvieira.xmuks.feature.room.CaptionMentions
+import pt.aguiarvieira.xmuks.feature.room.ComposerMentions
+import pt.aguiarvieira.xmuks.feature.room.expandShortcodes
 import java.io.File
 import java.util.UUID
 
@@ -129,6 +136,42 @@ class ShareViewModel
         /** The room to send to; chosen, or given by a direct share. */
         private val _room = MutableStateFlow(request.roomId)
         val room: StateFlow<String?> = _room.asStateFlow()
+
+        /** The account and room shared to, together: what the captions' completion is for. */
+        private val target = combine(_account, _room, ::Pair)
+
+        /**
+         * The emoji packs usable in the chosen room (ours, the room's, subscribed ones): offered as
+         * `:shortcode`s are typed in a caption, and expanded when it's sent, as in the room.
+         */
+        private val packs: StateFlow<List<ImagePack>> =
+            target
+                .flatMapLatest { (account, roomId) ->
+                    if (roomId == null) {
+                        flowOf(emptyList())
+                    } else {
+                        val session = accounts.graph(account).roomSessions.open(roomId)
+                        session.emoji.packs.onStart { viewModelScope.launch { session.loadState() } }
+                    }
+                }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+        private val customEmoji: StateFlow<List<PackImage>> =
+            packs
+                .map { list -> list.flatMap { it.emojis } }
+                .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+        /** Completing @people, #rooms and :emoji: in the captions, as the room's composer does; null with no room. */
+        val captionMentions: StateFlow<CaptionMentions?> =
+            target
+                .map { (account, roomId) ->
+                    roomId?.let { id ->
+                        val graph = accounts.graph(account)
+                        CaptionMentions(
+                            { field, scope -> ComposerMentions(scope, field, id, graph.mentionTargets, customEmoji) },
+                            graph.mediaUrls::avatar,
+                        )
+                    }
+                }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
         /** Several files go as one gallery (xmuks' setting), with one caption: [GALLERY_CAPTION]. */
         val gallery: StateFlow<Boolean> =
@@ -238,7 +281,7 @@ class ShareViewModel
             if (forward != null) {
                 val from = forward.roomId ?: return null
                 val event = forward.eventId ?: return null
-                val caption = captions[FORWARDED].orEmpty().trim()
+                val caption = captionOf(captions[FORWARDED])
                 val size = _size.value
                 val local = downloaded
                 if (size == ImageSize.Original || local == null) {
@@ -260,16 +303,19 @@ class ShareViewModel
             val encrypted = rooms.value?.firstOrNull { it.roomId == roomId }?.encrypted == true
             if (gallery.value) {
                 val prepared = files.mapNotNull { runCatching { preparer.prepare(it.file) }.getOrNull() }
-                sender.sendGallery(roomId, prepared, captions[GALLERY_CAPTION].orEmpty().trim(), null, encrypted)
+                sender.sendGallery(roomId, prepared, captionOf(captions[GALLERY_CAPTION]), null, encrypted)
                 return roomId
             }
             files.forEach { item ->
                 runCatching { preparer.prepare(item.file) }.onSuccess { prepared ->
-                    sender.send(roomId, prepared, captions[item.id].orEmpty().trim(), null, encrypted)
+                    sender.send(roomId, prepared, captionOf(captions[item.id]), null, encrypted)
                 }
             }
             return roomId
         }
+
+        /** A caption as it's sent: trimmed, our custom emoji's `:shortcode:`s expanded. */
+        private fun captionOf(typed: String?): String = expandShortcodes(typed.orEmpty().trim(), packs.value)
 
         /**
          * Copies each shared file into our cache first: the sending app's permission to read it can

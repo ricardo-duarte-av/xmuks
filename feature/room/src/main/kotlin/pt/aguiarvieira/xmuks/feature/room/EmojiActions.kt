@@ -108,20 +108,8 @@ class EmojiActions(
         return ours.take((ours.size - max + 1).coerceAtLeast(0))
     }
 
-    /**
-     * `:shortcode:` of one of our custom emoji → gomuks' markdown for an inline emoticon. The
-     * composer shows the short form; this is what's sent. Earlier packs win a shared shortcode
-     * (personal, then this room's, then subscribed — the picker's order).
-     */
-    fun expandShortcodes(text: String): String {
-        if (!text.contains(':')) return text
-        val byShortcode = HashMap<String, PackImage>()
-        packs.value.forEach { pack -> pack.emojis.forEach { byShortcode.putIfAbsent(it.shortcode, it) } }
-        return SHORTCODE.replace(text) { match ->
-            val image = byShortcode[match.groupValues[1]] ?: return@replace match.value
-            "![:${image.shortcode}:](${image.mxc} \"Emoji: :${image.shortcode}:\")"
-        }
-    }
+    /** Our custom emoji's `:shortcode:`s in [text] expanded, with the packs usable in this room. */
+    fun expandShortcodes(text: String): String = expandShortcodes(text, packs.value)
 
     fun sendSticker(image: PackImage) {
         val replyTo = replyTo()
@@ -140,6 +128,24 @@ class EmojiActions(
     ) {
         val source = pack.source as? ImagePack.Source.Room ?: return
         scope.launch { session.emoji.setSubscribed(source, subscribe) }
+    }
+}
+
+/**
+ * `:shortcode:` of one of our custom emoji in [packs] → gomuks' markdown for an inline emoticon.
+ * A message box shows the short form; this is what's sent. Earlier packs win a shared shortcode
+ * (personal, then the room's, then subscribed — the picker's order).
+ */
+fun expandShortcodes(
+    text: String,
+    packs: List<ImagePack>,
+): String {
+    if (!text.contains(':')) return text
+    val byShortcode = HashMap<String, PackImage>()
+    packs.forEach { pack -> pack.emojis.forEach { byShortcode.putIfAbsent(it.shortcode, it) } }
+    return SHORTCODE.replace(text) { match ->
+        val image = byShortcode[match.groupValues[1]] ?: return@replace match.value
+        "![:${image.shortcode}:](${image.mxc} \"Emoji: :${image.shortcode}:\")"
     }
 }
 

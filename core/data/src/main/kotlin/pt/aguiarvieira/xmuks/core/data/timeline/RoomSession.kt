@@ -286,8 +286,8 @@ class RoomSession(
     suspend fun open() {
         seedProfiles()
         scope.launch { store.open(roomId) }
-        scope.launch { fetchState() }
-        scope.launch { stateChanges.filter { it == roomId }.collect { fetchState() } }
+        scope.launch { loadState() }
+        scope.launch { stateChanges.filter { it == roomId }.collect { loadState() } }
     }
 
     suspend fun loadOlder() = store.loadOlder(roomId)
@@ -301,7 +301,11 @@ class RoomSession(
         profiles.value = seed + profiles.value
     }
 
-    private suspend fun fetchState() {
+    /**
+     * The room's state fetched, without opening its timeline: what a caption written for it
+     * elsewhere (a share) needs, such as the room's emoji packs.
+     */
+    suspend fun loadState() {
         val params =
             buildJsonObject {
                 put("room_id", JsonPrimitive(roomId))

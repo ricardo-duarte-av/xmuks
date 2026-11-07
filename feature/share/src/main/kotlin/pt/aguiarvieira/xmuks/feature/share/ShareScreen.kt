@@ -83,6 +83,9 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenBody
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
+import pt.aguiarvieira.xmuks.feature.room.CaptionMentions
+import pt.aguiarvieira.xmuks.feature.room.MentionHints
+import pt.aguiarvieira.xmuks.feature.room.MentionHintsUi
 
 /**
  * Something shared to xmuks from another app: pick a room (unless it was shared straight to
@@ -108,6 +111,7 @@ fun ShareRoute(
     val size by viewModel.size.collectAsStateWithLifecycle()
     val choices by viewModel.choices.collectAsStateWithLifecycle()
     val account by viewModel.account.collectAsStateWithLifecycle()
+    val captionMentions by viewModel.captionMentions.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val chosen = room?.let { id -> rooms?.firstOrNull { it.roomId == id } }
@@ -176,6 +180,7 @@ fun ShareRoute(
             },
             onBack = { if (request.roomId == null) viewModel.choose(null) else onDone(null) },
             modifier = modifier,
+            mentions = captionMentions,
         )
     }
 }
@@ -347,6 +352,8 @@ internal fun CaptionScreen(
     sizes: Sizes? = null,
     /** Send was tapped: it shrinks to a spinner and takes no more taps. */
     sending: Boolean = false,
+    /** Completing @people, #rooms and :emoji: in the captions, as in the room's composer; null for none. */
+    mentions: CaptionMentions? = null,
 ) {
     // Captions by item; the shared text starts as the first one's.
     val captions = remember { mutableStateMapOf<String, TextFieldState>() }
@@ -426,9 +433,11 @@ internal fun CaptionScreen(
                             key = "text"
                         ) { ScreenCard(Modifier.fillMaxWidth()) { Text(text, Modifier.padding(20.dp)) } }
                     }
-                    if (gallery) item(key = "gallery") { GalleryCaptionCard(galleryCaption) }
+                    if (gallery) item(key = "gallery") { GalleryCaptionCard(galleryCaption, mentions) }
                     items(items, key = { it.id }) { item ->
-                        captions[item.id]?.let { ItemCard(item, it.takeUnless { gallery }, { onRemove(item.id) }) }
+                        captions[item.id]?.let {
+                            ItemCard(item, it.takeUnless { gallery }, { onRemove(item.id) }, mentions)
+                        }
                     }
                     if (sizes != null) item(key = "sizes") { SizeCard(sizes) }
                 }
@@ -461,7 +470,10 @@ private fun RoomLine(
 
 /** Sending as a gallery: what says so, and its one caption. */
 @Composable
-private fun GalleryCaptionCard(caption: TextFieldState) {
+private fun GalleryCaptionCard(
+    caption: TextFieldState,
+    mentions: CaptionMentions?,
+) {
     ScreenCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -469,12 +481,7 @@ private fun GalleryCaptionCard(caption: TextFieldState) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedTextField(
-                state = caption,
-                placeholder = { Text(stringResource(R.string.share_gallery_caption)) },
-                lineLimits = TextFieldLineLimits.MultiLine(1, CAPTION_LINES),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            CaptionField(caption, R.string.share_gallery_caption, mentions)
         }
     }
 }
@@ -485,6 +492,7 @@ private fun ItemCard(
     item: SharedItem,
     caption: TextFieldState?,
     onRemove: () -> Unit,
+    mentions: CaptionMentions?,
 ) {
     ScreenCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -501,15 +509,39 @@ private fun ItemCard(
                     onClick = onRemove
                 ) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.share_remove)) }
             }
-            if (caption != null) {
-                OutlinedTextField(
-                    state = caption,
-                    placeholder = { Text(stringResource(R.string.share_caption)) },
-                    lineLimits = TextFieldLineLimits.MultiLine(1, CAPTION_LINES),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            if (caption != null) CaptionField(caption, R.string.share_caption, mentions)
         }
+    }
+}
+
+/**
+ * A caption's box, with the composer's suggestions above it while a mention or `:shortcode` is
+ * typed: @ the room's members, # our rooms, : emoji (ours first). Picking one puts it in.
+ */
+@Composable
+private fun CaptionField(
+    caption: TextFieldState,
+    placeholder: Int,
+    mentions: CaptionMentions?,
+) {
+    val scope = rememberCoroutineScope()
+    // Once per box and room: a new one would fetch the members again.
+    val completing = remember(caption, mentions) { mentions?.start?.invoke(caption, scope) }
+    Column {
+        if (completing != null && mentions != null) {
+            val people by completing.suggestions.collectAsStateWithLifecycle()
+            val emoji by completing.emoji.collectAsStateWithLifecycle()
+            MentionHints(
+                MentionHintsUi(people, mentions.avatar, completing::pick, emoji, completing::pickEmoji),
+                Modifier.padding(bottom = 4.dp),
+            )
+        }
+        OutlinedTextField(
+            state = caption,
+            placeholder = { Text(stringResource(placeholder)) },
+            lineLimits = TextFieldLineLimits.MultiLine(1, CAPTION_LINES),
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

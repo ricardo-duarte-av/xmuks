@@ -33,9 +33,9 @@ class MentionHintsUi(
     val onPickEmoji: (EmojiHint) -> Unit = {},
 )
 
-/** Above the message box while a mention or `:shortcode` is typed: who, which room or which emoji it could be. */
+/** Above a message or caption box while a mention or `:shortcode` is typed: who, which room or emoji it could be. */
 @Composable
-internal fun MentionHints(
+fun MentionHints(
     hints: MentionHintsUi,
     modifier: Modifier = Modifier,
 ) {
