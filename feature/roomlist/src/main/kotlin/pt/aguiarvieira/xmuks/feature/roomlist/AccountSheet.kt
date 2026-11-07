@@ -80,7 +80,8 @@ class AccountsViewModel
 
 /**
  * The account switcher, from our avatar on the room list: the account shown (its profile a tap
- * away), xmuks' own settings, the other signed-in accounts with what's unread in them (tap to switch), and adding one.
+ * away) and adding another, the other signed-in accounts with what's unread in them (tap to
+ * switch), and last xmuks' own settings.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -140,20 +141,20 @@ internal fun AccountSheetContent(
             ) { Text(stringResource(R.string.account_add_shortcut)) }
         }
         ListItem(
-            leadingContent = { Icon(painterResource(R.drawable.ic_settings), null) },
+            leadingContent = { Icon(painterResource(R.drawable.ic_person_add), null) },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            modifier = Modifier.clickable(role = Role.Button, onClick = onOpenSettings),
-        ) { Text(stringResource(R.string.app_settings)) }
+            modifier = Modifier.clickable(role = Role.Button, onClick = onAddAccount),
+        ) { Text(stringResource(R.string.account_add)) }
         if (state.others.isNotEmpty()) {
             HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             state.others.forEach { OtherAccount(it, onClick = { onSwitch(it.id) }) }
         }
         HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         ListItem(
-            leadingContent = { Icon(painterResource(R.drawable.ic_person_add), null) },
+            leadingContent = { Icon(painterResource(R.drawable.ic_settings), null) },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            modifier = Modifier.clickable(role = Role.Button, onClick = onAddAccount),
-        ) { Text(stringResource(R.string.account_add)) }
+            modifier = Modifier.clickable(role = Role.Button, onClick = onOpenSettings),
+        ) { Text(stringResource(R.string.app_settings)) }
     }
 }
 
