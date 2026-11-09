@@ -37,8 +37,10 @@ class RoomWriter(
         editing: String? = null,
         /** Link previews to bundle (fetched in the composer). */
         previews: List<BundledPreview> = emptyList(),
+        /** Ping everyone here (`m.mentions.room`): the text says @room and we chose to. */
+        mentionRoom: Boolean = false,
     ) {
-        val params = messageParams(roomId, text, replyTo, editing)
+        val params = messageParams(roomId, text, replyTo, editing, mentionRoom = mentionRoom)
         val bundled =
             if (previews.isEmpty()) {
                 params
@@ -274,6 +276,8 @@ internal fun messageParams(
     baseContent: JsonObject? = null,
     /** Content keys gomuks' `base_content` type doesn't know (it drops those): sent as they are. */
     extra: JsonObject? = null,
+    /** An @room that pings everyone (`m.mentions.room`), as gomuks web's "Mention @room". */
+    mentionRoom: Boolean = false,
 ): JsonObject =
     buildJsonObject {
         put("room_id", JsonPrimitive(roomId))
@@ -304,12 +308,22 @@ internal fun messageParams(
                         put("m.in_reply_to", inReplyTo)
                     },
                 )
-                if (!replyTo.fallback) {
-                    put(
-                        "mentions",
-                        buildJsonObject { put("user_ids", JsonArray(listOf(JsonPrimitive(replyTo.sender)))) }
-                    )
-                }
             }
         }
+        // A real reply pings who wrote the original; a thread's fallback one doesn't.
+        val pinged = replyTo?.takeIf { editing == null && !it.fallback }?.sender
+        if (pinged != null || mentionRoom) {
+            put(
+                "mentions",
+                buildJsonObject {
+                    pinged?.let { put("user_ids", JsonArray(listOf(JsonPrimitive(it)))) }
+                    if (mentionRoom) put("room", JsonPrimitive(true))
+                },
+            )
+        }
     }
+
+/** Whether [text] says `@room` (a word of its own, not `@roomie` or `x@room.org`): it may ping everyone. */
+fun mentionsRoom(text: String): Boolean = ROOM_MENTION.containsMatchIn(text)
+
+private val ROOM_MENTION = Regex("""(?<![\w@.])@room(?![\w-])""")

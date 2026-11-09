@@ -36,6 +36,7 @@ import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
+import pt.aguiarvieira.xmuks.core.data.roominfo.Threshold
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
@@ -257,6 +258,18 @@ class RoomSession(
             me != null && levels.of(me) >= levels.redact
         }.distinctUntilChanged()
 
+    /**
+     * The level an @room needs here (`notifications.room`), and whether we have it; null until
+     * the room's state is in (assumed allowed till then).
+     */
+    val roomMention: Flow<RoomMentionPower?> =
+        combine(state, dao.meta().map { it?.userId }.distinctUntilChanged()) { events, me ->
+            if (me == null || events.isEmpty()) return@combine null
+            val levels = RoomInfo.parse(roomId, events).powerLevels
+            val needed = levels.of(Threshold.RoomNotification)
+            RoomMentionPower(levels.of(me) >= needed, needed)
+        }.distinctUntilChanged()
+
     /** Pinning and unpinning, and the pinned messages themselves. */
     val pinning =
         RoomPinning(
@@ -420,3 +433,9 @@ class RoomSessions(
         scope.launch { RoomWriter(roomId, exec, outbox).setTyping(0) }
     }
 }
+
+/** Whether we may ping everyone with @room here, and the power level that takes. */
+data class RoomMentionPower(
+    val allowed: Boolean,
+    val needed: Long,
+)

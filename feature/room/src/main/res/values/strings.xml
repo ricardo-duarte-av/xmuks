@@ -205,6 +205,10 @@
     <string name="link_preview_load">Preview %1$s</string>
     <string name="link_preview_failed">No preview for %1$s · retry</string>
     <string name="link_preview_remove">Leave the preview out</string>
+    <string name="room_ping_on">Notifying everyone in the room</string>
+    <string name="room_ping_off">@room won’t notify anyone</string>
+    <string name="room_ping_not_allowed_level">Notifying everyone here takes power level %1$d</string>
+    <string name="room_ping_not_allowed">You can’t notify everyone in this room</string>
     <string name="bridge_sent">Delivered to the network</string>
     <string name="bridge_delivered">Delivered</string>
     <string name="bridge_failed">The bridge couldn’t deliver it</string>

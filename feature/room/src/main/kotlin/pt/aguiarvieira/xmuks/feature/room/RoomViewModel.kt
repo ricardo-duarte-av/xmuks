@@ -293,6 +293,9 @@ class RoomViewModel
         val mentionsIn: (TextFieldState, CoroutineScope) -> ComposerMentions =
             { field, scope -> ComposerMentions(scope, field, roomId, mentionTargets, customEmoji) }
 
+        /** An @room in the draft, and whether it pings everyone. */
+        internal val roomPing = RoomPing(viewModelScope, draft, session.roomMention)
+
         /** Previews offered for the links being written, bundled when sent. */
         internal val linkPreviews =
             ComposerPreviews(
@@ -340,12 +343,13 @@ class RoomViewModel
             // Taken before the reply mode ends with the send.
             val replyTo = target.reply()
             val previews = linkPreviews.take()
+            val mentionRoom = roomPing.take(outgoing)
             modes.sent()
             stopTyping()
             viewModelScope.launch {
                 when (mode) {
                     ComposeMode.New, is ComposeMode.Reply -> {
-                        session.writer.send(outgoing, replyTo = replyTo, previews = previews)
+                        session.writer.send(outgoing, replyTo = replyTo, previews = previews, mentionRoom = mentionRoom)
                     }
 
                     is ComposeMode.Edit -> {
@@ -354,7 +358,7 @@ class RoomViewModel
                         if (current != null) {
                             session.writer.editCaption(id, current, outgoing)
                         } else {
-                            session.writer.send(outgoing, editing = id)
+                            session.writer.send(outgoing, editing = id, mentionRoom = mentionRoom)
                         }
                     }
                 }

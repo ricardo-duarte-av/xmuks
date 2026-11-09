@@ -75,6 +75,8 @@ internal fun ComposerCard(
     onChoosePersona: (String?) -> Unit = {},
     onOpenPersonas: () -> Unit = {},
     previews: LinkPreviewsUi = LinkPreviewsUi(),
+    /** The draft says @room: the switch for pinging everyone. */
+    roomPing: RoomPingUi = RoomPingUi(),
     mentions: MentionHintsUi = MentionHintsUi(),
     /** The network a bridged room is on: the hint says the message goes there. */
     network: String? = null,
@@ -92,6 +94,7 @@ internal fun ComposerCard(
             SendingAsBanner(personas, state, avatarUrl, onChoosePersona, onOpenPersonas)
             CommandHints(state, commands)
             MentionHints(mentions)
+            RoomPingChip(roomPing)
             ComposerLinkPreviews(previews)
             Row(
                 modifier =

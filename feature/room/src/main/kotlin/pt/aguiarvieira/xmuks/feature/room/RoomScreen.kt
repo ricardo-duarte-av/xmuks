@@ -144,6 +144,7 @@ fun RoomRoute(
     val loadingOlder by viewModel.loadingOlder.collectAsStateWithLifecycle()
     val hasMoreBefore by viewModel.hasMoreBefore.collectAsStateWithLifecycle()
     val linkPreviews by viewModel.linkPreviews.previews.collectAsStateWithLifecycle()
+    val roomPing by viewModel.roomPing.state.collectAsStateWithLifecycle()
     val bridge by viewModel.bridge.collectAsStateWithLifecycle()
     val account by viewModel.account.collectAsStateWithLifecycle()
     val features by viewModel.features.collectAsStateWithLifecycle()
@@ -335,6 +336,7 @@ fun RoomRoute(
                             viewModel.linkPreviews::load,
                             viewModel.linkPreviews::dismiss,
                         ),
+                    roomPing = RoomPingUi(roomPing, viewModel.roomPing::toggle),
                     features = features,
                     network = bridge?.protocol,
                     onLimit = viewModel.limited::show,
@@ -395,6 +397,8 @@ class ComposerActions(
     val onSendLocation: (PickedLocation) -> Unit = {},
     val polls: PollActions = PollActions(),
     val linkPreviews: LinkPreviewsUi = LinkPreviewsUi(),
+    /** The draft says @room: whether that pings everyone. */
+    val roomPing: RoomPingUi = RoomPingUi(),
     val mentions: MentionHintsUi = MentionHintsUi(),
     /** Mentions completed in a media caption's box, as in the composer's; null where there are none. */
     val captionMentions: ((TextFieldState, CoroutineScope) -> ComposerMentions)? = null,
@@ -644,6 +648,7 @@ fun RoomScreen(
                         onChoosePersona = composer.onChoosePersona,
                         onOpenPersonas = { overlays.choosingPersona = true },
                         previews = composer.linkPreviews,
+                        roomPing = composer.roomPing,
                         network = bridge?.protocol,
                         mentions = composer.mentions,
                         onSendMedia = composer.onSendNow,
