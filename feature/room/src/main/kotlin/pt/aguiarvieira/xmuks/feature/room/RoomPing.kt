@@ -6,7 +6,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.FilterChip
@@ -22,7 +21,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,7 +45,7 @@ data class RoomPingState(
  * An @room in the draft pings everyone (`m.mentions.room`) unless turned off, as gomuks web's
  * "Mention @room" box — on for every new message, and only where the room's power levels let us.
  */
-internal class RoomPing(
+class RoomPing(
     scope: CoroutineScope,
     draft: TextFieldState,
     power: Flow<RoomMentionPower?>,
@@ -93,12 +91,16 @@ class RoomPingUi(
  * notify everyone here. Without the power to, it stays (dimmed, off) and a tap says what it takes.
  */
 @Composable
-internal fun RoomPingChip(ping: RoomPingUi) {
+fun RoomPingChip(
+    ping: RoomPingUi,
+    modifier: Modifier = Modifier,
+) {
     // Kept through the exit animation, once the draft no longer says @room.
     val last = remember { mutableStateOf(ping.state) }
     ping.state?.let { last.value = it }
     AnimatedVisibility(
         visible = ping.state != null,
+        modifier = modifier,
         enter = expandVertically() + fadeIn(),
         exit = shrinkVertically() + fadeOut(),
     ) {
@@ -120,10 +122,7 @@ internal fun RoomPingChip(ping: RoomPingUi) {
                     Modifier.size(FilterChipDefaults.IconSize),
                 )
             },
-            modifier =
-                Modifier
-                    .padding(start = 12.dp, end = 12.dp, top = 6.dp)
-                    .then(if (state.allowed) Modifier else Modifier.alpha(DISABLED_ALPHA)),
+            modifier = if (state.allowed) Modifier else Modifier.alpha(DISABLED_ALPHA),
         )
     }
 }

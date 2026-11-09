@@ -58,9 +58,21 @@ class RoomWriter(
         eventId: String,
         current: JsonObject,
         caption: String,
+        /** The new caption's @room pings everyone. */
+        mentionRoom: Boolean = false,
     ) {
         val (base, extra) = captionEdit(current)
-        outbox.sendMessage(roomId, messageParams(roomId, caption, editing = eventId, baseContent = base, extra = extra))
+        outbox.sendMessage(
+            roomId,
+            messageParams(
+                roomId,
+                caption,
+                editing = eventId,
+                baseContent = base,
+                extra = extra,
+                mentionRoom = mentionRoom,
+            ),
+        )
     }
 
     /**

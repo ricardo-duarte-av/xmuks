@@ -70,7 +70,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 internal fun MediaSendScreen(
     draft: MediaDraft,
     onChoose: (ImageSize) -> Unit,
-    onSend: (caption: String, spoiler: Boolean) -> Unit,
+    onSend: (caption: String, spoiler: Boolean, mentionRoom: Boolean) -> Unit,
     onDismiss: () -> Unit,
     /** The bridged network's name, for what it would make of the file. */
     network: String? = null,
@@ -94,7 +94,7 @@ internal fun MediaSendScreen(
 private fun MediaSendContent(
     draft: MediaDraft,
     onChoose: (ImageSize) -> Unit,
-    onSend: (caption: String, spoiler: Boolean) -> Unit,
+    onSend: (caption: String, spoiler: Boolean, mentionRoom: Boolean) -> Unit,
     onDismiss: () -> Unit,
     network: String?,
     onLimit: (Limit) -> Unit,
@@ -104,6 +104,8 @@ private fun MediaSendContent(
     val scope = rememberCoroutineScope()
     // Once per caption box: a new one would fetch the members again.
     val completing = remember(caption) { mentions?.start?.invoke(caption, scope) }
+    val pinging = remember(caption) { mentions?.ping?.invoke(caption, scope) }
+    val ping by (pinging?.state ?: NO_PING).collectAsStateWithLifecycle()
     val hints by (completing?.suggestions ?: NO_HINTS).collectAsStateWithLifecycle()
     val emojiHints by (completing?.emoji ?: NO_EMOJI).collectAsStateWithLifecycle()
     var spoiler by rememberSaveable { mutableStateOf(draft.replacing?.spoiler == true) }
@@ -162,6 +164,7 @@ private fun MediaSendContent(
                     MentionHintsUi(hints, mentions.avatar, completing::pick, emojiHints, completing::pickEmoji)
                 )
             }
+            if (pinging != null) RoomPingChip(RoomPingUi(ping, pinging::toggle), Modifier.padding(horizontal = 12.dp))
             Row(
                 modifier = Modifier.padding(12.dp),
                 verticalAlignment = Alignment.Bottom,
@@ -176,7 +179,14 @@ private fun MediaSendContent(
                 )
                 val blocked = draft.blocked?.let(Limit::Media)
                 FilledIconButton(
-                    onClick = { if (blocked != null) onLimit(blocked) else onSend(caption.text.toString(), spoiler) },
+                    onClick = {
+                        if (blocked != null) {
+                            onLimit(blocked)
+                        } else {
+                            val text = caption.text.toString()
+                            onSend(text, spoiler, pinging?.take(text) == true)
+                        }
+                    },
                     enabled = !draft.sending,
                     modifier = Modifier.size(56.dp).limited(blocked),
                 ) {
@@ -317,7 +327,10 @@ private fun sizeName(size: ImageSize) =
 class CaptionMentions(
     val start: (TextFieldState, CoroutineScope) -> ComposerMentions,
     val avatar: (String?) -> String?,
+    /** The @room switch for a box, as the composer's; null where there's none. */
+    val ping: ((TextFieldState, CoroutineScope) -> RoomPing)? = null,
 )
 
 private val NO_HINTS = MutableStateFlow(emptyList<MentionTarget>())
 private val NO_EMOJI = MutableStateFlow(emptyList<EmojiHint>())
+private val NO_PING = MutableStateFlow<RoomPingState?>(null)

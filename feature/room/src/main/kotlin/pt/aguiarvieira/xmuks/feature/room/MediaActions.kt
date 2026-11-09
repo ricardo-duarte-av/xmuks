@@ -163,6 +163,8 @@ class MediaActions(
     fun send(
         caption: String,
         spoiler: Boolean,
+        /** The caption's @room pings everyone. */
+        mentionRoom: Boolean = false,
     ) {
         val draft = _draft.value?.takeIf { !it.sending } ?: return
         _draft.value = draft.copy(sending = true, error = null)
@@ -182,6 +184,7 @@ class MediaActions(
                     encrypted(),
                     spoiler,
                     editing,
+                    mentionRoom,
                 )
                 sizing?.cancel()
                 resized.clear()

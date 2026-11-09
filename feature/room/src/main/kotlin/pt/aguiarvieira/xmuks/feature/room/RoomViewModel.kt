@@ -296,6 +296,10 @@ class RoomViewModel
         /** An @room in the draft, and whether it pings everyone. */
         internal val roomPing = RoomPing(viewModelScope, draft, session.roomMention)
 
+        /** The same, in another box (a media caption's), for as long as [scope] lasts. */
+        val pingIn: (TextFieldState, CoroutineScope) -> RoomPing =
+            { field, scope -> RoomPing(scope, field, session.roomMention) }
+
         /** Previews offered for the links being written, bundled when sent. */
         internal val linkPreviews =
             ComposerPreviews(
@@ -356,7 +360,7 @@ class RoomViewModel
                         val id = mode.message.eventId
                         val current = if (captioned) timeline.first().currentContent(id) else null
                         if (current != null) {
-                            session.writer.editCaption(id, current, outgoing)
+                            session.writer.editCaption(id, current, outgoing, mentionRoom)
                         } else {
                             session.writer.send(outgoing, editing = id, mentionRoom = mentionRoom)
                         }

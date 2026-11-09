@@ -94,7 +94,7 @@ internal fun ComposerCard(
             SendingAsBanner(personas, state, avatarUrl, onChoosePersona, onOpenPersonas)
             CommandHints(state, commands)
             MentionHints(mentions)
-            RoomPingChip(roomPing)
+            RoomPingChip(roomPing, Modifier.padding(start = 12.dp, end = 12.dp, top = 6.dp))
             ComposerLinkPreviews(previews)
             Row(
                 modifier =

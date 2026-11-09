@@ -78,6 +78,8 @@ class MediaSender(
         val seq: Long = 0,
         /** Our message whose file this replaces (an edit), if any. */
         val editing: String? = null,
+        /** The caption's @room pings everyone (`m.mentions.room`). */
+        val mentionRoom: Boolean = false,
     )
 
     private val sequence = AtomicLong()
@@ -102,6 +104,8 @@ class MediaSender(
         spoiler: Boolean = false,
         /** Our message whose file this replaces: sent as its edit. */
         editing: String? = null,
+        /** The caption's @room pings everyone. */
+        mentionRoom: Boolean = false,
     ) {
         val part = partOf(media)
         val shown =
@@ -118,7 +122,16 @@ class MediaSender(
                 blurhash = part.blurhash,
             )
         start(
-            Upload(shown, listOf(media), replyTo, encrypt, spoiler, seq = sequence.incrementAndGet(), editing = editing)
+            Upload(
+                shown,
+                listOf(media),
+                replyTo,
+                encrypt,
+                spoiler,
+                seq = sequence.incrementAndGet(),
+                editing = editing,
+                mentionRoom = mentionRoom,
+            ),
         )
     }
 
@@ -130,9 +143,11 @@ class MediaSender(
         replyTo: ReplyTarget?,
         encrypt: Boolean,
         spoiler: Boolean = false,
+        /** The caption's @room pings everyone. */
+        mentionRoom: Boolean = false,
     ) {
         if (media.size < 2) {
-            media.firstOrNull()?.let { send(roomId, it, caption, replyTo, encrypt, spoiler) }
+            media.firstOrNull()?.let { send(roomId, it, caption, replyTo, encrypt, spoiler, mentionRoom = mentionRoom) }
             return
         }
         val parts = media.map(::partOf)
@@ -151,7 +166,9 @@ class MediaSender(
                 blurhash = first.blurhash,
                 gallery = parts,
             )
-        start(Upload(shown, media, replyTo, encrypt, spoiler, seq = sequence.incrementAndGet()))
+        start(
+            Upload(shown, media, replyTo, encrypt, spoiler, seq = sequence.incrementAndGet(), mentionRoom = mentionRoom)
+        )
     }
 
     private fun partOf(media: PreparedMedia): PendingPart {
@@ -198,6 +215,7 @@ class MediaSender(
                 job,
                 upload.seq,
                 upload.editing,
+                upload.mentionRoom,
             )
         uploads.update { it + (id to restarted) }
         job.start()
@@ -228,6 +246,7 @@ class MediaSender(
                     editing = upload.editing,
                     baseContent = contents.single(),
                     extra = extraContent(upload.spoiler),
+                    mentionRoom = upload.mentionRoom,
                 )
             } else {
                 messageParams(
@@ -236,6 +255,7 @@ class MediaSender(
                     upload.replyTo,
                     baseContent = galleryBase(),
                     extra = galleryExtra(contents, upload.spoiler),
+                    mentionRoom = upload.mentionRoom,
                 )
             }
         outbox.sendMessage(roomId, params)

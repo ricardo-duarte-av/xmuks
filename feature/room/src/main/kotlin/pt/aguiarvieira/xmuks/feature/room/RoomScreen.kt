@@ -314,8 +314,8 @@ fun RoomRoute(
                     onSendNow = viewModel.attach::sendNow,
                     onChooseSize = viewModel.attach::choose,
                     // Our custom emoji's `:shortcode:`s expanded in the caption, as in a message.
-                    onSendMedia = { caption, spoiler ->
-                        viewModel.attach.send(viewModel.emoji.expandShortcodes(caption), spoiler)
+                    onSendMedia = { caption, spoiler, mentionRoom ->
+                        viewModel.attach.send(viewModel.emoji.expandShortcodes(caption), spoiler, mentionRoom)
                     },
                     onCancelMedia = viewModel.attach::cancel,
                     onSendVoice = viewModel.attach::sendVoice,
@@ -330,6 +330,7 @@ fun RoomRoute(
                             viewModel.mentions::pickEmoji,
                         ),
                     captionMentions = viewModel.mentionsIn,
+                    captionPing = viewModel.pingIn,
                     linkPreviews =
                         LinkPreviewsUi(
                             linkPreviews,
@@ -391,7 +392,7 @@ class ComposerActions(
     /** From the keyboard: straight to the timeline, no preview. */
     val onSendNow: (android.net.Uri) -> Unit = {},
     val onChooseSize: (ImageSize) -> Unit = {},
-    val onSendMedia: (caption: String, spoiler: Boolean) -> Unit = { _, _ -> },
+    val onSendMedia: (caption: String, spoiler: Boolean, mentionRoom: Boolean) -> Unit = { _, _, _ -> },
     val onCancelMedia: () -> Unit = {},
     val onSendVoice: (java.io.File) -> Unit = {},
     val onSendLocation: (PickedLocation) -> Unit = {},
@@ -402,6 +403,8 @@ class ComposerActions(
     val mentions: MentionHintsUi = MentionHintsUi(),
     /** Mentions completed in a media caption's box, as in the composer's; null where there are none. */
     val captionMentions: ((TextFieldState, CoroutineScope) -> ComposerMentions)? = null,
+    /** The @room switch in a media caption's box, as in the composer's. */
+    val captionPing: ((TextFieldState, CoroutineScope) -> RoomPing)? = null,
     /** What the bridged network here can do; null when the room isn't bridged (nothing is limited). */
     val features: RoomFeatures? = null,
     /** The bridged network's name, for saying what it won't do. */

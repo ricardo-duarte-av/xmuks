@@ -344,7 +344,9 @@ private fun ComposerOverlays(
             composer.onCancelMedia,
             composer.network,
             composer.onLimit,
-            composer.captionMentions?.let { start -> CaptionMentions(start, composer.mentions.avatar) },
+            composer.captionMentions?.let { start ->
+                CaptionMentions(start, composer.mentions.avatar, composer.captionPing)
+            },
         )
     }
     if (state.recordingVoice) VoiceSheet(composer.onSendVoice) { state.recordingVoice = false }

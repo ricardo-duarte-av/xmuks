@@ -86,6 +86,9 @@ import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenHeader
 import pt.aguiarvieira.xmuks.feature.room.CaptionMentions
 import pt.aguiarvieira.xmuks.feature.room.MentionHints
 import pt.aguiarvieira.xmuks.feature.room.MentionHintsUi
+import pt.aguiarvieira.xmuks.feature.room.RoomPing
+import pt.aguiarvieira.xmuks.feature.room.RoomPingChip
+import pt.aguiarvieira.xmuks.feature.room.RoomPingUi
 
 /**
  * Something shared to xmuks from another app: pick a room (unless it was shared straight to
@@ -345,7 +348,7 @@ internal fun CaptionScreen(
     gallery: Boolean,
     onChangeRoom: () -> Unit,
     onRemove: (String) -> Unit,
-    onSend: (Map<String, String>) -> Unit,
+    onSend: (Map<String, ShareCaption>) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     /** A forwarded picture's sizes to choose from; null when there's no choice. */
@@ -361,6 +364,17 @@ internal fun CaptionScreen(
         if (item.id !in captions) captions[item.id] = TextFieldState(if (index == 0) text.orEmpty() else "")
     }
     val galleryCaption = remember { TextFieldState(text.orEmpty()) }
+    // Each box's @room switch, for the room shared to (made as a box shows, or as it's sent).
+    val scope = rememberCoroutineScope()
+    val pings = remember(mentions) { HashMap<TextFieldState, RoomPing>() }
+    val pingOf: (TextFieldState) -> RoomPing? =
+        remember(mentions) {
+            { field: TextFieldState -> mentions?.ping?.let { start -> pings.getOrPut(field) { start(field, scope) } } }
+        }
+    val captionOf = { field: TextFieldState ->
+        val typed = field.text.toString()
+        ShareCaption(typed, pingOf(field)?.take(typed) == true)
+    }
     Scaffold(
         modifier = modifier,
         containerColor = ScreenCards.ground,
@@ -378,9 +392,9 @@ internal fun CaptionScreen(
                     onClick = {
                         onSend(
                             if (gallery) {
-                                mapOf(ShareViewModel.GALLERY_CAPTION to galleryCaption.text.toString())
+                                mapOf(ShareViewModel.GALLERY_CAPTION to captionOf(galleryCaption))
                             } else {
-                                captions.mapValues { it.value.text.toString() }
+                                captions.mapValues { captionOf(it.value) }
                             },
                         )
                     },
@@ -433,10 +447,10 @@ internal fun CaptionScreen(
                             key = "text"
                         ) { ScreenCard(Modifier.fillMaxWidth()) { Text(text, Modifier.padding(20.dp)) } }
                     }
-                    if (gallery) item(key = "gallery") { GalleryCaptionCard(galleryCaption, mentions) }
+                    if (gallery) item(key = "gallery") { GalleryCaptionCard(galleryCaption, mentions, pingOf) }
                     items(items, key = { it.id }) { item ->
                         captions[item.id]?.let {
-                            ItemCard(item, it.takeUnless { gallery }, { onRemove(item.id) }, mentions)
+                            ItemCard(item, it.takeUnless { gallery }, { onRemove(item.id) }, mentions, pingOf)
                         }
                     }
                     if (sizes != null) item(key = "sizes") { SizeCard(sizes) }
@@ -473,6 +487,7 @@ private fun RoomLine(
 private fun GalleryCaptionCard(
     caption: TextFieldState,
     mentions: CaptionMentions?,
+    pingOf: (TextFieldState) -> RoomPing?,
 ) {
     ScreenCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -481,7 +496,7 @@ private fun GalleryCaptionCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            CaptionField(caption, R.string.share_gallery_caption, mentions)
+            CaptionField(caption, R.string.share_gallery_caption, mentions, pingOf)
         }
     }
 }
@@ -493,6 +508,7 @@ private fun ItemCard(
     caption: TextFieldState?,
     onRemove: () -> Unit,
     mentions: CaptionMentions?,
+    pingOf: (TextFieldState) -> RoomPing?,
 ) {
     ScreenCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -509,7 +525,7 @@ private fun ItemCard(
                     onClick = onRemove
                 ) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.share_remove)) }
             }
-            if (caption != null) CaptionField(caption, R.string.share_caption, mentions)
+            if (caption != null) CaptionField(caption, R.string.share_caption, mentions, pingOf)
         }
     }
 }
@@ -523,10 +539,12 @@ private fun CaptionField(
     caption: TextFieldState,
     placeholder: Int,
     mentions: CaptionMentions?,
+    pingOf: (TextFieldState) -> RoomPing?,
 ) {
     val scope = rememberCoroutineScope()
     // Once per box and room: a new one would fetch the members again.
     val completing = remember(caption, mentions) { mentions?.start?.invoke(caption, scope) }
+    val pinging = remember(caption, pingOf) { pingOf(caption) }
     Column {
         if (completing != null && mentions != null) {
             val people by completing.suggestions.collectAsStateWithLifecycle()
@@ -535,6 +553,10 @@ private fun CaptionField(
                 MentionHintsUi(people, mentions.avatar, completing::pick, emoji, completing::pickEmoji),
                 Modifier.padding(bottom = 4.dp),
             )
+        }
+        if (pinging != null) {
+            val ping by pinging.state.collectAsStateWithLifecycle()
+            RoomPingChip(RoomPingUi(ping, pinging::toggle), Modifier.padding(bottom = 4.dp))
         }
         OutlinedTextField(
             state = caption,

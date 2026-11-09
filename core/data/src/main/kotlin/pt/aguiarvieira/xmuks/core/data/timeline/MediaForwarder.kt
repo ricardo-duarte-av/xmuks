@@ -28,10 +28,15 @@ class MediaForwarder(
         index: Int?,
         toRoom: String,
         caption: String,
+        /** The caption's @room pings everyone there. */
+        mentionRoom: Boolean = false,
     ): Boolean {
         val event = event(fromRoom, eventId) ?: return false
         val (base, extra) = forwardContent(event.effectiveContent, index) ?: return false
-        outbox.sendMessage(toRoom, messageParams(toRoom, caption, baseContent = base, extra = extra))
+        outbox.sendMessage(
+            toRoom,
+            messageParams(toRoom, caption, baseContent = base, extra = extra, mentionRoom = mentionRoom),
+        )
         return true
     }
 
