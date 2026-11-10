@@ -49,6 +49,7 @@ import pt.aguiarvieira.xmuks.core.data.push.PushRuleEditor
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomDirectoryRepository
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
+import pt.aguiarvieira.xmuks.core.data.roominfo.SpaceHierarchyRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.BridgeScanner
 import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvents
 import pt.aguiarvieira.xmuks.core.data.rooms.InvitesRepository
@@ -312,6 +313,8 @@ class AccountGraph(
     val spaceEdits by lazy { SpaceEditRepository(exec, database, roomInfo, mediaUrls) }
 
     val roomDirectory by lazy { RoomDirectoryRepository(exec) }
+
+    val spaceHierarchy by lazy { SpaceHierarchyRepository(exec, database) }
 
     val linkResolver by lazy { LinkResolver(exec, roomListRepository) }
 

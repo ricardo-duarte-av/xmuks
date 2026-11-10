@@ -34,6 +34,11 @@
         <item quantity="one">%d room still names this space as its parent, and you can\'t change that room.</item>
         <item quantity="other">%d rooms still name this space as their parent, and you can\'t change those rooms.</item>
     </plurals>
+    <string name="space_more">More in this space · %1$s</string>
+    <string name="space_more_suggested">Suggested</string>
+    <string name="space_more_failed">Couldn’t load the rest of this space: %1$s</string>
+    <string name="space_more_expanded">Expanded</string>
+    <string name="space_more_collapsed">Collapsed</string>
     <string name="space_rooms">%1$d rooms</string>
     <string name="back">Back</string>
     <string name="account">Account</string>

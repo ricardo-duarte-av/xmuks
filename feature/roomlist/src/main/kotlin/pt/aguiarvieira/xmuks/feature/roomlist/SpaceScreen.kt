@@ -35,7 +35,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -64,6 +67,8 @@ fun SpaceRoute(
     onTabChange: (HomeTab) -> Unit = {},
     /** Shows a room read-only, without marking it read (its long-press menu). */
     onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
+    /** A room of the space we're not in: its preview, to join from. */
+    onOpenToJoin: (roomId: String, via: List<String>) -> Unit = { _, _ -> },
     viewModel: SpaceViewModel =
         hiltViewModel<SpaceViewModel, SpaceViewModel.Factory>(key = spaceId) { it.create(spaceId) },
 ) {
@@ -76,6 +81,7 @@ fun SpaceRoute(
     val canEdit by viewModel.canEdit.collectAsStateWithLifecycle()
     val edit by viewModel.edit.collectAsStateWithLifecycle()
     val editRows by viewModel.editRows.collectAsStateWithLifecycle()
+    val unjoined by viewModel.unjoined.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val resources = LocalResources.current
     LaunchedEffect(viewModel) {
@@ -123,6 +129,14 @@ fun SpaceRoute(
                     onSave = viewModel::save,
                 ),
             snackbar = snackbar,
+            more = unjoined,
+            moreActions =
+                SpaceMoreActions(
+                    onOpen = onOpenToJoin,
+                    onLoadMore = viewModel::loadMoreUnjoined,
+                    onRetry = viewModel::retryUnjoined,
+                ),
+            avatar = viewModel.media::avatar,
         )
     }
 }
@@ -158,6 +172,10 @@ fun SpaceScreen(
     /** Adding and removing rooms, in place: the list turns into the editor. */
     editor: SpaceEditorState = remember { SpaceEditorState() },
     snackbar: SnackbarHostState = remember { SnackbarHostState() },
+    /** The space's rooms we're not in, below the rest. */
+    more: SpaceMoreState = SpaceMoreState(),
+    moreActions: SpaceMoreActions = remember { SpaceMoreActions() },
+    avatar: (String?) -> String? = { null },
 ) {
     val session = editor.session
     val editing = session != null
@@ -266,19 +284,58 @@ fun SpaceScreen(
                         enabled = session?.saving != true,
                     )
                 } else {
-                    RoomList(
-                        rooms,
-                        now,
-                        R.string.empty_space,
-                        SharedScopes.space(spaceId),
-                        onOpenRoom,
-                        onPreviewRoom = onPreviewRoom,
-                    )
+                    SpaceRoomList(spaceId, filter, rooms, now, onOpenRoom, onPreviewRoom, more, moreActions, avatar)
                 }
             }
         }
     }
 }
+
+/** The space's rooms, then "More in this space": open unless long, the choice kept per chip. */
+@Composable
+private fun SpaceRoomList(
+    spaceId: String,
+    filter: String?,
+    rooms: List<RoomSummary>?,
+    now: Long,
+    onOpenRoom: (roomId: String, scope: String) -> Unit,
+    onPreviewRoom: (roomId: String, scope: String) -> Unit,
+    more: SpaceMoreState,
+    moreActions: SpaceMoreActions,
+    avatar: (String?) -> String?,
+) {
+    var folded by rememberSaveable(filter) { mutableStateOf<Boolean?>(null) }
+    val expanded = folded?.not() ?: (!more.hasMore && more.rooms.size <= FOLD_ABOVE)
+    RoomList(
+        rooms,
+        now,
+        R.string.empty_space,
+        SharedScopes.space(spaceId),
+        onOpenRoom,
+        onPreviewRoom = onPreviewRoom,
+        footer =
+            if (more.visible) {
+                {
+                    spaceMoreSection(
+                        more,
+                        expanded,
+                        avatar,
+                        SpaceMoreActions(
+                            onOpen = moreActions.onOpen,
+                            onToggle = { folded = expanded },
+                            onLoadMore = moreActions.onLoadMore,
+                            onRetry = moreActions.onRetry,
+                        ),
+                    )
+                }
+            } else {
+                null
+            },
+    )
+}
+
+/** Above this many, "More in this space" starts folded. */
+private const val FOLD_ABOVE = 20
 
 @Composable
 internal fun BackButton(onBack: () -> Unit) {

@@ -115,33 +115,41 @@ class RoomScreensScreenshotTest {
             )
         }
 
-    @Test
-    fun preview() =
-        capture("room_preview") {
-            RoomPreviewScreen(
-                roomIdOrAlias = "#matrix-spec:example.org",
-                state =
-                    PreviewState.Loaded(
-                        RoomPreview(
-                            roomId = "!room:example.org",
-                            name = "Matrix Spec",
-                            topic = "Discuss the specification and its MSCs",
-                            avatarMxc = null,
-                            canonicalAlias = "#matrix-spec:example.org",
-                            joinedMembers = 1002,
-                            joinRule = "knock_restricted",
-                            worldReadable = true,
-                            isSpace = false,
-                            encrypted = false,
-                            membership = "leave",
-                        ),
+    private fun preview(
+        name: String,
+        joinRule: String,
+    ) = capture(name) {
+        RoomPreviewScreen(
+            roomIdOrAlias = "#matrix-spec:example.org",
+            state =
+                PreviewState.Loaded(
+                    RoomPreview(
+                        roomId = "!room:example.org",
+                        name = "Matrix Spec",
+                        topic = "Discuss the specification and its MSCs",
+                        avatarMxc = null,
+                        canonicalAlias = "#matrix-spec:example.org",
+                        joinedMembers = 1002,
+                        joinRule = joinRule,
+                        worldReadable = true,
+                        isSpace = false,
+                        encrypted = false,
+                        membership = "leave",
                     ),
-                join = JoinState.Idle,
-                media = media,
-                onJoin = {},
-                onKnock = {},
-                onErrorShow = {},
-                onBack = {},
-            )
-        }
+                ),
+            join = JoinState.Idle,
+            media = media,
+            onJoin = {},
+            onKnock = {},
+            onErrorShow = {},
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun preview() = preview("room_preview", "knock_restricted")
+
+    /** Invite only, yet never blocked: a try to join, and why it may not work. */
+    @Test
+    fun previewInviteOnly() = preview("room_preview_invite_only", "invite")
 }

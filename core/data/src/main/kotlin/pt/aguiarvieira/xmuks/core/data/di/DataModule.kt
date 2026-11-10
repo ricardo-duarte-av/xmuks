@@ -64,6 +64,7 @@ import pt.aguiarvieira.xmuks.core.data.push.PushRuleEditor
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomDirectoryRepository
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
+import pt.aguiarvieira.xmuks.core.data.roominfo.SpaceHierarchyRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.BridgeScanner
 import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvents
 import pt.aguiarvieira.xmuks.core.data.rooms.InvitesRepository
@@ -304,6 +305,9 @@ object DataModule {
 
     @Provides
     fun roomDirectoryRepository(graph: AccountGraph): RoomDirectoryRepository = graph.roomDirectory
+
+    @Provides
+    fun spaceHierarchyRepository(graph: AccountGraph): SpaceHierarchyRepository = graph.spaceHierarchy
 
     @Provides
     fun linkResolver(graph: AccountGraph): LinkResolver = graph.linkResolver

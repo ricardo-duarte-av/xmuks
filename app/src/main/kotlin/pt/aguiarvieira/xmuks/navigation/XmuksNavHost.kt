@@ -355,6 +355,7 @@ fun XmuksNavHost(
                                         onBack = { backStack.back(key) },
                                         onOpenRoom = backStack::openRoom,
                                         onPreviewRoom = backStack::previewRoom,
+                                        onOpenToJoin = { roomId, via -> backStack.add(RoomPreviewKey(roomId, via)) },
                                         // As if back to home, then that tab.
                                         onTabChange = { tab ->
                                             backStack.removeAll { it is SpaceKey }

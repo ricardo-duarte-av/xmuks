@@ -10,6 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import pt.aguiarvieira.xmuks.core.data.roominfo.DirectoryRoom
 import pt.aguiarvieira.xmuks.core.data.rooms.CallBadge
 import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvent
 import pt.aguiarvieira.xmuks.core.data.rooms.OwnProfile
@@ -182,6 +183,46 @@ class RoomListScreenshotTest {
                 now = now,
             )
         }
+
+    private fun spaceMore(dark: Boolean) =
+        capture(if (dark) "space_more_cards_dark" else "space_more", dark = dark, cards = dark) {
+            fun child(
+                id: String,
+                name: String,
+                members: Int,
+                topic: String? = null,
+                alias: String? = null,
+                space: Boolean = false,
+                suggested: Boolean = false,
+            ) = SpaceMoreRoom(DirectoryRoom(id, name, topic, null, alias, members, "public", space), listOf("x"), suggested)
+            SpaceScreen(
+                spaceId = "!matrix",
+                space = spaces.first(),
+                subspaces = emptyList(),
+                filter = null,
+                rooms = chats.take(3),
+                onSelect = {},
+                onBack = {},
+                onOpenRoom = { _, _ -> },
+                now = now,
+                more =
+                    SpaceMoreState(
+                        listOf(
+                            child("!welcome", "Welcome", 2310, "Start here: rules and where to ask", suggested = true),
+                            child("!bridges", "Bridges", 841, alias = "#bridges:example.org"),
+                            child("!photo", "Photography", 57, "Show us your shots", space = true),
+                            child("!design", "Design", 1),
+                        ),
+                        hasMore = false,
+                    ),
+            )
+        }
+
+    @Test
+    fun spaceWithUnjoinedRooms() = spaceMore(dark = false)
+
+    @Test
+    fun spaceWithUnjoinedRoomsCardsDark() = spaceMore(dark = true)
 
     private fun editing(dark: Boolean) =
         capture(if (dark) "space_editor_cards_dark" else "space_editor", dark = dark, cards = dark) {

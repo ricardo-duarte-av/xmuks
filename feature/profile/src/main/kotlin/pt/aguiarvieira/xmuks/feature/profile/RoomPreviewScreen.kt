@@ -194,7 +194,7 @@ private fun PreviewCard(
     }
 }
 
-/** The ways in the room's rules and our membership allow, or why there's none. */
+/** The ways in: join (or try to), ask to, accept an invite; only a ban stops us here. */
 @Composable
 private fun JoinOptions(
     preview: RoomPreview,
@@ -220,7 +220,9 @@ private fun JoinOptions(
             }
 
             else -> {
-                if (open) JoinButton(R.string.join, join, onJoin)
+                // Never blocked: the summary can't tell whether the server lets us in anyway (we
+                // made the room, or we're in it through another server). Try, and the error says why not.
+                JoinButton(if (open) R.string.join else R.string.preview_try_join, join, onJoin)
                 if (preview.canKnock) {
                     OutlinedButton(
                         onClick = { asking = true },

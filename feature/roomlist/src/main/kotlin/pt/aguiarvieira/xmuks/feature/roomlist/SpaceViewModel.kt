@@ -9,6 +9,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,9 +25,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import pt.aguiarvieira.xmuks.core.data.media.MediaUrls
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
+import pt.aguiarvieira.xmuks.core.data.roominfo.SpaceHierarchyRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.InvitesRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
@@ -81,6 +85,8 @@ class SpaceViewModel
         private val preferences: PreferenceStore,
         private val spaceEdits: SpaceEditRepository,
         roomInfo: RoomInfoRepository,
+        private val hierarchy: SpaceHierarchyRepository,
+        val media: MediaUrls,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -107,6 +113,50 @@ class SpaceViewModel
                 .flatMapLatest { rooms.roomsInSpace(it ?: spaceId) }
                 .ordered(preferences.layers())
                 .stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        private val loads = MutableStateFlow(HierarchyLoad())
+        private var hierarchyJob: Job? = null
+
+        /** The shown (sub)space's children we're not in; one joined drops out as sync brings it. */
+        @OptIn(ExperimentalCoroutinesApi::class)
+        val unjoined: StateFlow<SpaceMoreState> =
+            combine(loads, _filter.flatMapLatest { hierarchy.joinedChildren(it ?: spaceId) }) { load, joined ->
+                load.shown(joined)
+            }.stateIn(viewModelScope, WHILE_VISIBLE, SpaceMoreState())
+
+        init {
+            viewModelScope.launch { _filter.collect { loadHierarchy(it ?: spaceId, from = null) } }
+        }
+
+        private fun loadHierarchy(
+            targetId: String,
+            from: String?,
+        ) {
+            hierarchyJob?.cancel()
+            loads.update {
+                if (from == null) HierarchyLoad(targetId, loading = true) else it.copy(loading = true, error = null)
+            }
+            hierarchyJob =
+                viewModelScope.launch {
+                    hierarchy.page(targetId, from).fold(
+                        onSuccess = { page -> loads.update { it.added(page) } },
+                        onFailure = { error -> loads.update { it.failed(error) } },
+                    )
+                }
+        }
+
+        /** The next page, once the last one's in. */
+        fun loadMoreUnjoined() {
+            val load = loads.value
+            val targetId = load.targetId ?: return
+            if (!load.loading && load.error == null && load.next != null) loadHierarchy(targetId, load.next)
+        }
+
+        /** After a failure: the page that failed (the first, if nothing came). */
+        fun retryUnjoined() {
+            val load = loads.value
+            loadHierarchy(load.targetId ?: target, load.next)
+        }
 
         /** The tab bar's badges, as home has them. */
         val badges: StateFlow<TabBadges> =

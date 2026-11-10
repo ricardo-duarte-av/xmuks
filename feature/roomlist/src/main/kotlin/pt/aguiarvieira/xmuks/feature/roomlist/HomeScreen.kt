@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -478,13 +479,15 @@ internal fun RoomList(
     onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
     /** Whether rows have scrolled up under what's above the list. */
     onScrolledChange: (Boolean) -> Unit = {},
+    /** More below the rooms (the rest of a space); with it, the list shows even with no rooms. */
+    footer: (LazyListScope.() -> Unit)? = null,
 ) {
     when {
         rooms == null -> {
             Box(modifier.fillMaxSize())
         }
 
-        rooms.isEmpty() && invites.isEmpty() -> {
+        rooms.isEmpty() && invites.isEmpty() && footer == null -> {
             EmptyState(stringResource(emptyText), modifier)
         }
 
@@ -522,6 +525,7 @@ internal fun RoomList(
                         onLongClick = { menuFor = room },
                     )
                 }
+                footer?.invoke(this)
             }
             menuFor?.let { room ->
                 RoomMenuSheet(room, onPreview = { onPreviewRoom(room.roomId, sharedScope) }) { menuFor = null }

@@ -107,7 +107,7 @@ class RoomDirectoryRepository(
                 total = (json["total_room_count_estimate"] as? JsonPrimitive)?.content?.toIntOrNull(),
             )
 
-        private fun parseRoom(json: JsonObject): DirectoryRoom? =
+        internal fun parseRoom(json: JsonObject): DirectoryRoom? =
             DirectoryRoom(
                 roomId = json.str("room_id") ?: return null,
                 name = json.str("name")?.takeIf { it.isNotBlank() },
