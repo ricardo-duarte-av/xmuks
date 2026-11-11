@@ -3,7 +3,6 @@ package pt.aguiarvieira.xmuks.core.push
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.PersistableBundle
 import androidx.core.content.LocusIdCompat
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
@@ -30,6 +29,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.notify.Avatars
 import pt.aguiarvieira.xmuks.core.notify.RoomKeys
 import pt.aguiarvieira.xmuks.core.notify.RoomNotifier
+import pt.aguiarvieira.xmuks.core.notify.ShortcutStamps
 
 /**
  * A room on the home screen: the same shortcut notifications publish for it (its ID, avatar and
@@ -86,7 +86,7 @@ class PinnedShortcuts(
                                 ?: return@withContext
                         val stale =
                             existing.shortLabel.toString() != me.displayName ||
-                                existing.extras?.getString(AVATAR) != me.avatarUrl.orEmpty()
+                                ShortcutStamps.avatarOf(existing.extras) != me.avatarUrl.orEmpty()
                         if (stale) publishAccount(me, login())
                     }
                 }
@@ -101,7 +101,7 @@ class PinnedShortcuts(
     ) {
         val shortcut = accountShortcut(profile, login) ?: return
         ShortcutManagerCompat.updateShortcuts(context, listOf(shortcut))
-        delay(ICON_WRITTEN_MS)
+        delay(ShortcutStamps.ICON_WRITTEN_MS)
         accountShortcut(
             profile,
             login,
@@ -130,7 +130,7 @@ class PinnedShortcuts(
                 Intent(launch)
                     .putExtra(RoomKeys.EXTRA_ACCOUNT, id)
                     .putExtra(RoomKeys.EXTRA_HOME, true),
-            ).setExtras(PersistableBundle().apply { putString(AVATAR, profile?.avatarUrl.orEmpty()) })
+            ).setExtras(ShortcutStamps.of(profile?.avatarUrl, asOf = null))
             .build()
     }
 
@@ -183,7 +183,9 @@ class PinnedShortcuts(
         val stale =
             existing.mapNotNull { shortcut ->
                 val room = byId[RoomKeys.roomOf(shortcut.id)] ?: return@mapNotNull null
-                val madeWith = shortcut.extras?.getString(AVATAR)
+                // Made from a newer view of the room than ours (a push, while we catch up): left be.
+                if (ShortcutStamps.asOfOf(shortcut.extras) > room.timestamp) return@mapNotNull null
+                val madeWith = ShortcutStamps.avatarOf(shortcut.extras)
                 // A notification's label is gomuks' name, cut at 50 characters with "…".
                 val named = room.name.startsWith(shortcut.shortLabel.toString().removeSuffix("…"))
                 // Made before there could be several accounts: it doesn't say which one opens it.
@@ -193,14 +195,10 @@ class PinnedShortcuts(
         if (stale.isNotEmpty()) publish(stale)
     }
 
-    /**
-     * Updates [rooms]' shortcuts. The system writes a new icon out in the background and tells the
-     * launcher of the change before it's done: the launcher loads (and keeps) the icon there was.
-     * Told again once it's written, by an update that leaves the icon be, it loads the new one.
-     */
+    /** Updates [rooms]' shortcuts, telling the launcher again once the icons are written ([ShortcutStamps]). */
     private suspend fun publish(rooms: List<RoomSummary>) {
         ShortcutManagerCompat.updateShortcuts(context, rooms.map { shortcut(it) })
-        delay(ICON_WRITTEN_MS)
+        delay(ShortcutStamps.ICON_WRITTEN_MS)
         ShortcutManagerCompat.updateShortcuts(context, rooms.map { shortcut(it, icon = false) })
     }
 
@@ -216,7 +214,7 @@ class PinnedShortcuts(
             .setLocusId(LocusIdCompat(RoomKeys.of(account, room.roomId)))
             .setIntent(roomIntent(room.roomId))
             .setCategories(setOf(RoomNotifier.SHORTCUT_CATEGORY))
-            .setExtras(PersistableBundle().apply { putString(AVATAR, room.avatarMxc.orEmpty()) })
+            .setExtras(ShortcutStamps.of(room.avatarMxc, room.timestamp))
             .build()
 
     /** The room's avatar thumbnail, through the app's own (authenticated, cached) image loader. */
@@ -233,11 +231,7 @@ class PinnedShortcuts(
 
     private companion object {
         const val AVATAR_PX = 192
-
-        /** The extra holding the avatar a shortcut was made with (a room's mxc, an account's URL); empty for none. */
-        const val AVATAR = "xmuks.avatar"
         const val SETTLE_MS = 2_000L
-        const val ICON_WRITTEN_MS = 1_000L
         const val KINDS =
             ShortcutManagerCompat.FLAG_MATCH_PINNED or
                 ShortcutManagerCompat.FLAG_MATCH_CACHED or

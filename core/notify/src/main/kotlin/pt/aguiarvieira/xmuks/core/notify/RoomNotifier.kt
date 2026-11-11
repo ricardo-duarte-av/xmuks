@@ -15,8 +15,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.content.ContextCompat
 import androidx.core.content.LocusIdCompat
-import androidx.core.content.pm.ShortcutInfoCompat
-import androidx.core.content.pm.ShortcutManagerCompat
 import coil3.ImageLoader
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
@@ -60,6 +58,7 @@ class RoomNotifier(
     private val account: String? = null,
 ) {
     private val manager = NotificationManagerCompat.from(context)
+    private val shortcuts = ConversationShortcuts(context)
 
     /** A room's name in the system (notification tag, shortcut, channel), for this account. */
     private val key = { roomId: String -> RoomKeys.of(account, roomId) }
@@ -132,13 +131,8 @@ class RoomNotifier(
         val face = face(latest, direct, avatar, imageAuth)
         val intent = roomIntent?.invoke(roomId)
         if (intent != null) {
-            publishShortcut(
-                roomId,
-                latest.roomName,
-                Avatars.adaptive(avatar, latest.roomName, roomId),
-                if (direct) people.values else emptyList(),
-                intent,
-            )
+            val persons = if (direct) people.values else emptyList()
+            shortcuts.publish(key(roomId), latest, avatar, avatarMxc(latest.roomAvatar), persons, intent)
         }
         // Loud when the push rules asked for a sound, or when it's for us (a mention, @room, a
         // keyword: highlighted, which the default rules leave silent; or a DM, when set to) in a
@@ -240,25 +234,11 @@ class RoomNotifier(
             .setIcon(Avatars.round(loadBitmap(user.avatar, imageAuth), user.name, user.id))
             .build()
 
-    private fun publishShortcut(
-        roomId: String,
-        name: String,
-        icon: androidx.core.graphics.drawable.IconCompat,
-        people: Collection<Person>,
-        intent: Intent,
-    ) {
-        val shortcut =
-            ShortcutInfoCompat
-                .Builder(context, key(roomId))
-                .setShortLabel(name)
-                .setLongLived(true)
-                .setIcon(icon)
-                .setLocusId(LocusIdCompat(key(roomId)))
-                .setIntent(intent)
-                .setPersons(people.toTypedArray())
-                .setCategories(setOf(SHORTCUT_CATEGORY))
-                .build()
-        runCatching { ShortcutManagerCompat.pushDynamicShortcut(context, shortcut) }
+    /** A gomuks media path's `mxc://` (empty for no avatar); null when it can't be told. */
+    private fun avatarMxc(path: String?): String? {
+        if (path == null) return ""
+        val url = server()?.resolve(path) ?: return null
+        return mxcCacheKey(url.toString())?.substringBefore('#')
     }
 
     private fun openRoom(
