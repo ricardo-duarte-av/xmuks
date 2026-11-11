@@ -8,6 +8,11 @@ import android.os.PersistableBundle
  * room list's sorting timestamp). Both a push and the room list update a room's shortcut; the
  * room list, read from our cache as a push wakes the app, can be older than the push, and must
  * not put back what the push just replaced.
+ *
+ * A pinned shortcut still showing an old avatar after this may not be ours: with themed icons on,
+ * the Android 17 Pixel launcher keeps its own tinted copy of the icon and doesn't redo it when the
+ * icon changes (the label does change). The system's icon is the new one; turning themed icons off
+ * and on again shows it. Seen on a Pixel 8a, 2026-11-11; Android 16's launcher was fine.
  */
 object ShortcutStamps {
     /** The avatar a shortcut was made with (a room's mxc, an account's URL); empty for none. */
