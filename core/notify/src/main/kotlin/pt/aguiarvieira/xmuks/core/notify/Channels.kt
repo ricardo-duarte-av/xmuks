@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.core.notify
 
 import android.app.NotificationChannel
+import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.content.ContentResolver
 import android.content.Context
@@ -14,6 +15,11 @@ import android.net.Uri
  * channel of its own only once it's customized, from Android's conversation settings or from the
  * room's info here: then it keeps its own settings. What the push rules say shouldn't make a sound
  * posts silently.
+ *
+ * Each account has its own two, in a channel group named after it (its user ID), so they're told
+ * apart, and set apart, in Android's settings: the first account's keep their plain IDs (and the
+ * settings made to them), another's are `account/messages_dm` and so on ([RoomKeys]). A room's own
+ * channel goes in its account's group.
  */
 internal object Channels {
     const val DM = "messages_dm"
@@ -28,11 +34,25 @@ internal object Channels {
     /** A room's own channel, made when it's customized from its info. */
     private const val ROOM = "conversation:"
 
+    /** An account's channel group: this, then the account (or [FIRST]). */
+    private const val ACCOUNT_GROUP = "account:"
+    private const val FIRST = "first"
+
     private const val PREFS = "notify_channels"
     private const val PRUNED = "room_channels_pruned"
 
-    fun ensure(context: Context) {
+    /**
+     * [account]'s channels (null: the first account's), in a group named [label] once that's known
+     * (pushes say whose they are); before, they're made without one, and join it then.
+     */
+    fun ensure(
+        context: Context,
+        account: String? = null,
+        label: String? = null,
+    ) {
         val manager = context.getSystemService(NotificationManager::class.java)
+        val groupId = label?.let { groupOf(account) }
+        if (groupId != null) manager.createNotificationChannelGroup(NotificationChannelGroup(groupId, label))
         val audio =
             AudioAttributes
                 .Builder()
@@ -44,20 +64,22 @@ internal object Channels {
         manager.createNotificationChannels(
             listOf(
                 NotificationChannel(
-                    DM,
+                    parentOf(account, direct = true),
                     context.getString(R.string.channel_dm),
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = context.getString(R.string.channel_dm_description)
                     setSound(sound(R.raw.bright), audio)
+                    group = groupId
                 },
                 NotificationChannel(
-                    GROUP,
+                    parentOf(account, direct = false),
                     context.getString(R.string.channel_group),
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = context.getString(R.string.channel_group_description)
                     setSound(sound(R.raw.descending), audio)
+                    group = groupId
                 },
             ),
         )
@@ -70,9 +92,9 @@ internal object Channels {
     }
 
     /**
-     * Where [roomId]'s notification posts: its parent, the DM or group channel. Android hands it to
-     * the room's own channel when it has one (the shortcut says which room); that one's name
-     * follows the room's.
+     * Where [roomId]'s notification posts ([roomId] is a room key, [RoomKeys]): its account's DM or
+     * group channel. Android hands it to the room's own channel when it has one (the shortcut says
+     * which room); that one's name follows the room's, and it joins its account's group.
      */
     fun forRoom(
         context: Context,
@@ -81,11 +103,13 @@ internal object Channels {
         direct: Boolean,
     ): String {
         val manager = context.getSystemService(NotificationManager::class.java)
+        val parent = parentOf(RoomKeys.accountOf(roomId), direct)
         own(manager, roomId)?.let { channel ->
             channel.name = name
+            if (channel.group == null) channel.group = manager.getNotificationChannel(parent)?.group
             manager.createNotificationChannel(channel)
         }
-        return parentOf(direct)
+        return parent
     }
 
     /**
@@ -100,12 +124,14 @@ internal object Channels {
     ): String {
         val manager = context.getSystemService(NotificationManager::class.java)
         own(manager, roomId)?.let { return it.id }
-        val parent = manager.getNotificationChannel(parentOf(direct))
+        val parentId = parentOf(RoomKeys.accountOf(roomId), direct)
+        val parent = manager.getNotificationChannel(parentId)
         // A new ID: re-creating a deleted legacy one would bring back its old settings.
         val channel =
             NotificationChannel(ROOM + roomId, name, parent?.importance ?: NotificationManager.IMPORTANCE_HIGH).apply {
-                setConversationId(parentOf(direct), roomId)
+                setConversationId(parentId, roomId)
                 if (parent != null) {
+                    group = parent.group
                     setSound(parent.sound, parent.audioAttributes)
                     enableVibration(parent.shouldVibrate())
                     vibrationPattern = parent.vibrationPattern
@@ -120,7 +146,13 @@ internal object Channels {
         return channel.id
     }
 
-    private fun parentOf(direct: Boolean) = if (direct) DM else GROUP
+    /** [account]'s DM or group channel (null: the first account's, [DM] or [GROUP]). */
+    internal fun parentOf(
+        account: String?,
+        direct: Boolean,
+    ) = RoomKeys.of(account, if (direct) DM else GROUP)
+
+    private fun groupOf(account: String?) = ACCOUNT_GROUP + (account ?: FIRST)
 
     private fun own(
         manager: NotificationManager,

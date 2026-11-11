@@ -46,9 +46,20 @@ object PushModule {
     fun roomShortcutsFactory(
         @ApplicationContext context: Context,
         images: ImageLoader,
+        accounts: Provider<Accounts>,
     ) = RoomShortcutsFactory { graph ->
         graph.scoped(PinnedShortcuts::class) {
-            PinnedShortcuts(context, images, graph.mediaUrls, graph.roomAccount, graph::roomIntent, graph.id)
+            PinnedShortcuts(context, images, graph.mediaUrls, graph.roomAccount, graph::roomIntent, graph.id) {
+                // Rooms' labels say whose they are while there's more than one account.
+                if (multiAccount(accounts)) {
+                    graph.roomListRepository
+                        .ownProfile()
+                        .first()
+                        ?.userId
+                } else {
+                    null
+                }
+            }
         }
     }
 
@@ -59,7 +70,13 @@ object PushModule {
     fun roomNotifiers(
         @ApplicationContext context: Context,
         images: ImageLoader,
-    ) = RoomNotifiers(context, images)
+        accounts: Provider<Accounts>,
+    ) = RoomNotifiers(context, images) { multiAccount(accounts) }
+
+    private fun multiAccount(accounts: Provider<Accounts>) =
+        accounts
+            .get()
+            .registry.ids.value.size > 1
 
     @Provides
     fun roomNotifier(
@@ -94,6 +111,8 @@ object PushModule {
 class RoomNotifiers(
     private val context: Context,
     private val images: ImageLoader,
+    /** Whether more than one account is signed in. */
+    private val multiAccount: () -> Boolean,
 ) {
     fun of(graph: AccountGraph): RoomNotifier =
         graph.scoped(RoomNotifier::class) {
@@ -123,6 +142,7 @@ class RoomNotifiers(
                     }
                 },
                 account = graph.roomAccount,
+                multiAccount = multiAccount,
             )
         }
 }

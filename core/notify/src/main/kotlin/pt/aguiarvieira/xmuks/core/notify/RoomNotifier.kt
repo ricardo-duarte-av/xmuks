@@ -56,6 +56,8 @@ class RoomNotifier(
     private val clock: () -> Long = System::currentTimeMillis,
     /** The account it's for, in the system's names for its rooms ([RoomKeys]); null for the first. */
     private val account: String? = null,
+    /** Whether more than one account is signed in: conversations then say whose they are. */
+    private val multiAccount: () -> Boolean = { false },
 ) {
     private val manager = NotificationManagerCompat.from(context)
     private val shortcuts = ConversationShortcuts(context)
@@ -71,7 +73,15 @@ class RoomNotifier(
         /** The room on screen: nothing for it. */
         openRoom: String?,
     ) {
-        Channels.ensure(context)
+        // The account's channels, under its name (who it is comes with every message).
+        Channels.ensure(
+            context,
+            account,
+            payload.messages
+                .firstOrNull()
+                ?.self
+                ?.id
+        )
         payload.dismiss.forEach { dismissed(it.roomId) }
         payload.messages
             .filter { it.roomId != openRoom }
@@ -122,17 +132,20 @@ class RoomNotifier(
                 .orEmpty()
         val fresh = messages.filter { it.eventId !in seen }
         if (fresh.isEmpty()) return
+        // With several accounts signed in, whose it is: in the title and the shortcut's label.
+        val owner = latest.self.id.takeIf { multiAccount() }
         val style =
             (existing ?: MessagingStyle(person(latest.self, imageAuth)))
                 .setGroupConversation(!direct)
-                .setConversationTitle(if (direct) null else latest.roomName)
+                .setConversationTitle(latest.title(direct, owner))
         val (people, highlighted) = addMessages(style, fresh, imageAuth)
         val avatar = loadBitmap(latest.roomAvatar, imageAuth)
         val face = face(latest, direct, avatar, imageAuth)
         val intent = roomIntent?.invoke(roomId)
         if (intent != null) {
             val persons = if (direct) people.values else emptyList()
-            shortcuts.publish(key(roomId), latest, avatar, avatarMxc(latest.roomAvatar), persons, intent)
+            val label = ShortcutLabel.of(latest.roomName, owner)
+            shortcuts.publish(key(roomId), latest, avatar, avatarMxc(latest.roomAvatar), persons, intent, label)
         }
         // Loud when the push rules asked for a sound, or when it's for us (a mention, @room, a
         // keyword: highlighted, which the default rules leave silent; or a DM, when set to) in a
@@ -357,6 +370,16 @@ class RoomNotifier(
         private const val PICTURE_TTL_MS = 24L * 60 * 60 * 1000
     }
 }
+
+/**
+ * The conversation's title: a group's name, none for a DM (its person names it); with several
+ * accounts signed in, [owner]'s too, in both, as its shortcut's label has it (which the shade
+ * shows instead; this is for where the shortcut isn't used, a watch or a car).
+ */
+private fun PushMessage.title(
+    direct: Boolean,
+    owner: String?,
+): String? = if (direct && owner == null) null else ShortcutLabel.of(roomName, owner)
 
 /**
  * An @room (MSC3952's `m.mentions.room`). Its push rule notifies but, by default, neither

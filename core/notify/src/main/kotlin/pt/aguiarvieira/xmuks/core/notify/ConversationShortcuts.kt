@@ -12,6 +12,22 @@ import androidx.core.graphics.drawable.IconCompat
 import kotlinx.coroutines.delay
 
 /**
+ * A room shortcut's label: its name and, with several accounts signed in, whose it is ([owner],
+ * the account's user ID). The shade titles a conversation with its shortcut's label (whatever the
+ * notification says), and the shortcut is also the one on the home screen and in the share sheet,
+ * so it says so everywhere.
+ */
+object ShortcutLabel {
+    fun of(
+        name: String,
+        owner: String?,
+    ): String = if (owner == null) name else "$name ($owner)"
+
+    /** What a label made by [of] ends with, for [owner]. */
+    fun suffix(owner: String?): String = if (owner == null) "" else " ($owner)"
+}
+
+/**
  * A room's long-lived shortcut as a push makes it (the conversation its notification belongs
  * to, and whatever is pinned for it): made with the push's avatar, which it keeps in its extras
  * with the push's time ([ShortcutStamps]), so the room list, catching up, doesn't put back an
@@ -21,8 +37,9 @@ internal class ConversationShortcuts(
     private val context: Context,
 ) {
     /**
-     * Publishes [key]'s shortcut for [latest]: [avatar] loaded from [avatarMxc] (null when it
-     * can't be told). A new icon is told again once it's written, or the launcher keeps the old one.
+     * Publishes [key]'s shortcut for [latest], labelled [label] ([ShortcutLabel]): [avatar] loaded
+     * from [avatarMxc] (null when it can't be told). A new icon is told again once it's written,
+     * or the launcher keeps the old one.
      */
     suspend fun publish(
         key: String,
@@ -31,6 +48,7 @@ internal class ConversationShortcuts(
         avatarMxc: String?,
         people: Collection<Person>,
         intent: Intent,
+        label: String,
     ) {
         // The avatar it's made with, unless it wouldn't load: the room list then has its say.
         val stamp =
@@ -42,7 +60,7 @@ internal class ConversationShortcuts(
                 ShortcutManagerCompat.getShortcuts(context, KINDS).firstOrNull { it.id == key }?.extras
             }.getOrNull()
         val icon = Avatars.adaptive(avatar, latest.roomName, latest.roomId)
-        val shortcut = shortcut(key, latest.roomName, people, intent, stamp, icon)
+        val shortcut = shortcut(key, label, people, intent, stamp, icon)
         runCatching { ShortcutManagerCompat.pushDynamicShortcut(context, shortcut) }.onFailure { return }
         val made = ShortcutStamps.avatarOf(stamp)
         if (made != null && ShortcutStamps.avatarOf(had) == made) return
@@ -50,7 +68,7 @@ internal class ConversationShortcuts(
         runCatching {
             ShortcutManagerCompat.updateShortcuts(
                 context,
-                listOf(shortcut(key, latest.roomName, people, intent, stamp, icon = null)),
+                listOf(shortcut(key, label, people, intent, stamp, icon = null)),
             )
         }
     }

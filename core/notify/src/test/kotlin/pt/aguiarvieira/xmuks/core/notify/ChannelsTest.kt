@@ -89,4 +89,33 @@ class ChannelsTest {
         prune()
         assertEquals("room:!buzz:x", Channels.customize(context, "!buzz:x", "Buzz", direct = false))
     }
+
+    @Test
+    fun anotherAccountHasItsOwnChannelsInAGroupNamedAfterIt() {
+        Channels.ensure(context, "acc2", "@me:y")
+        assertEquals("acc2/messages_group", Channels.forRoom(context, "acc2/!a:x", "A", direct = false))
+        assertEquals("acc2/messages_dm", Channels.forRoom(context, "acc2/!b:x", "B", direct = true))
+        val group = manager.getNotificationChannel("acc2/messages_dm").group
+        assertEquals("@me:y", manager.getNotificationChannelGroup(group).name)
+        // The first account's stay as they were, apart.
+        assertEquals(Channels.GROUP, Channels.forRoom(context, "!a:x", "A", direct = false))
+        assertNull(manager.getNotificationChannel(Channels.GROUP).group)
+    }
+
+    @Test
+    fun theFirstAccountsChannelsJoinItsGroupOnceItsNameIsKnown() {
+        Channels.ensure(context, null, "@test:x")
+        val group = manager.getNotificationChannel(Channels.DM).group
+        assertEquals("@test:x", manager.getNotificationChannelGroup(group).name)
+        assertEquals(group, manager.getNotificationChannel(Channels.GROUP).group)
+    }
+
+    @Test
+    fun aRoomsOwnChannelIsInItsAccountsGroup() {
+        Channels.ensure(context, "acc2", "@me:y")
+        val id = Channels.customize(context, "acc2/!c:x", "C", direct = false)
+        val channel = manager.getNotificationChannel(id)
+        assertEquals("acc2/messages_group", channel.parentChannelId)
+        assertEquals(manager.getNotificationChannel("acc2/messages_group").group, channel.group)
+    }
 }

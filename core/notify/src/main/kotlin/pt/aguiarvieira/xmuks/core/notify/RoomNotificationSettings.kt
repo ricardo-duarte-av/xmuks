@@ -5,8 +5,9 @@ import android.content.Intent
 import android.provider.Settings
 
 /**
- * Android's notification settings for [roomId] alone (sound, vibration, priority…): the room gets
- * its own channel, from its parent's settings as they are now, if it hasn't one yet.
+ * Android's notification settings for [roomId] (a room key, [RoomKeys]) alone (sound, vibration,
+ * priority…): the room gets its own channel, from its parent's settings as they are now, if it
+ * hasn't one yet.
  */
 fun roomNotificationSettings(
     context: Context,
@@ -14,7 +15,7 @@ fun roomNotificationSettings(
     name: String,
     direct: Boolean,
 ): Intent {
-    Channels.ensure(context)
+    Channels.ensure(context, RoomKeys.accountOf(roomId))
     val channel = Channels.customize(context, roomId, name, direct)
     return Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
         .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)

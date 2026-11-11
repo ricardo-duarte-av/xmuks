@@ -29,6 +29,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.notify.Avatars
 import pt.aguiarvieira.xmuks.core.notify.RoomKeys
 import pt.aguiarvieira.xmuks.core.notify.RoomNotifier
+import pt.aguiarvieira.xmuks.core.notify.ShortcutLabel
 import pt.aguiarvieira.xmuks.core.notify.ShortcutStamps
 
 /**
@@ -48,6 +49,8 @@ class PinnedShortcuts(
     },
     /** The account's own ID (its graph's), for its own shortcut; null: no account shortcut. */
     private val accountId: String? = null,
+    /** Whose rooms they are, for their labels ([ShortcutLabel]): null unless several accounts are signed in. */
+    private val owner: suspend () -> String? = { null },
 ) : RoomShortcuts,
     AccountScoped {
     override suspend fun pinAccount(
@@ -150,10 +153,11 @@ class PinnedShortcuts(
 
     override suspend fun pin(room: RoomSummary): Boolean {
         if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) return false
-        val shortcut = shortcut(room)
+        val owner = owner()
+        val shortcut = shortcut(room, owner)
         return runCatching {
             // Pinning an ID the system already has pins what it has: brought up to date first.
-            publish(listOf(room))
+            publish(listOf(room), owner)
             ShortcutManagerCompat.requestPinShortcut(context, shortcut, null)
         }.getOrDefault(false)
     }
@@ -180,35 +184,42 @@ class PinnedShortcuts(
             ShortcutManagerCompat.getShortcuts(context, KINDS).filter { RoomKeys.accountOf(it.id) == account }
         if (existing.isEmpty()) return
         val byId = rooms.associateBy { it.roomId }
+        val owner = owner()
+        val suffix = ShortcutLabel.suffix(owner)
         val stale =
             existing.mapNotNull { shortcut ->
                 val room = byId[RoomKeys.roomOf(shortcut.id)] ?: return@mapNotNull null
                 // Made from a newer view of the room than ours (a push, while we catch up): left be.
                 if (ShortcutStamps.asOfOf(shortcut.extras) > room.timestamp) return@mapNotNull null
                 val madeWith = ShortcutStamps.avatarOf(shortcut.extras)
-                // A notification's label is gomuks' name, cut at 50 characters with "…".
-                val named = room.name.startsWith(shortcut.shortLabel.toString().removeSuffix("…"))
+                // A notification's label is gomuks' name, cut at 50 characters with "…" (then whose it is).
+                val label = shortcut.shortLabel.toString()
+                val named = label.endsWith(suffix) && room.name.startsWith(label.removeSuffix(suffix).removeSuffix("…"))
                 // Made before there could be several accounts: it doesn't say which one opens it.
                 val accounted = shortcut.intent.hasExtra(RoomKeys.EXTRA_ACCOUNT)
                 room.takeIf { !named || !accounted || it.avatarMxc.orEmpty() != madeWith }
             }
-        if (stale.isNotEmpty()) publish(stale)
+        if (stale.isNotEmpty()) publish(stale, owner)
     }
 
     /** Updates [rooms]' shortcuts, telling the launcher again once the icons are written ([ShortcutStamps]). */
-    private suspend fun publish(rooms: List<RoomSummary>) {
-        ShortcutManagerCompat.updateShortcuts(context, rooms.map { shortcut(it) })
+    private suspend fun publish(
+        rooms: List<RoomSummary>,
+        owner: String?,
+    ) {
+        ShortcutManagerCompat.updateShortcuts(context, rooms.map { shortcut(it, owner) })
         delay(ShortcutStamps.ICON_WRITTEN_MS)
-        ShortcutManagerCompat.updateShortcuts(context, rooms.map { shortcut(it, icon = false) })
+        ShortcutManagerCompat.updateShortcuts(context, rooms.map { shortcut(it, owner, icon = false) })
     }
 
     private suspend fun shortcut(
         room: RoomSummary,
+        owner: String?,
         icon: Boolean = true,
     ): ShortcutInfoCompat =
         ShortcutInfoCompat
             .Builder(context, RoomKeys.of(account, room.roomId))
-            .setShortLabel(room.name)
+            .setShortLabel(ShortcutLabel.of(room.name, owner))
             .setLongLived(true)
             .apply { if (icon) setIcon(Avatars.adaptive(avatar(room.avatarMxc), room.name, room.roomId)) }
             .setLocusId(LocusIdCompat(RoomKeys.of(account, room.roomId)))
