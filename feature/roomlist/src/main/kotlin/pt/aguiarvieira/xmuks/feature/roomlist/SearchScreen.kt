@@ -111,7 +111,17 @@ fun SearchScreen(
                     state.query.text.isEmpty() -> stringResource(R.string.search_messages_hint)
                     else -> stringResource(R.string.search_no_results)
                 }
-            FoundEventList(state.hits, state.loading, state.next != null, empty, now, avatar, onLoadMore, onOpen)
+            FoundEventList(
+                state.hits,
+                state.loading,
+                state.next != null,
+                empty,
+                now,
+                avatar,
+                onLoadMore,
+                onOpen,
+                oneRoom = state.query.roomId,
+            )
         }
     }
 }

@@ -330,6 +330,7 @@ class RoomListScreenshotTest {
                     hits =
                         listOf(
                             FoundEvent("\$1", chats[0], "!gomuks", "@tulir:maunium.net", "tulir", null, "pushed a fix for the SSE keepalive", now - 300_000),
+                            FoundEvent("\$2", chats[0], "!gomuks", "@daedric:example.org", "Ricardo", null, "the keepalive drops after 30s here", now - 900_000),
                         ),
                 ),
                 androidx.compose.foundation.text.input

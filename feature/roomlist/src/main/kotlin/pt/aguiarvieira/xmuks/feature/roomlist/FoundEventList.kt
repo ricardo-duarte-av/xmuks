@@ -2,11 +2,13 @@ package pt.aguiarvieira.xmuks.feature.roomlist
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,7 +27,10 @@ import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.rooms.FoundEvent
 import pt.aguiarvieira.xmuks.core.designsystem.util.ListTimestamps
 
-/** Events found across rooms, newest (or best) first, loading more as the end comes into view. */
+/**
+ * Events found across rooms, newest (or best) first, loading more as the end comes into view. With
+ * [oneRoom] set, all of them are in that room: it heads the list once and each hit leads with its sender.
+ */
 @Composable
 internal fun FoundEventList(
     items: List<FoundEvent>,
@@ -37,6 +42,7 @@ internal fun FoundEventList(
     avatar: (String?) -> String?,
     onLoadMore: () -> Unit,
     onOpen: (roomId: String, eventId: String) -> Unit,
+    oneRoom: String? = null,
 ) {
     val list = rememberLazyListState()
     val loadMore by rememberUpdatedState(onLoadMore)
@@ -64,18 +70,34 @@ internal fun FoundEventList(
         }
 
         else -> {
-            LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(vertical = 8.dp)) {
-                items(items, key = { it.eventId }) { found ->
-                    FoundEventRow(found, avatar, ListTimestamps.format(found.timestamp, now, is24Hour = is24Hour)) {
-                        onOpen(found.roomId, found.eventId)
-                    }
-                }
-                if (loading) {
-                    item(key = "loading") {
-                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
-                    }
+            Column(Modifier.fillMaxSize()) {
+                if (oneRoom != null) FoundRoomHeader(items.firstOrNull { it.room != null }?.room, oneRoom)
+                FoundHits(items, list, loading, now, is24Hour, avatar, showRoom = oneRoom == null, onOpen)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FoundHits(
+    items: List<FoundEvent>,
+    list: LazyListState,
+    loading: Boolean,
+    now: Long,
+    is24Hour: Boolean,
+    avatar: (String?) -> String?,
+    showRoom: Boolean,
+    onOpen: (roomId: String, eventId: String) -> Unit,
+) {
+    LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(vertical = 8.dp)) {
+        items(items, key = { it.eventId }) { found ->
+            val time = ListTimestamps.format(found.timestamp, now, is24Hour = is24Hour)
+            FoundEventRow(found, avatar, time, showRoom) { onOpen(found.roomId, found.eventId) }
+        }
+        if (loading) {
+            item(key = "loading") {
+                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
             }
         }

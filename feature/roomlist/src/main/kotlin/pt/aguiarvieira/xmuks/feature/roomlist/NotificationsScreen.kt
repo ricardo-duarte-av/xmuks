@@ -231,6 +231,7 @@ fun NotificationsScreen(
                 avatar,
                 onLoadMore,
                 onOpen,
+                oneRoom = state.roomId,
             )
         }
     }
