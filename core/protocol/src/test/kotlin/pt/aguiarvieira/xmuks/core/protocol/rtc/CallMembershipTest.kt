@@ -158,4 +158,43 @@ class CallMembershipTest {
         assertEquals("DEV", key.deviceId)
         assertNull(MediaKeys.parse("@me:hs", JsonObject(emptyMap())))
     }
+
+    private fun transport(json: String) = RtcTransport(GomuksJson.parseToJsonElement(json).jsonObject)
+
+    @Test
+    fun `a transport is usable only with what its type needs`() {
+        // As gomuks hands Synapse 1.165's list on: m.livekit loses its url.
+        assertFalse(transport("""{"type":"m.livekit"}""").usable)
+        assertTrue(transport("""{"type":"m.livekit","url":"wss://sfu.example.org"}""").usable)
+        assertTrue(transport("""{"type":"livekit","livekit_service_url":"https://lk.example.org/jwt"}""").usable)
+        assertFalse(transport("""{"type":"livekit"}""").usable)
+        assertFalse(transport("""{"type":"other","url":"wss://x"}""").usable)
+    }
+
+    @Test
+    fun `a stable transport names its SFU and whose homeserver issues tokens`() {
+        val t = transport("""{"type":"m.livekit","url":"wss://livekit.bob.com","server_name":"bob.com"}""")
+        assertEquals("wss://livekit.bob.com", t.sfuUrl)
+        assertEquals("bob.com", t.serverName)
+        assertEquals("wss://livekit.bob.com", t.key)
+    }
+
+    @Test
+    fun `a member's usable transports keep their order and skip the rest`() {
+        val content =
+            """
+            {"slot_id":"m.call#ROOM","application":{"type":"m.call","m.call.intent":"audio"},
+             "member":{"user_id":"@alice:example.org","device_id":"ABCDEF","id":"m1"},
+             "transports":{"published":[
+               {"type":"m.livekit"},
+               {"type":"m.livekit","url":"wss://sfu.example.org"},
+               {"type":"livekit","livekit_service_url":"https://lk.example.org/jwt"}],
+               "can_subscribe":["livekit"]},
+             "versions":[],"msc4354_sticky_key":"m1"}
+            """
+        val member =
+            CallMemberships.parse(event(RtcTypes.STICKY_MEMBER, content, sticky = 3_600_000))
+        assertNotNull(member)
+        assertEquals(listOf("m.livekit", "livekit"), member!!.usableTransports.map { it.type })
+    }
 }

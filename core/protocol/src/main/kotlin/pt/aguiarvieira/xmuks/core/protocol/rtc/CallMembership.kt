@@ -31,6 +31,28 @@ data class RtcTransport(
     /** The LiveKit JWT service ("lk-jwt-service") base URL, for `type == livekit`. */
     val livekitServiceUrl: String? get() = raw.string("livekit_service_url")
 
+    /** The SFU's WebSocket URL, for `type == m.livekit` (MSC4195). */
+    val sfuUrl: String? get() = raw.string("url")
+
+    /** Whose homeserver issues tokens for this SFU (`m.livekit` on another server's SFU). */
+    val serverName: String? get() = raw.string("server_name")
+
+    /**
+     * Whether it says enough to get on its SFU: an `m.livekit` with its `url`, or a `livekit` with
+     * its service URL. gomuks hands `m.livekit` on without its `url` (mautrix keeps only `type` and
+     * `livekit_service_url`), and such an entry can't be used.
+     */
+    val usable: Boolean
+        get() =
+            when (type) {
+                RtcTypes.TRANSPORT_M_LIVEKIT -> sfuUrl != null
+                RtcTypes.TRANSPORT_LIVEKIT -> livekitServiceUrl != null
+                else -> false
+            }
+
+    /** What tells two SFUs apart: the service URL, else the SFU's own, else the whole entry. */
+    val key: String get() = livekitServiceUrl ?: sfuUrl ?: raw.toString()
+
     companion object {
         fun livekit(serviceUrl: String) =
             RtcTransport(
@@ -69,6 +91,9 @@ data class CallMembership(
 ) {
     /** The SFU this member publishes on (multi-SFU: everyone their own). */
     val transport: RtcTransport? get() = transports.firstOrNull()
+
+    /** The transports listed that we could use, in the member's order: tried one after another. */
+    val usableTransports: List<RtcTransport> get() = transports.filter { it.usable }
 
     val isVideo: Boolean get() = intent == RtcTypes.INTENT_VIDEO
 

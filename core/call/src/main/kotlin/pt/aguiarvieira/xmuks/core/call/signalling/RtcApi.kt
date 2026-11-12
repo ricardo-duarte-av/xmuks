@@ -46,14 +46,17 @@ class RtcApi(
      * gomuks or the homeserver doesn't have it; callers fall back to asking the JWT service directly.
      */
     suspend fun livekitToken(
-        serviceUrl: String,
+        sfuUrl: String,
         roomId: String,
         slotId: String,
         memberId: String,
+        /** The homeserver whose SFU it is, when not ours: it issues the token (over federation). */
+        serverName: String? = null,
     ): Result<String> {
         val params =
             buildJsonObject {
-                put("url", serviceUrl)
+                serverName?.let { put("server_name", it) }
+                put("url", sfuUrl)
                 put("room_id", roomId)
                 put("slot_id", slotId)
                 put("member_id", memberId)

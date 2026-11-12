@@ -24,7 +24,12 @@ object RtcTypes {
     const val CALL_REACTION = "io.element.call.reaction"
 
     const val APPLICATION_CALL = "m.call"
+
+    /** The unstable LiveKit transport: a `livekit_service_url` of an lk-jwt-service. */
     const val TRANSPORT_LIVEKIT = "livekit"
+
+    /** MSC4195's stable LiveKit transport: the SFU's own `url`, tokens from the homeserver. */
+    const val TRANSPORT_M_LIVEKIT = "m.livekit"
     const val INTENT_KEY = "m.call.intent"
     const val INTENT_AUDIO = "audio"
     const val INTENT_VIDEO = "video"

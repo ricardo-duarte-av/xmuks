@@ -16,6 +16,7 @@ import pt.aguiarvieira.xmuks.core.network.await
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 import pt.aguiarvieira.xmuks.core.protocol.rtc.CallMemberships
 import pt.aguiarvieira.xmuks.core.protocol.rtc.RtcTransport
+import pt.aguiarvieira.xmuks.core.protocol.rtc.RtcTypes
 import java.io.IOException
 import java.util.Base64
 import kotlin.coroutines.CoroutineContext
@@ -63,10 +64,11 @@ class SfuTokens(
         legacy: Boolean,
         delegation: DelayDelegation? = null,
     ): Result<SfuAccess> {
-        val sfuUrl = transport.raw["url"]?.let { (it as? JsonPrimitive)?.contentOrNull }
-        if (transport.type == MSC4195_TRANSPORT && sfuUrl != null) {
+        val sfuUrl = transport.sfuUrl
+        if (transport.type == RtcTypes.TRANSPORT_M_LIVEKIT) {
+            sfuUrl ?: return Result.failure(IOException("m.livekit transport without a url"))
             return api
-                .livekitToken(sfuUrl, roomId, CallMemberships.ROOM_SLOT_ID, subject.memberId)
+                .livekitToken(sfuUrl, roomId, CallMemberships.ROOM_SLOT_ID, subject.memberId, transport.serverName)
                 .map { SfuAccess(sfuUrl, it) }
         }
         val service =
@@ -154,7 +156,6 @@ class SfuTokens(
         }
 
     private companion object {
-        const val MSC4195_TRANSPORT = "m.livekit"
         const val HTTP_BAD_REQUEST = 400
         const val ERROR_CHARS = 300
         val JSON = "application/json".toMediaType()

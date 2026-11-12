@@ -27,6 +27,7 @@ import kotlinx.serialization.json.JsonObject
 import pt.aguiarvieira.xmuks.core.call.media.AudioDiagnostics
 import pt.aguiarvieira.xmuks.core.call.media.KeySink
 import pt.aguiarvieira.xmuks.core.call.media.MediaKeyManager
+import pt.aguiarvieira.xmuks.core.call.media.SfuAccess
 import pt.aguiarvieira.xmuks.core.call.media.SfuConnection
 import pt.aguiarvieira.xmuks.core.call.media.SfuTokens
 import pt.aguiarvieira.xmuks.core.call.media.TokenSubject
@@ -188,7 +189,7 @@ class CallSession internal constructor(
         val present = lock.withLock { members.active(clock()) }.filterNot { it.isOwn() }
         val levels = RoomInfo.parse(room.roomId, state).powerLevels
         val format = permitted(chooseFormat(present), levels)
-        val transport = ownTransport()
+        val candidates = ownTransports()
         val memberId =
             when (format) {
                 MembershipFormat.Legacy -> CallMemberships.legacyIdentity(me.userId, me.deviceId)
@@ -200,7 +201,7 @@ class CallSession internal constructor(
                 MembershipFormat.Sticky -> CallMemberships.stickyIdentity(me.userId, me.deviceId, memberId)
             }
 
-        connectMedia(transport, format, memberId, video)
+        val transport = connectMedia(candidates, format, memberId, video)
 
         val manager =
             MembershipManager(
@@ -254,29 +255,52 @@ class CallSession internal constructor(
         }
     }
 
-    /** The SFU the homeserver offers us to publish on. */
-    private suspend fun ownTransport(): RtcTransport =
+    /**
+     * The SFUs the homeserver offers us to publish on, in its order, leaving out entries we can't
+     * use: while both are listed, gomuks passes `m.livekit` on without its `url`.
+     */
+    private suspend fun ownTransports(): List<RtcTransport> =
         api
             .transports()
             .getOrThrow()
-            .firstOrNull { it.type == RtcTypes.TRANSPORT_LIVEKIT || it.type == "m.livekit" }
-            ?: error("The homeserver offers no call service")
+            .filter { it.usable }
+            .ifEmpty { error("The homeserver offers no call service") }
 
-    /** Connects to our SFU, keys first in an encrypted room, and starts publishing. */
+    /**
+     * The first of [candidates] that gives us a token: the next is tried when one fails (an
+     * `m.livekit` whose homeserver has no token endpoint, a JWT service that's down).
+     */
+    private suspend fun firstAccess(
+        candidates: List<RtcTransport>,
+        subject: TokenSubject,
+        legacy: Boolean,
+    ): Result<Pair<RtcTransport, SfuAccess>> {
+        var failure: Throwable? = null
+        for (transport in candidates) {
+            tokens
+                .access(transport, room.roomId, subject, legacy)
+                .onSuccess { return Result.success(transport to it) }
+                .onFailure { failure = it }
+        }
+        return Result.failure(failure ?: IllegalStateException("No usable call transport"))
+    }
+
+    /**
+     * Connects to our SFU (the first of [candidates] that lets us), keys first in an encrypted
+     * room, and starts publishing. Returns the transport used: the one our membership names.
+     */
     private suspend fun connectMedia(
-        transport: RtcTransport,
+        candidates: List<RtcTransport>,
         format: MembershipFormat,
         memberId: String,
         video: Boolean,
-    ) {
-        val access =
-            tokens
-                .access(
-                    transport,
-                    room.roomId,
-                    TokenSubject(me.userId, me.deviceId, memberId),
-                    legacy = format == MembershipFormat.Legacy,
-                ).getOrThrow()
+    ): RtcTransport {
+        val (transport, access) =
+            firstAccess(
+                candidates,
+                TokenSubject(me.userId, me.deviceId, memberId),
+                legacy = format == MembershipFormat.Legacy,
+            ).getOrThrow()
         val connection =
             SfuConnection(
                 context,
@@ -293,6 +317,7 @@ class CallSession internal constructor(
         AudioDiagnostics.watch(scope, connection.room, "own")
         connection.room.localParticipant.setMicrophoneEnabled(mutableMicrophone.value)
         if (video) setCamera(true)
+        return transport
     }
 
     /**
@@ -437,13 +462,21 @@ class CallSession internal constructor(
         if (room.isDirect && hadOthers && othersNow.isEmpty()) hangUp()
     }
 
-    /** Multi-SFU: subscribe on every SFU someone publishes to that isn't ours. */
+    /**
+     * Multi-SFU: subscribe on every SFU someone publishes to that isn't ours. A member may list
+     * several (the stable `m.livekit` and the unstable `livekit` for the same SFU): the first we
+     * get a token for is used.
+     */
     private suspend fun connectOtherSfus(active: List<CallMembership>) {
-        val wanted = active.mapNotNull { it.transport }.distinctBy(::transportKey)
-        wanted.filterNot { others.containsKey(transportKey(it)) }.forEach { connectSfu(it) }
+        val wanted =
+            active
+                .map { it.usableTransports }
+                .filter { it.isNotEmpty() }
+                .distinctBy { transportKey(it.first()) }
+        wanted.filterNot { list -> list.any { others.containsKey(transportKey(it)) } }.forEach { connectSfu(it) }
     }
 
-    private suspend fun connectSfu(transport: RtcTransport) {
+    private suspend fun connectSfu(candidates: List<RtcTransport>) {
         val own = primary ?: return
         val subject =
             TokenSubject(
@@ -451,9 +484,8 @@ class CallSession internal constructor(
                 me.deviceId,
                 membership?.memberId ?: CallMemberships.legacyIdentity(me.userId, me.deviceId),
             )
-        val access =
-            tokens
-                .access(transport, room.roomId, subject, legacy = membership?.format == MembershipFormat.Legacy)
+        val (transport, access) =
+            firstAccess(candidates, subject, legacy = membership?.format == MembershipFormat.Legacy)
                 .getOrNull() ?: return
         // The same SFU as ours under another service URL: our connection already sees them.
         if (access.url == own.access.url) {
@@ -473,7 +505,7 @@ class CallSession internal constructor(
         AudioDiagnostics.watch(scope, connection.room, access.url)
     }
 
-    private fun transportKey(t: RtcTransport) = t.livekitServiceUrl ?: t.raw.toString()
+    private fun transportKey(t: RtcTransport) = t.key
 
     private fun watchConnection(lkRoom: Room) {
         scope.launch {
