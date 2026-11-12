@@ -6,10 +6,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -26,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -292,20 +294,25 @@ fun XmuksNavHost(
             shareConsumed()
         }
     }
-    var stripShown by remember { mutableStateOf(false) }
+    var stripHeight by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
     Column(modifier) {
         // In a call but looking elsewhere: a way back to it over every screen, which then sit below it.
-        OngoingCallStrip(
-            hidden = { roomId -> (backStack.lastOrNull() as? CallKey)?.roomId == roomId },
-            onOpen = { roomId -> backStack.add(CallKey(roomId)) },
-            modifier = Modifier.onSizeChanged { stripShown = it.height > 0 },
-        )
+        // Measured through a Box that stays in the tree: AnimatedVisibility drops its layout once it
+        // has slid away, so it never reports the 0 height itself, and the screens kept skipping the
+        // status bar. Only as much of the top inset as the strip still covers is consumed, so the
+        // screens move up smoothly as it slides away.
+        Box(Modifier.onSizeChanged { stripHeight = it.height }) {
+            OngoingCallStrip(
+                hidden = { roomId -> (backStack.lastOrNull() as? CallKey)?.roomId == roomId },
+                onOpen = { roomId -> backStack.add(CallKey(roomId)) },
+            )
+        }
         SharedTransitionLayout(
             modifier =
                 Modifier
-                    .weight(
-                        1f
-                    ).then(if (stripShown) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier),
+                    .weight(1f)
+                    .consumeWindowInsets(PaddingValues(top = with(density) { stripHeight.toDp() })),
         ) {
             CompositionLocalProvider(LocalSharedTransitionScope provides this) {
                 NavDisplay(
