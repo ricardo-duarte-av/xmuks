@@ -25,6 +25,11 @@ data class AccountSummary(
     val profile: OwnProfile?,
     /** Its gomuks login, `user · host`: what tells two of the same Matrix user apart. */
     val login: String,
+    /**
+     * Its gomuks, `host` (with the path, when one host serves several): a gomuks has one user, so
+     * this and the Matrix ID are enough to tell accounts apart.
+     */
+    val server: String = login,
     /** Unread across its rooms (as its Chats tab counts them). */
     val unread: Unread,
 )
@@ -81,12 +86,14 @@ class Accounts(
     private fun summary(graph: AccountGraph): Flow<AccountSummary> {
         val rooms = graph.roomListRepository
         return combine(rooms.ownProfile(), rooms.tabBadges()) { profile, badges ->
-            val login =
-                graph.store
-                    .credentials()
-                    ?.let { "${it.username} · ${it.serverUrl.host}" }
+            val credentials = graph.store.credentials()
+            val login = credentials?.let { "${it.username} · ${it.serverUrl.host}" }.orEmpty()
+            val server =
+                credentials
+                    ?.serverUrl
+                    ?.let { url -> url.host + url.encodedPath.trimEnd('/') }
                     .orEmpty()
-            AccountSummary(graph.id, profile, login, badges.chats)
+            AccountSummary(graph.id, profile, login, server = server, unread = badges.chats)
         }
     }
 

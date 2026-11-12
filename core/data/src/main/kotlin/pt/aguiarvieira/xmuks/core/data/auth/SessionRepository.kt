@@ -92,11 +92,12 @@ class SessionRepository(
     }
 
     /**
-     * Signs the shown account out and forgets everything cached for it; the next account (if any)
-     * is shown. It stops being shown (its stream stops) before its login goes.
+     * Signs [id] (by default the shown account) out and forgets everything cached for it; if it
+     * was shown, the next account (if any) is. It stops being shown (its stream stops) before its
+     * login goes.
      */
-    suspend fun logout() {
-        val id = registry.active.value ?: return
+    suspend fun logout(id: String? = registry.active.value) {
+        if (id == null) return
         accountScoped(id).forEach { it.beforeLogout() }
         registry.signOut(id)
         clearAccountData(id)

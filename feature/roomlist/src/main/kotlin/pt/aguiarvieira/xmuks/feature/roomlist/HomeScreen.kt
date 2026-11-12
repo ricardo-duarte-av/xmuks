@@ -164,6 +164,7 @@ fun HomeRoute(
                 onAddAccount = onAddAccount,
                 onDismiss = { switcher = false },
                 onOpenSettings = onOpenSettings,
+                onLogout = accountsViewModel::logout,
                 onPin = { account ->
                     accountsViewModel.pinAccount(account) {
                         Toast.makeText(context, R.string.room_menu_shortcut_unsupported, Toast.LENGTH_SHORT).show()

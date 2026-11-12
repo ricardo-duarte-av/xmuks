@@ -42,7 +42,12 @@ class RoomListRepository(
             .ownProfile()
             .map { row ->
                 val userId = row?.userId ?: return@map null
-                OwnProfile(userId, row.displayName ?: localpart(userId), media.avatar(row.avatar))
+                OwnProfile(
+                    userId,
+                    row.displayName ?: localpart(userId),
+                    media.avatar(row.avatar),
+                    media.full(row.avatar)
+                )
             }.distinctUntilChanged()
 
     fun chats(): Flow<List<RoomSummary>> = rooms(dao.chats())

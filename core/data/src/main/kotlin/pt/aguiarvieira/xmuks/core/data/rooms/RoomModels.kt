@@ -76,5 +76,8 @@ data class SpaceSummary(
 data class OwnProfile(
     val userId: String,
     val displayName: String,
+    /** The avatar's thumbnail. */
     val avatarUrl: String?,
+    /** The avatar's original, for showing it large: thumbnails are still frames of an animated one. */
+    val fullAvatarUrl: String? = null,
 )

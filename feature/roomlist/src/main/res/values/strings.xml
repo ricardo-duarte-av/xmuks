@@ -46,6 +46,9 @@
     <string name="account_profile">Your profile</string>
     <string name="account_add">Add another account</string>
     <string name="account_add_shortcut">Add this account to the home screen</string>
+    <string name="account_logout">Log out</string>
+    <string name="account_logout_title">Log out of %1$s?</string>
+    <string name="account_logout_text">Its login and everything kept for it on this phone are removed. You\'ll need to sign in again to use it here.</string>
     <string name="app_settings">App Settings</string>
     <string name="account_switch">Switch to this account</string>
     <string name="account_others_unread">Unread messages in another account</string>
