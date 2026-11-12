@@ -78,15 +78,20 @@ object EmojiCatalog {
     /** The emoji `:[shortcode]:` stands for, or null. */
     fun byShortcode(shortcode: String): UnicodeEmoji? = byShortcode[shortcode.lowercase()]
 
-    private val skinsByEmoji: Map<String, List<String>> by lazy {
+    private val tonesByEmoji: Map<String, List<String>> by lazy {
         catalog.emoji
             .filter { it.skins.isNotEmpty() }
-            .flatMap { e -> (listOf(e.emoji) + e.skins).map { it to e.skins } }
-            .toMap()
+            .flatMap { e ->
+                val tones = listOf(e.emoji) + e.skins
+                tones.map { it to tones }
+            }.toMap()
     }
 
-    /** [emoji]'s skin-tone variants (its siblings', for a variant), or none. */
-    fun skinsOf(emoji: String): List<String> = skinsByEmoji[emoji].orEmpty()
+    /**
+     * Every tone of [emoji]'s family — the default (yellow) one first, then its skin-tone variants —
+     * whether [emoji] is the default or one of the variants; empty when it has no skin tones.
+     */
+    fun tonesOf(emoji: String): List<String> = tonesByEmoji[emoji].orEmpty()
 
     /** Emoji whose name or terms contain [query] (name matches first). */
     fun search(query: String): List<UnicodeEmoji> {

@@ -33,6 +33,7 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,9 +47,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -286,7 +289,10 @@ private fun SectionHeader(
     }
 }
 
-/** One emoji or sticker; a long press on an emoji with skin tones offers them. */
+/**
+ * One emoji or sticker. An emoji with skin tones carries a small mark in its corner, and a long
+ * press offers them.
+ */
 @Composable
 private fun Cell(
     picked: Picked,
@@ -294,8 +300,9 @@ private fun Cell(
     blocked: (Picked) -> Boolean,
     onPick: (Picked) -> Unit,
 ) {
-    val skins = remember(picked) { (picked as? Picked.Unicode)?.let { EmojiCatalog.skinsOf(it.emoji) }.orEmpty() }
+    val tones = remember(picked) { (picked as? Picked.Unicode)?.let { EmojiCatalog.tonesOf(it.emoji) }.orEmpty() }
     var choosing by remember { mutableStateOf(false) }
+    val mark = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = TONE_MARK_ALPHA)
     Box(
         Modifier
             .alpha(if (blocked(picked)) DISABLED_ALPHA else 1f)
@@ -303,8 +310,10 @@ private fun Cell(
             .clip(RoundedCornerShape(12.dp))
             .combinedClickable(
                 onClick = { onPick(picked) },
-                onLongClick = if (skins.isEmpty()) null else ({ choosing = true }),
-            ).padding(4.dp),
+                onLongClickLabel = if (tones.isEmpty()) null else stringResource(R.string.emoji_skin_tones),
+                onLongClick = if (tones.isEmpty()) null else ({ choosing = true }),
+            ).then(if (tones.isEmpty()) Modifier else Modifier.toneMark(mark))
+            .padding(4.dp),
         contentAlignment = Alignment.Center,
     ) {
         when (picked) {
@@ -320,17 +329,39 @@ private fun Cell(
         }
     }
     if (choosing) {
-        SkinTones(skins, blocked, onDismiss = { choosing = false }) {
+        SkinTones(tones, blocked, onDismiss = { choosing = false }) {
             choosing = false
             onPick(it)
         }
     }
 }
 
-/** The skin-tone variants of one emoji, floating above it (below, if there's no room). */
+/** A small triangle tucked into the cell's bottom-end corner, like a keyboard's long-press hint. */
+private fun Modifier.toneMark(color: Color) =
+    drawBehind {
+        val side = TONE_MARK.toPx()
+        val inset = TONE_MARK_INSET.toPx()
+        val rtl = layoutDirection == LayoutDirection.Rtl
+        val edge = if (rtl) inset else size.width - inset
+        val inward = if (rtl) side else -side
+        val bottom = size.height - inset
+        val path =
+            Path().apply {
+                moveTo(edge, bottom)
+                lineTo(edge, bottom - side)
+                lineTo(edge + inward, bottom)
+                close()
+            }
+        drawPath(path, color)
+    }
+
+/**
+ * One emoji's tones floating above it (below, if there's no room): the default on its own, then a
+ * divider, then the skin tones — one row of five, or a square of 25 for two-person emoji.
+ */
 @Composable
 private fun SkinTones(
-    skins: List<String>,
+    tones: List<String>,
     blocked: (Picked) -> Boolean,
     onDismiss: () -> Unit,
     onPick: (Picked) -> Unit,
@@ -345,25 +376,34 @@ private fun SkinTones(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shadowElevation = 6.dp,
         ) {
-            Column(Modifier.padding(4.dp)) {
-                skins.chunked(SKIN_COLUMNS).forEach { row ->
-                    Row {
-                        row.forEach { skin ->
-                            val picked = Picked.Unicode(skin)
-                            Box(
-                                Modifier
-                                    .size(EMOJI_CELL)
-                                    .alpha(if (blocked(picked)) DISABLED_ALPHA else 1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { onPick(picked) },
-                                contentAlignment = Alignment.Center,
-                            ) { Text(skin, fontSize = 26.sp) }
-                        }
+            Row(Modifier.padding(4.dp)) {
+                Tone(tones.first(), blocked, onPick)
+                VerticalDivider(Modifier.height(EMOJI_CELL).padding(vertical = 8.dp, horizontal = 2.dp))
+                Column {
+                    tones.drop(1).chunked(SKIN_COLUMNS).forEach { row ->
+                        Row { row.forEach { Tone(it, blocked, onPick) } }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun Tone(
+    tone: String,
+    blocked: (Picked) -> Boolean,
+    onPick: (Picked) -> Unit,
+) {
+    val picked = Picked.Unicode(tone)
+    Box(
+        Modifier
+            .size(EMOJI_CELL)
+            .alpha(if (blocked(picked)) DISABLED_ALPHA else 1f)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onPick(picked) },
+        contentAlignment = Alignment.Center,
+    ) { Text(tone, fontSize = 26.sp) }
 }
 
 /** Centred over the anchor and just above it, kept inside the window. */
@@ -443,3 +483,8 @@ private const val MAX_RECENT = 32
 
 /** Five tones a row: a two-person emoji's 25 make a square. */
 private const val SKIN_COLUMNS = 5
+
+/** The skin-tone hint in an emoji cell's corner: its side, its inset, and how strongly it shows. */
+private val TONE_MARK = 6.dp
+private val TONE_MARK_INSET = 3.dp
+private const val TONE_MARK_ALPHA = 0.6f

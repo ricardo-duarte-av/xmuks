@@ -85,6 +85,7 @@
         <item quantity="other">%1$d people</item>
     </plurals>
     <string name="emoji">Emoji</string>
+    <string name="emoji_skin_tones">Skin tones</string>
     <string name="sticker_button">Stickers</string>
     <string name="react_with">React with “%1$s”</string>
     <string name="send_as">Sending as %1$s</string>
