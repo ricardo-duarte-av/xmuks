@@ -16,6 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
+import pt.aguiarvieira.xmuks.core.data.sync.MemberStore
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ResumePoint
@@ -191,6 +192,40 @@ class SyncIngestorTest {
             sync("!a:x" to SyncRoom(meta = room("!a:x").copy(previewEventRowId = 3), events = listOf(event("!a:x", 3))))
         )
         assertEquals(listOf(3L, 50L), runBlocking { eventRowIds() })
+    }
+
+    @Test
+    fun `a member event fetched from gomuks replaces the stale one a catch-up left behind`() {
+        fun member(
+            rowId: Long,
+            avatar: String,
+        ) = Event(
+            rowId = rowId,
+            roomId = "!a:x",
+            eventId = "\$m$rowId",
+            sender = "@b:x",
+            type = "m.room.member",
+            stateKey = "@b:x",
+            content = JsonObject(mapOf("membership" to JsonPrimitive("join"), "avatar_url" to JsonPrimitive(avatar))),
+        )
+        initialSync(
+            "!a:x" to
+                SyncRoom(
+                    meta = room("!a:x").copy(previewEventRowId = 2),
+                    events = listOf(event("!a:x", 2), member(50, "mxc://x/old")),
+                    state = mapOf("m.room.member" to mapOf("@b:x" to 50L)),
+                ),
+        )
+
+        runBlocking {
+            MemberStore(db).store("!a:x", listOf(member(60, "mxc://x/new")))
+            // A room we don't have: nothing to hang it on.
+            MemberStore(db).store("!gone:x", listOf(member(70, "mxc://x/other").copy(roomId = "!gone:x")))
+        }
+
+        val content = runBlocking { rooms.memberEvents("!a:x") }.single().content
+        assertTrue(content, "mxc://x/new" in content)
+        assertEquals("the replaced event is pruned", listOf(2L, 60L), runBlocking { eventRowIds() })
     }
 
     @Test

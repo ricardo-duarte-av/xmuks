@@ -60,6 +60,7 @@ import pt.aguiarvieira.xmuks.core.data.rooms.RoomListActions
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomShortcuts
 import pt.aguiarvieira.xmuks.core.data.rooms.SpaceEditRepository
+import pt.aguiarvieira.xmuks.core.data.sync.MemberStore
 import pt.aguiarvieira.xmuks.core.data.sync.SyncIngestor
 import pt.aguiarvieira.xmuks.core.data.timeline.CodeThemes
 import pt.aguiarvieira.xmuks.core.data.timeline.DraftStore
@@ -296,7 +297,9 @@ class AccountGraph(
 
     val mentionTargets by lazy { MentionTargets(roomInfo, database) }
 
-    val roomProfiles by lazy { RoomProfiles(database, roomListRepository) }
+    val memberStore by lazy { MemberStore(database) }
+
+    val roomProfiles by lazy { RoomProfiles(database, roomListRepository, exec, memberStore) }
 
     val foundEvents by lazy { FoundEvents(database, roomListRepository) }
 
@@ -335,6 +338,7 @@ class AccountGraph(
             preferences,
             syncIngestor.stateChanged,
             eventCache,
+            memberStore,
         )
     }
 

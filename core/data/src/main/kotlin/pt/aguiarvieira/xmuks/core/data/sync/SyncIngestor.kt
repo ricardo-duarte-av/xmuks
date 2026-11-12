@@ -365,7 +365,7 @@ private fun Room.toEntity(generation: Long) =
         generation = generation,
     )
 
-private fun Event.toEntity() =
+internal fun Event.toEntity() =
     EventEntity(
         rowId = rowId,
         roomId = roomId,

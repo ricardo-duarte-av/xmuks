@@ -37,6 +37,7 @@ import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
 import pt.aguiarvieira.xmuks.core.data.roominfo.Threshold
+import pt.aguiarvieira.xmuks.core.data.sync.MemberStore
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import pt.aguiarvieira.xmuks.core.network.ExecClient
 import pt.aguiarvieira.xmuks.core.network.ExecMode
@@ -65,6 +66,8 @@ class RoomSession(
     private val bridgedUsers: BridgedUsers = BridgedUsers(exec, scope),
     /** Events fetched one by one, held across rooms and opens. */
     private val events: EventCache = EventCache(exec),
+    /** Where fetched member events are written back, so the room list and the next open see them. */
+    private val memberStore: MemberStore? = null,
 ) {
     private val dao = database.roomListDao()
 
@@ -72,6 +75,12 @@ class RoomSession(
     val preferences: Flow<PrefLayers> = prefs?.layers(roomId) ?: flowOf(PrefLayers.EMPTY)
     private val profiles = MutableStateFlow<Map<String, MemberProfile>>(emptyMap())
     private val requested = HashSet<String>()
+
+    /**
+     * Profiles seeded from our database and not yet checked with gomuks: a catch-up sync only
+     * brings the preview sender's member event, so the rest can be out of date.
+     */
+    @Volatile private var unconfirmed: Set<String> = emptySet()
     private val profileLock = Mutex()
 
     private val _state = MutableStateFlow<List<Event>>(emptyList())
@@ -311,6 +320,7 @@ class RoomSession(
                 row.userId to
                     parseMember(GomuksJson.parseToJsonElement(row.content).jsonObject)
             }
+        unconfirmed = seed.keys
         profiles.value = seed + profiles.value
     }
 
@@ -341,7 +351,7 @@ class RoomSession(
                 snap.receiptsByEventId.values
                     .flatten()
                     .forEach { add(it.userId) }
-            } - known.keys
+            }.filterTo(HashSet()) { it !in known || it in unconfirmed }
         if (wanted.isEmpty()) return
         scope.launch {
             val batch = profileLock.withLock { (wanted - requested).also { requested.addAll(it) } }
@@ -369,14 +379,17 @@ class RoomSession(
                     },
                     ExecMode.Read
                 ) as? ExecResult.Ok
+            val members = result?.let(::decodeEvents).orEmpty()
+            memberStore?.store(roomId, members)
             val found =
-                result?.let(::decodeEvents).orEmpty().mapNotNull { e ->
+                members.mapNotNull { e ->
                     e.stateKey?.let {
                         it to
                             parseMember(e.content)
                     }
                 }
             // Unknown users stay unresolved (localpart); they're in `requested`, so not asked again.
+            // A seeded one gomuks has nothing for keeps its seed.
             if (found.isNotEmpty()) profiles.value = profiles.value + found
         }
     }
@@ -422,11 +435,25 @@ class RoomSessions(
     private val prefs: PreferenceStore? = null,
     private val stateChanges: Flow<String> = emptyFlow(),
     private val events: EventCache = EventCache(exec),
+    private val memberStore: MemberStore? = null,
 ) {
     private val bridgedUsers = BridgedUsers(exec, scope)
 
     fun open(roomId: String) =
-        RoomSession(roomId, store, exec, database, outbox, uploads, scope, prefs, stateChanges, bridgedUsers, events)
+        RoomSession(
+            roomId,
+            store,
+            exec,
+            database,
+            outbox,
+            uploads,
+            scope,
+            prefs,
+            stateChanges,
+            bridgedUsers,
+            events,
+            memberStore,
+        )
 
     /** Stops our typing notification in [roomId], outliving whoever asked. */
     fun stopTyping(roomId: String) {
