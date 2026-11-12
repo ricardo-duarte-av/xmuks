@@ -173,8 +173,18 @@ class ShareViewModel
             sharedTo
                 .map { shared ->
                     shared?.let { (graph, id, session) ->
+                        val tone =
+                            graph.preferences
+                                .value(
+                                    Prefs.skinTone
+                                ).stateIn(viewModelScope, SharingStarted.Eagerly, null)
                         CaptionMentions(
-                            { field, scope -> ComposerMentions(scope, field, id, graph.mentionTargets, customEmoji) },
+                            {
+                                field,
+                                scope,
+                                ->
+                                ComposerMentions(scope, field, id, graph.mentionTargets, customEmoji, tone)
+                            },
                             graph.mediaUrls::avatar,
                             { field, scope -> RoomPing(scope, field, session.roomMention) },
                         )

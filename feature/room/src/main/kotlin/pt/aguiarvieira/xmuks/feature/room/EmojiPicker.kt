@@ -98,6 +98,8 @@ internal fun EmojiPickerSheet(
     onDismiss: () -> Unit,
     /** What the bridged network won't take as a reaction: dimmed (picking it says why). */
     blocked: (Picked) -> Boolean = { false },
+    /** The tone emoji with skin tones are offered in ([EmojiCatalog.withTone]). */
+    skinTone: String? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -115,6 +117,7 @@ internal fun EmojiPickerSheet(
             allowFreeform = true,
             focusSearch = false,
             blocked = blocked,
+            skinTone = skinTone,
         )
     }
 }
@@ -137,13 +140,18 @@ internal fun EmojiPicker(
     focusSearch: Boolean = true,
     /** Shown dimmed: what the bridged network won't take (still picked, to say why). */
     blocked: (Picked) -> Boolean = { false },
+    /**
+     * The tone emoji with skin tones show in, and are picked in, unless another is chosen from the
+     * long press ([EmojiCatalog.withTone]).
+     */
+    skinTone: String? = null,
 ) {
     val query = rememberTextFieldState()
     val q by remember(showSearch) { derivedStateOf { if (showSearch) query.text.toString().trim() else "" } }
     val focus = remember { FocusRequester() }
     // Asked for: straight into it, keyboard up.
     LaunchedEffect(showSearch) { if (showSearch && focusSearch) focus.requestFocus() }
-    val sections = remember(mode, packs, recent, q) { sections(mode, packs, recent, q) }
+    val sections = remember(mode, packs, recent, q, skinTone) { sections(mode, packs, recent, q, skinTone) }
     val grid = rememberLazyGridState()
     val scope = rememberCoroutineScope()
     // Grid index of each section's header, for the tab strip.
@@ -471,7 +479,9 @@ private fun sections(
     packs: List<ImagePack>,
     recent: List<String>,
     query: String,
+    tone: String?,
 ): List<Section> {
+    val toned = { emoji: String -> Picked.Unicode(EmojiCatalog.withTone(emoji, tone)) }
     val q = query.lowercase().removePrefix(":").removeSuffix(":")
     val custom = { image: pt.aguiarvieira.xmuks.core.data.emoji.PackImage -> Picked.Custom(image) }
     if (mode == PickerMode.Sticker) {
@@ -492,21 +502,23 @@ private fun sections(
                 }.filter { it.shortcode.lowercase().contains(q) }
                 .distinctBy { it.mxc }
                 .map(custom)
-        val unicodeHits = EmojiCatalog.search(q).map { Picked.Unicode(it.emoji) }
+        val unicodeHits = EmojiCatalog.search(q).map { toned(it.emoji) }
         return listOf(Section("search", "", null, unicodeHits + customHits))
     }
     val byMxc = packs.flatMap { it.emojis }.associateBy { it.mxc }
     val recentItems =
         recent
             .mapNotNull { key ->
-                if (key.startsWith("mxc://")) byMxc[key]?.let(custom) else Picked.Unicode(key)
-            }.take(MAX_RECENT)
+                if (key.startsWith("mxc://")) byMxc[key]?.let(custom) else toned(key)
+            }.distinctBy { it.key } // the yellow one and its toned one, once toned, are one
+            .take(MAX_RECENT)
     val catalog = EmojiCatalog.catalog
     return buildList {
         if (recentItems.isNotEmpty()) add(Section("recent", "Recent", null, recentItems))
         catalog.emoji.groupBy { it.group }.toSortedMap().forEach { (group, emoji) ->
             val title = catalog.groups.getOrNull(group)?.replaceFirstChar { it.uppercase() } ?: ""
-            add(Section("g$group", title, emoji.first().emoji, emoji.map { Picked.Unicode(it.emoji) }))
+            val items = emoji.map { toned(it.emoji) }
+            add(Section("g$group", title, items.first().emoji, items))
         }
         // The user's packs come after the default set.
         packs.filter { it.emojis.isNotEmpty() }.forEach {

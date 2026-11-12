@@ -295,6 +295,7 @@ fun RoomRoute(
                             onSticker = viewModel.emoji::sendSticker,
                             onUsed = viewModel.emoji::used,
                             onSubscribe = viewModel.emoji::setSubscribed,
+                            skinTone = prefs.get(Prefs.skinTone),
                         ),
                     personas = personas,
                     onChoosePersona = viewModel.personas::choose,
@@ -434,6 +435,8 @@ class EmojiState(
     val onSticker: (PackImage) -> Unit = {},
     val onUsed: (Picked) -> Unit = {},
     val onSubscribe: (ImagePack, Boolean) -> Unit = { _, _ -> },
+    /** The tone emoji with skin tones are offered in (xmuks' setting; [EmojiCatalog.withTone]). */
+    val skinTone: String? = null,
 )
 
 /** The live timeline as the screen needs it; [items] newest first, null until the first page. */

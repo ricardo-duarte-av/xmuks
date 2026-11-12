@@ -39,6 +39,12 @@ internal val CHOICE_LABELS: Map<String?, Int> =
         "auto" to R.string.choice_call_auto,
         "legacy" to R.string.choice_call_legacy,
         "sticky" to R.string.choice_call_sticky,
+        "yellow" to R.string.choice_tone_yellow,
+        "light" to R.string.choice_tone_light,
+        "medium_light" to R.string.choice_tone_medium_light,
+        "medium" to R.string.choice_tone_medium,
+        "medium_dark" to R.string.choice_tone_medium_dark,
+        "dark" to R.string.choice_tone_dark,
     )
 
 /** Every preference xmuks lists, in order, grouped by [Section]. */
@@ -196,6 +202,7 @@ internal val ENTRIES: List<PrefEntry> =
             R.string.pref_sticker_button_desc,
             Section.Appearance,
         ),
+        PrefEntry(Prefs.skinTone, R.string.pref_skin_tone, R.string.pref_skin_tone_desc, Section.Appearance),
         PrefEntry(Prefs.dmSound, R.string.pref_dm_sound, R.string.pref_dm_sound_desc, Section.Notifications),
         PrefEntry(
             Prefs.callNotifyRoom,

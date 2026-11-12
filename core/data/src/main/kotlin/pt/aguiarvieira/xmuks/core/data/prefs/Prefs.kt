@@ -99,6 +99,15 @@ object Prefs {
     /** The composer has a sticker button of its own beside the emoji one, instead of one for both. */
     val stickerButton = Pref.Bool("xmuks_sticker_button", false, DEVICE_GLOBAL)
 
+    /** The skin tones, lightest first: the n-th is the modifier U+1F3FB + n. */
+    val skinTones = listOf("light", "medium_light", "medium", "medium_dark", "dark")
+
+    /**
+     * The tone emoji with skin tones take unless another is picked: "yellow" (the default), or one of
+     * the five Fitzpatrick tones, lightest first ([skinTones], declared first so it is set by then).
+     */
+    val skinTone = Pref.Choice("xmuks_skin_tone", "yellow", DEVICE_GLOBAL, listOf("yellow") + skinTones)
+
     /** Every preference, in gomuks' order (its settings screen's). */
     val all: List<Pref<*>> =
         listOf(

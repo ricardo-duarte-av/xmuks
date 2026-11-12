@@ -183,6 +183,7 @@ private fun PickerSheet(
         },
         onSubscribe = composer.emoji.onSubscribe,
         onDismiss = { state.picker = null },
+        skinTone = composer.emoji.skinTone,
     )
 }
 

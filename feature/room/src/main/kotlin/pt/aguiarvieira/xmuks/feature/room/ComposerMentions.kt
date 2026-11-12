@@ -43,6 +43,8 @@ class ComposerMentions(
     private val targets: MentionTargets,
     /** Our custom emoji usable here; they stay `:shortcode:` in the box, expanded when sent. */
     private val customEmoji: StateFlow<List<PackImage>> = MutableStateFlow(emptyList()),
+    /** The skin tone Unicode emoji take when completed ([EmojiCatalog.withTone]). */
+    private val skinTone: StateFlow<String?> = MutableStateFlow(null),
 ) {
     /** Fetched the first time someone's mentioned: the full list can be long. */
     private val members = MutableStateFlow<List<MentionTarget>?>(null)
@@ -74,12 +76,21 @@ class ComposerMentions(
         }.distinctUntilChanged()
 
     val emoji: StateFlow<List<EmojiHint>> =
-        combine(shortcodeQuery, customEmoji) { q, custom ->
+        combine(shortcodeQuery, customEmoji, skinTone) { q, custom, tone ->
             if (q == null) return@combine emptyList()
             // A shortcode two packs share is the first one's, as when it's sent.
             val candidates = custom.distinctBy { it.shortcode }.map { Picked.Custom(it) } + unicodeCandidates
             candidates.matchingShortcode(q.text, { shortcodesOf(it) }).map { (picked, code) ->
-                EmojiHint(picked, code, (picked as? Picked.Unicode)?.let { unicodeByChar[it.emoji]?.name })
+                when (picked) {
+                    is Picked.Unicode -> {
+                        val name = unicodeByChar[picked.emoji]?.name
+                        EmojiHint(Picked.Unicode(EmojiCatalog.withTone(picked.emoji, tone)), code, name)
+                    }
+
+                    is Picked.Custom -> {
+                        EmojiHint(picked, code, null)
+                    }
+                }
             }
         }.flowOn(Dispatchers.Default)
             .stateIn(scope, SharingStarted.WhileSubscribed(STOP_MS), emptyList())
@@ -101,7 +112,9 @@ class ComposerMentions(
             if (!selection.collapsed || !typedColon(previous, text, selection.end)) return@collect
             val closed = closedShortcodeAt(text, selection.end) ?: return@collect
             if (customEmoji.value.any { it.shortcode == closed.text }) return@collect
-            val glyph = EmojiCatalog.byShortcode(closed.text)?.emoji ?: return@collect
+            val glyph =
+                EmojiCatalog.byShortcode(closed.text)?.emoji?.let { EmojiCatalog.withTone(it, skinTone.value) }
+                    ?: return@collect
             draft.edit {
                 replace(closed.start, closed.end, glyph)
                 this.selection = TextRange(closed.start + glyph.length)

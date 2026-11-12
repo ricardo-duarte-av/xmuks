@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
+import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 
 /**
@@ -92,6 +93,29 @@ object EmojiCatalog {
      * whether [emoji] is the default or one of the variants; empty when it has no skin tones.
      */
     fun tonesOf(emoji: String): List<String> = tonesByEmoji[emoji].orEmpty()
+
+    /**
+     * [emoji] in [tone] (a [Prefs.skinTones] name; anything else is the default): its variant whose
+     * every skin-tone modifier is that tone — both people's, for a two-person emoji. Only the
+     * default (yellow) one is changed: one already in a tone, or without tones, stays as it is.
+     */
+    fun withTone(
+        emoji: String,
+        tone: String?,
+    ): String {
+        val index = Prefs.skinTones.indexOf(tone)
+        if (index < 0) return emoji
+        val tones = tonesOf(emoji)
+        if (tones.firstOrNull() != emoji) return emoji
+        val modifier = FIRST_SKIN_TONE + index
+        return tones.drop(1).firstOrNull { variant ->
+            val modifiers = variant.codePoints().toArray().filter { it in FIRST_SKIN_TONE..LAST_SKIN_TONE }
+            modifiers.isNotEmpty() && modifiers.all { it == modifier }
+        } ?: emoji
+    }
+
+    private const val FIRST_SKIN_TONE = 0x1F3FB
+    private const val LAST_SKIN_TONE = 0x1F3FF
 
     /** Emoji whose name or terms contain [query] (name matches first). */
     fun search(query: String): List<UnicodeEmoji> {

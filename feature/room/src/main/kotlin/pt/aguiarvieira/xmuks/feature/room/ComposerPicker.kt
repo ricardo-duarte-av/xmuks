@@ -209,6 +209,7 @@ private fun PickerContent(
                 }
             },
             onSubscribe = composer.emoji.onSubscribe,
+            skinTone = composer.emoji.skinTone,
             modifier = Modifier.padding(top = 8.dp),
             showSearch = searching,
         )

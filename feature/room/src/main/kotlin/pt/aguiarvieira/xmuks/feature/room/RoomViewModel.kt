@@ -286,12 +286,16 @@ class RoomViewModel
         private val customEmoji =
             emoji.packs.map { packs -> packs.flatMap { it.emojis } }.stateIn(viewModelScope, WHILE_VISIBLE, emptyList())
 
+        /** The skin tone emoji take when a `:shortcode` is completed. */
+        private val skinTone =
+            prefs.map { it.get(Prefs.skinTone) }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
         /** People, rooms and emoji offered as a mention or `:shortcode` is typed. */
-        internal val mentions = ComposerMentions(viewModelScope, draft, roomId, mentionTargets, customEmoji)
+        internal val mentions = ComposerMentions(viewModelScope, draft, roomId, mentionTargets, customEmoji, skinTone)
 
         /** The same, in another box (a media caption's), for as long as [scope] lasts. */
         val mentionsIn: (TextFieldState, CoroutineScope) -> ComposerMentions =
-            { field, scope -> ComposerMentions(scope, field, roomId, mentionTargets, customEmoji) }
+            { field, scope -> ComposerMentions(scope, field, roomId, mentionTargets, customEmoji, skinTone) }
 
         /** An @room in the draft, and whether it pings everyone. */
         internal val roomPing = RoomPing(viewModelScope, draft, session.roomMention)
