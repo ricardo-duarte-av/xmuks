@@ -31,6 +31,11 @@ fun RoomAvatar(
     size: Dp = 48.dp,
     /** A neutral disc behind a loaded image (network logos on a ring); else its transparency shows. */
     backdrop: Boolean = false,
+    /**
+     * The original image, drawn over [avatarUrl] once it has loaded: thumbnails lose animation, so
+     * where the avatar is shown large, the thumbnail shows at once and the original replaces it.
+     */
+    fullUrl: String? = null,
 ) {
     // Initials sit under the image until it has loaded, then go: a transparent avatar shows what's
     // behind it, and no initials colour shows through as a ring (seen on-device). With [backdrop], a
@@ -59,6 +64,16 @@ fun RoomAvatar(
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 onState = { loaded = it is AsyncImagePainter.State.Success },
+                modifier = Modifier.size(size),
+            )
+        }
+        if (fullUrl != null && fullUrl != avatarUrl) {
+            // Draws nothing until it has loaded, so the thumbnail stays visible till then.
+            AsyncImage(
+                model = fullUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                onState = { if (it is AsyncImagePainter.State.Success) loaded = true },
                 modifier = Modifier.size(size),
             )
         }

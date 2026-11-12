@@ -376,7 +376,14 @@ private fun HeroCard(
                             .background(MaterialTheme.colorScheme.surface)
                             .padding(4.dp),
                 ) {
-                    RoomAvatar(name, profile.userId, media.thumbnail(avatarMxc), size = AVATAR_SIZE)
+                    RoomAvatar(
+                        name,
+                        profile.userId,
+                        media.thumbnail(avatarMxc),
+                        size = AVATAR_SIZE,
+                        // Animated avatars only move in the original; the thumbnail shows until it's here.
+                        fullUrl = media.full(avatarMxc),
+                    )
                 }
             }
             NameBlock(profile, name, onEditName = edits?.takeIf { inRoom == null }?.let { { editingName = true } })
@@ -428,5 +435,5 @@ private fun NameBlock(
 }
 
 private val BANNER_HEIGHT = 140.dp
-private val AVATAR_SIZE = 96.dp
+private val AVATAR_SIZE = 120.dp
 private const val BANNER_TINT = 0.35f
