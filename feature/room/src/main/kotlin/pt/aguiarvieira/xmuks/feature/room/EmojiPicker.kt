@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.feature.room
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -25,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -52,6 +54,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -327,11 +331,12 @@ private fun Cell(
                 AsyncImage(url, picked.image.shortcode, Modifier.fillMaxWidth().aspectRatio(1f))
             }
         }
-    }
-    if (choosing) {
-        SkinTones(tones, blocked, onDismiss = { choosing = false }) {
-            choosing = false
-            onPick(it)
+        // Inside the cell, so the cell is its anchor: a lazy grid item's own siblings hang off the grid.
+        if (choosing) {
+            SkinTones(tones, blocked, onDismiss = { choosing = false }) {
+                choosing = false
+                onPick(it)
+            }
         }
     }
 }
@@ -357,8 +362,10 @@ private fun Modifier.toneMark(color: Color) =
 
 /**
  * One emoji's tones floating above it (below, if there's no room): the default on its own, then a
- * divider, then the skin tones — one row of five, or a square of 25 for two-person emoji.
+ * divider, then the skin tones — one row of five, or a square of 25 for two-person emoji. It grows
+ * and fades in out of the emoji that was pressed, and shrinks back into it when dismissed.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SkinTones(
     tones: List<String>,
@@ -366,12 +373,35 @@ private fun SkinTones(
     onDismiss: () -> Unit,
     onPick: (Picked) -> Unit,
 ) {
+    val anchor = remember { AboveAnchor() }
+    val open = remember { Animatable(0f) }
+    val motion = MaterialTheme.motionScheme
+    val scope = rememberCoroutineScope()
+    var closing by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { open.animateTo(1f, motion.fastSpatialSpec()) }
     Popup(
-        popupPositionProvider = AboveAnchor,
-        onDismissRequest = onDismiss,
+        popupPositionProvider = anchor,
+        onDismissRequest = {
+            if (!closing) {
+                closing = true
+                scope.launch {
+                    open.animateTo(0f, motion.fastEffectsSpec())
+                    onDismiss()
+                }
+            }
+        },
         properties = PopupProperties(focusable = true),
     ) {
         Surface(
+            modifier =
+                Modifier.graphicsLayer {
+                    val p = open.value
+                    val scale = POPUP_START_SCALE + (1f - POPUP_START_SCALE) * p
+                    scaleX = scale
+                    scaleY = scale
+                    alpha = p.coerceIn(0f, 1f)
+                    transformOrigin = anchor.origin
+                },
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shadowElevation = 6.dp,
@@ -406,8 +436,14 @@ private fun Tone(
     ) { Text(tone, fontSize = 26.sp) }
 }
 
-/** Centred over the anchor and just above it, kept inside the window. */
-private object AboveAnchor : PopupPositionProvider {
+/**
+ * Centred over the anchor and just above it, kept inside the window. It remembers where the anchor
+ * sits relative to the popup, [origin], so the popup can grow out of it.
+ */
+private class AboveAnchor : PopupPositionProvider {
+    var origin by mutableStateOf(TransformOrigin(0.5f, 1f))
+        private set
+
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
@@ -418,7 +454,14 @@ private object AboveAnchor : PopupPositionProvider {
             (anchorBounds.center.x - popupContentSize.width / 2)
                 .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
         val above = anchorBounds.top - popupContentSize.height
-        val y = if (above >= 0) above else anchorBounds.bottom
+        val fitsAbove = above >= 0
+        val y = if (fitsAbove) above else anchorBounds.bottom
+        val width = popupContentSize.width.coerceAtLeast(1)
+        origin =
+            TransformOrigin(
+                ((anchorBounds.center.x - x).toFloat() / width).coerceIn(0f, 1f),
+                if (fitsAbove) 1f else 0f,
+            )
         return IntOffset(x, y)
     }
 }
@@ -488,3 +531,6 @@ private const val SKIN_COLUMNS = 5
 private val TONE_MARK = 6.dp
 private val TONE_MARK_INSET = 3.dp
 private const val TONE_MARK_ALPHA = 0.6f
+
+/** How small the skin-tone popup starts, as it grows out of the pressed emoji. */
+private const val POPUP_START_SCALE = 0.4f
