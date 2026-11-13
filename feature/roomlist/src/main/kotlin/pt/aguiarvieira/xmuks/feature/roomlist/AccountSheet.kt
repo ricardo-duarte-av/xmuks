@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.DropdownMenu
@@ -191,7 +193,8 @@ internal fun AccountSheetContent(
     val actions = AccountActions(onPin = onPin, onLogout = { loggingOut = it })
     // Under the navigation bar when the sheet is half open: kept clear, so it stops on the divider.
     val navigation = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
-    Column(modifier) {
+    // However many accounts: the sheet opens half way, then fully, then scrolls.
+    Column(modifier.verticalScroll(rememberScrollState())) {
         // The sheet opens half way: the shown account fills that half, down to the divider.
         Box(Modifier.fillMaxWidth().height(halfSheetHeight(navigation))) {
             state.current?.let { CurrentAccount(it, onOpenProfile, actions) }
