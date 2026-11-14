@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -89,6 +90,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.BridgeInfo
 import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
+import pt.aguiarvieira.xmuks.core.data.timeline.RoomWidget
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.Typist
 import pt.aguiarvieira.xmuks.core.data.timeline.softFailed
@@ -172,6 +174,7 @@ fun RoomRoute(
     val pins by viewModel.pins.pins.collectAsStateWithLifecycle()
     val pinnedItems by viewModel.pins.items.collectAsStateWithLifecycle()
     val pinBarShown by viewModel.pins.barShown.collectAsStateWithLifecycle()
+    val widgets by viewModel.widgets.collectAsStateWithLifecycle()
     val refusal by viewModel.refusal.value.collectAsStateWithLifecycle()
     val resolver =
         remember(viewModel) { MediaResolver(viewModel.media::avatar, viewModel.media::media, viewModel.mediaImages) }
@@ -260,6 +263,7 @@ fun RoomRoute(
                     pinBarShown,
                     viewModel.pins::closeBar,
                 ),
+            widgets = widgets,
             onShowContext = viewModel::showContext,
             onLeaveContext = viewModel::leaveContext,
             focusEvent = focus,
@@ -500,6 +504,8 @@ fun RoomScreen(
     /** Shown in a thread: the header says so. */
     inThread: Boolean = false,
     pins: PinsUi = PinsUi(),
+    /** The room's widgets: the menu lists them, and one opens in place of the timeline. */
+    widgets: List<RoomWidget> = emptyList(),
     /** What the room is bridged to: the composer and header say so. */
     bridge: BridgeInfo? = null,
     /** The account it's written in as, while there are several: a badge on the room's avatar. */
@@ -519,6 +525,7 @@ fun RoomScreen(
     val contextList = remember(context?.eventId) { LazyListState() }
     var highlighted by remember { mutableStateOf<String?>(null) }
     var limitsShown by remember { mutableStateOf(false) }
+    val widgetsState = rememberWidgetsState(widgets)
     val shown by rememberUpdatedState(if (context != null) context.items else timeline.items)
     val list by rememberUpdatedState(if (context != null) contextList else liveList)
     val showContext by rememberUpdatedState(onShowContext)
@@ -566,6 +573,7 @@ fun RoomScreen(
         if (context != null) onLeaveContext()
         overlays.pinsShown = true
     }
+    WidgetsOverlays(widgetsState)
     RoomOverlays(
         overlays,
         composer,
@@ -583,6 +591,7 @@ fun RoomScreen(
     if (overlays.pinsShown) {
         PinnedSheet(pins, resolver, onShow = { eventId ->
             overlays.pinsShown = false
+            widgetsState.close()
             overlays.backToPins = true
             actions.jumpTo(eventId)
         }) {
@@ -619,72 +628,83 @@ fun RoomScreen(
                     onNetworkLimits = composer.features?.let { { limitsShown = true } },
                     pinned = pins.menuCount(inThread),
                     onPins = { overlays.pinsShown = true },
+                    widgets = widgets.size,
+                    onWidgets = widgetsState::showList,
                     account = account,
                 )
                 UnderHeader(
                     call,
                     onCall,
-                    pinned = pins.barCount(inThread),
+                    // Over a widget's page, the pins wait until it's back to the room.
+                    pinned = widgetsState.unlessOpen(pins.barCount(inThread)),
                     onOpenPins = { overlays.pinsShown = true },
                     onClosePins = pins.onCloseBar,
                 )
             }
         },
         bottomBar = {
-            if (onOpenFully != null) {
-                PreviewBar(onOpenFully)
-            } else {
-                ComposerArea(overlays, composer, resolver) {
-                    ComposerCard(
-                        composer.draft,
-                        composer.mode,
-                        {
-                            followNext.requested = true
-                            composer.onSend()
-                        },
-                        composer.onCancelMode,
-                        commands = composer.commands,
-                        onEmoji = { openPanel(overlays, PickerMode.Emoji, keyboard, focus) },
-                        stickerButton = composer.stickerButton,
-                        onSticker = { openPanel(overlays, PickerMode.Sticker, keyboard, focus) },
-                        onAttach = { overlays.attaching = true },
-                        onFocus = overlays::keyboardComing,
-                        personas = composer.personas,
-                        avatarUrl = resolver.avatar,
-                        onChoosePersona = composer.onChoosePersona,
-                        onOpenPersonas = { overlays.choosingPersona = true },
-                        previews = composer.linkPreviews,
-                        roomPing = composer.roomPing,
-                        network = bridge?.protocol,
-                        mentions = composer.mentions,
-                        onSendMedia = composer.onSendNow,
-                        maxLength = composer.features?.maxTextLength,
-                    )
+            // A widget's page takes the composer's place too; the navigation bar stays clear.
+            UnlessWidget(
+                widgetsState,
+                instead = { Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars)) }
+            ) {
+                if (onOpenFully != null) {
+                    PreviewBar(onOpenFully)
+                } else {
+                    ComposerArea(overlays, composer, resolver) {
+                        ComposerCard(
+                            composer.draft,
+                            composer.mode,
+                            {
+                                followNext.requested = true
+                                composer.onSend()
+                            },
+                            composer.onCancelMode,
+                            commands = composer.commands,
+                            onEmoji = { openPanel(overlays, PickerMode.Emoji, keyboard, focus) },
+                            stickerButton = composer.stickerButton,
+                            onSticker = { openPanel(overlays, PickerMode.Sticker, keyboard, focus) },
+                            onAttach = { overlays.attaching = true },
+                            onFocus = overlays::keyboardComing,
+                            personas = composer.personas,
+                            avatarUrl = resolver.avatar,
+                            onChoosePersona = composer.onChoosePersona,
+                            onOpenPersonas = { overlays.choosingPersona = true },
+                            previews = composer.linkPreviews,
+                            roomPing = composer.roomPing,
+                            network = bridge?.protocol,
+                            mentions = composer.mentions,
+                            onSendMedia = composer.onSendNow,
+                            maxLength = composer.features?.maxTextLength,
+                        )
+                    }
                 }
             }
         },
     ) { padding ->
         // Edge to edge between the header and the composer's bar, as the room list's tabs (or a card).
         ScreenBody(Modifier.padding(padding).fillMaxSize()) {
-            if (context != null) {
-                ContextTimeline(context, contextList, resolver, actions, highlighted, onLeaveContext)
-            } else {
-                Column {
-                    Box(Modifier.weight(1f)) {
-                        LiveTimeline(
-                            timeline,
-                            liveList,
-                            followNext,
-                            unreadJump,
-                            resolver,
-                            actions,
-                            highlighted,
-                            onLoadOlder,
-                        )
+            UnlessWidget(widgetsState, instead = { WidgetPage(it, onClose = widgetsState::close) }) {
+                if (context != null) {
+                    ContextTimeline(context, contextList, resolver, actions, highlighted, onLeaveContext)
+                } else {
+                    Column {
+                        Box(Modifier.weight(1f)) {
+                            LiveTimeline(
+                                timeline,
+                                liveList,
+                                followNext,
+                                unreadJump,
+                                resolver,
+                                actions,
+                                highlighted,
+                                onLoadOlder,
+                            )
+                        }
+                        TypingIndicator(typing, resolver)
                     }
-                    TypingIndicator(typing, resolver)
+                    MarkReadAtBottom(timeline, liveList, composer.onMarkRead)
                 }
-                MarkReadAtBottom(timeline, liveList, composer.onMarkRead)
             }
         }
     }
@@ -714,6 +734,9 @@ private fun HeaderCard(
     /** How many messages are pinned: the menu lists them when there are any. */
     pinned: Int = 0,
     onPins: () -> Unit = {},
+    /** How many widgets the room has: the menu's entry for them is greyed out without any. */
+    widgets: Int = 0,
+    onWidgets: () -> Unit = {},
     account: SendingAccount? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -797,6 +820,15 @@ private fun HeaderCard(
                             },
                         )
                     }
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.widgets)) },
+                        leadingIcon = { Icon(painterResource(R.drawable.ic_widgets), null) },
+                        enabled = widgets > 0,
+                        onClick = {
+                            menu = false
+                            onWidgets()
+                        },
+                    )
                     if (!inThread) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.room_mentions)) },

@@ -254,6 +254,12 @@ class RoomSession(
             Pins(ids, me != null && levels.canSetState(me, Pins.TYPE))
         }.distinctUntilChanged()
 
+    /** The room's widgets, by name, each with what fills in its page's address for us. */
+    val widgets: Flow<List<RoomWidget>> =
+        combine(state.map(Widget::of).distinctUntilChanged(), dao.meta()) { widgets, meta ->
+            widgets.map { RoomWidget(it, roomId, meta?.userId, meta?.displayName, meta?.avatar) }
+        }.distinctUntilChanged()
+
     /** Whether we may be in a call here (true until the room's state says otherwise). */
     val canCall: Flow<Boolean> =
         combine(state, dao.meta().map { it?.userId }.distinctUntilChanged()) { events, me ->

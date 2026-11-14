@@ -56,6 +56,7 @@ import pt.aguiarvieira.xmuks.core.data.timeline.PinBarStore
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSessions
+import pt.aguiarvieira.xmuks.core.data.timeline.RoomWidget
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
 import pt.aguiarvieira.xmuks.core.data.timeline.Typist
 import pt.aguiarvieira.xmuks.core.data.timeline.currentContent
@@ -133,6 +134,9 @@ class RoomViewModel
 
         /** Whether we may be in a call here (the room's power levels). */
         val canCall: StateFlow<Boolean> = session.canCall.stateIn(viewModelScope, WHILE_VISIBLE, true)
+
+        /** The room's widgets (web pages it offers), by name. */
+        val widgets: StateFlow<List<RoomWidget>> = session.widgets.stateIn(viewModelScope, WHILE_VISIBLE, emptyList())
 
         /** Whether we may delete others' messages here (the room's power levels). */
         val canRedact: StateFlow<Boolean> = session.canRedact.stateIn(viewModelScope, WHILE_VISIBLE, false)
