@@ -125,52 +125,63 @@ fun HomeRoute(
     val badges by viewModel.badges.collectAsStateWithLifecycle()
     val display by viewModel.display.collectAsStateWithLifecycle()
     val invites by viewModel.invites.collectAsStateWithLifecycle()
-    CompositionLocalProvider(LocalRoomListDisplay provides display) {
-        HomeScreen(
-            state =
-                HomeUiState(
-                    tab,
-                    chats,
-                    dms,
-                    spaces,
-                    connection,
-                    refreshing,
-                    viewModel.account,
-                    profile,
-                    badges,
-                    invites,
-                    othersUnread = accounts.othersUnread,
-                    accountId = accounts.current?.id,
-                ),
-            onTabChange = onTabChange,
-            onRefresh = viewModel::refresh,
-            onOpenRoom = onOpenRoom,
-            onOpenSpace = onOpenSpace,
-            onAccountClick = { switcher = true },
-            modifier = modifier,
-            onOpenNotifications = onOpenNotifications,
-            onSearchMessages = onSearchMessages,
-            search = viewModel.search,
-            onOpenInvite = onOpenInvite,
-            onPreviewRoom = onPreviewRoom,
-            onOpenDirectory = onOpenDirectory,
-            onReorderSpaces = viewModel::reorderSpaces,
-        )
-        if (switcher) {
-            AccountSheet(
-                state = accounts,
-                onOpenProfile = onOpenProfile,
-                onSwitch = accountsViewModel::switchTo,
-                onAddAccount = onAddAccount,
-                onDismiss = { switcher = false },
-                onOpenSettings = onOpenSettings,
-                onLogout = accountsViewModel::logout,
-                onPin = { account ->
-                    accountsViewModel.pinAccount(account) {
-                        Toast.makeText(context, R.string.room_menu_shortcut_unsupported, Toast.LENGTH_SHORT).show()
-                    }
-                },
+    val previews by accountsViewModel.previews.collectAsStateWithLifecycle()
+    val swipe = rememberAccountSwipe(accounts.neighbour(-1), accounts.neighbour(1), accountsViewModel::swipeTo)
+    val now = rememberNow()
+    // Swiping the header turns the whole screen, the next account's coming in beside it.
+    AccountPager(
+        swipe,
+        preview = { id -> previews[id]?.let { AccountPreviewScreen(it, tab, now) } },
+        modifier = modifier,
+    ) {
+        CompositionLocalProvider(LocalRoomListDisplay provides display) {
+            HomeScreen(
+                state =
+                    HomeUiState(
+                        tab,
+                        chats,
+                        dms,
+                        spaces,
+                        connection,
+                        refreshing,
+                        viewModel.account,
+                        profile,
+                        badges,
+                        invites,
+                        othersUnread = accounts.othersUnread,
+                        accountId = accounts.current?.id,
+                    ),
+                onTabChange = onTabChange,
+                onRefresh = viewModel::refresh,
+                onOpenRoom = onOpenRoom,
+                onOpenSpace = onOpenSpace,
+                onAccountClick = { switcher = true },
+                now = now,
+                headerSwipe = swipe,
+                onOpenNotifications = onOpenNotifications,
+                onSearchMessages = onSearchMessages,
+                search = viewModel.search,
+                onOpenInvite = onOpenInvite,
+                onPreviewRoom = onPreviewRoom,
+                onOpenDirectory = onOpenDirectory,
+                onReorderSpaces = viewModel::reorderSpaces,
             )
+            if (switcher) {
+                AccountSheet(
+                    state = accounts,
+                    onOpenProfile = onOpenProfile,
+                    onSwitch = accountsViewModel::switchTo,
+                    onAddAccount = onAddAccount,
+                    onDismiss = { switcher = false },
+                    onOpenSettings = onOpenSettings,
+                    onLogout = accountsViewModel::logout,
+                    onPin = { account ->
+                        accountsViewModel.pinAccount(account) {
+                            Toast.makeText(context, R.string.room_menu_shortcut_unsupported, Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                )
+            }
         }
     }
 }
@@ -211,6 +222,8 @@ fun HomeScreen(
     onPreviewRoom: (roomId: String, scope: String) -> Unit = { _, _ -> },
     onOpenDirectory: (spaces: Boolean) -> Unit = {},
     onReorderSpaces: (ids: List<String>, moved: String) -> Unit = { _, _ -> },
+    /** Swiping the header to the other accounts (none: it doesn't swipe, as in a preview). */
+    headerSwipe: AccountSwipeState? = null,
 ) {
     // Flat: the header (with the tab's filter in it, as a search app bar) and the tab bar on the
     // tinted ground, edge to edge; the tab's content between, on the surface. Cards: three cards on
@@ -221,20 +234,23 @@ fun HomeScreen(
         containerColor = if (cards) ScreenCards.ground else MaterialTheme.colorScheme.surface,
         topBar = {
             ScreenHeader {
-                TopAppBar(
-                    title = {
-                        Text(
-                            stringResource(state.tab.title),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    actions = {
-                        AccountChip(state, onAccountClick)
-                    },
-                    windowInsets = WindowInsets(0),
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                )
+                // The app bar only: the filter under it is a text field, its own to drag in.
+                Box(Modifier.accountSwipe(headerSwipe)) {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                stringResource(state.tab.title),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        actions = {
+                            AccountChip(state, onAccountClick)
+                        },
+                        windowInsets = WindowInsets(0),
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                    )
+                }
                 // Cards: the filter tops the content card instead.
                 if (!cards) {
                     FilterBar(

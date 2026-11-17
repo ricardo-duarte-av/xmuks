@@ -51,6 +51,8 @@
     <string name="account_logout_text">Its login and everything kept for it on this phone are removed. You\'ll need to sign in again to use it here.</string>
     <string name="app_settings">App Settings</string>
     <string name="account_switch">Switch to this account</string>
+    <string name="account_next">Next account</string>
+    <string name="account_previous">Previous account</string>
     <string name="account_others_unread">Unread messages in another account</string>
     <string name="account_mentions">Mentions</string>
     <string name="account_search">Search</string>

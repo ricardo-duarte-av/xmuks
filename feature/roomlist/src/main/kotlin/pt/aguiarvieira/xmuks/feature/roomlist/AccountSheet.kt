@@ -53,9 +53,14 @@ import androidx.compose.ui.unit.min
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.account.AccountSummary
@@ -83,9 +88,17 @@ private val MIN_CURRENT_HEIGHT = 280.dp
 data class AccountsState(
     val current: AccountSummary? = null,
     val others: List<AccountSummary> = emptyList(),
+    /** Every account's ID, in the order they were added: the order a swipe on the header goes in. */
+    val order: List<String> = emptyList(),
 ) {
     /** Another account has something unread: the account chip says so. */
     val othersUnread: Boolean get() = others.any { it.unread.any }
+
+    /** The account [step] places after the shown one (before it, negative); null past either end. */
+    fun neighbour(step: Int): String? {
+        val index = order.indexOf(current?.id)
+        return if (index < 0) null else order.getOrNull(index + step)
+    }
 }
 
 @HiltViewModel
@@ -97,11 +110,31 @@ class AccountsViewModel
     ) : ViewModel() {
         val state: StateFlow<AccountsState> =
             combine(accounts.summaries(), accounts.active) { all, active ->
-                AccountsState(all.firstOrNull { it.id == active }, all.filter { it.id != active })
+                AccountsState(all.firstOrNull { it.id == active }, all.filter { it.id != active }, all.map { it.id })
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), AccountsState())
+
+        /**
+         * The accounts a swipe on the header goes to, their room lists ready from their databases:
+         * kept up while the room list is on screen, so a swipe has them from its first frame.
+         */
+        @OptIn(ExperimentalCoroutinesApi::class)
+        internal val previews: StateFlow<Map<String, AccountPreview>> =
+            state
+                .map { listOfNotNull(it.neighbour(-1), it.neighbour(1)).distinct() }
+                .distinctUntilChanged()
+                .flatMapLatest { ids ->
+                    if (ids.isEmpty()) {
+                        flowOf(emptyMap())
+                    } else {
+                        combine(ids.map { id -> accounts.graph(id).preview().map { id to it } }) { it.toMap() }
+                    }
+                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyMap())
 
         /** Shows [id]: the app's screens become its own. */
         fun switchTo(id: String) = accounts.switchTo(id)
+
+        /** Shows [id], swiped to: its screen is already in place, so it isn't animated in again. */
+        fun swipeTo(id: String) = accounts.switchTo(id, swiped = true)
 
         /** Signs [account] out, shown or not: it leaves the switcher, and this phone forgets it. */
         fun logout(account: AccountSummary) {

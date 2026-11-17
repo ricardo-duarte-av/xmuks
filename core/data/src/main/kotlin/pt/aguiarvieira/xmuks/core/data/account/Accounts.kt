@@ -72,9 +72,20 @@ class Accounts(
     }
 
     /** Shows [id] (signed in already): its screens take over from the shown account's. */
-    fun switchTo(id: String) {
+    fun switchTo(
+        id: String,
+        swiped: Boolean = false,
+    ) {
+        swipe = if (swiped) registry.active.value to id else null
         scope.launch { registry.activate(id) }
     }
+
+    /**
+     * The last switch, as (from, to), when it was a swipe on the room list: that already brought the
+     * account's screen in, so the switch itself isn't animated. Null after any other.
+     */
+    @Volatile var swipe: Pair<String?, String>? = null
+        private set
 
     /** The signed-in accounts as the switcher shows them, in the order they were added. */
     @OptIn(ExperimentalCoroutinesApi::class)

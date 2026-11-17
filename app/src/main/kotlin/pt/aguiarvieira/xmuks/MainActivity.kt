@@ -8,9 +8,24 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -40,6 +55,7 @@ import pt.aguiarvieira.xmuks.core.designsystem.theme.XmuksTheme
 import pt.aguiarvieira.xmuks.core.notify.PeopleUris
 import pt.aguiarvieira.xmuks.core.notify.RoomKeys
 import pt.aguiarvieira.xmuks.feature.login.LoginRoute
+import pt.aguiarvieira.xmuks.feature.roomlist.HomeTab
 import pt.aguiarvieira.xmuks.feature.share.ShareRequest
 import pt.aguiarvieira.xmuks.navigation.CallRequest
 import pt.aguiarvieira.xmuks.navigation.XmuksNavHost
@@ -119,7 +135,33 @@ class MainActivity : ComponentActivity() {
     private fun Content() {
         // Another account shown is a fresh start of the app's screens, for it (none: signing in).
         val account by accounts.active.collectAsStateWithLifecycle()
-        AnimatedContent(targetState = account, label = "account") { shown ->
+        val order by accounts.registry.ids.collectAsStateWithLifecycle()
+        val shift = with(LocalDensity.current) { SHARED_AXIS_SHIFT.roundToPx() }
+        val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+        // Kept across accounts: switching shows the other's same tab (as its swiped preview did).
+        var homeTab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
+        AnimatedContent(
+            targetState = account,
+            transitionSpec = {
+                // Between two signed-in accounts: along their order, as the header's swipe goes.
+                // Signing in or out: the usual fade.
+                val from = order.indexOf(initialState)
+                val to = order.indexOf(targetState)
+                if (accounts.swipe == initialState to targetState) {
+                    // Swiped: the old screen already shows this one's preview; it takes over on top.
+                    (fadeIn(tween(SWIPE_HANDOVER_MS)) togetherWith fadeOut(tween(1, delayMillis = SWIPE_HANDOVER_MS)))
+                        .apply { targetContentZIndex = 1f }
+                } else if (from < 0 || to < 0) {
+                    (
+                        fadeIn(tween(FADE_MS, delayMillis = FADE_OUT_MS)) +
+                            scaleIn(tween(FADE_MS, delayMillis = FADE_OUT_MS), initialScale = FADE_SCALE)
+                    ).togetherWith(fadeOut(tween(FADE_OUT_MS)))
+                } else {
+                    sharedAxisX(forward = (to > from) != rtl, shift)
+                }
+            },
+            label = "account",
+        ) { shown ->
             val pending by link.collectAsStateWithLifecycle()
             val shared by share.collectAsStateWithLifecycle()
             val callRoom by call.collectAsStateWithLifecycle()
@@ -136,6 +178,8 @@ class MainActivity : ComponentActivity() {
                         showHome = toHome,
                         onShowHomeConsume = { home.value = false },
                         isLocalServer = { session.isLocalServer() },
+                        startTab = homeTab,
+                        onHomeTabChange = { homeTab = it },
                     )
                 }
             } else {
@@ -242,3 +286,24 @@ class MainActivity : ComponentActivity() {
         return ShareRequest(uris.map(Uri::toString), text, room)
     }
 }
+
+/** Material's shared axis (X): the old screen slides a little and fades, the new one comes in after it. */
+private fun sharedAxisX(
+    forward: Boolean,
+    shift: Int,
+): ContentTransform {
+    val sign = if (forward) 1 else -1
+    val enter = slideInHorizontally(tween(SHARED_AXIS_MS)) { sign * shift } + fadeIn(tween(FADE_MS, FADE_OUT_MS))
+    val exit = slideOutHorizontally(tween(SHARED_AXIS_MS)) { -sign * shift } + fadeOut(tween(FADE_OUT_MS))
+    return enter togetherWith exit
+}
+
+/** AnimatedContent's own default, kept for signing in and out. */
+private const val FADE_MS = 220
+private const val FADE_OUT_MS = 90
+private const val FADE_SCALE = 0.92f
+private const val SHARED_AXIS_MS = 300
+
+/** A swiped account's screen fading in over its preview (hiding the moment its list loads). */
+private const val SWIPE_HANDOVER_MS = 150
+private val SHARED_AXIS_SHIFT = 30.dp

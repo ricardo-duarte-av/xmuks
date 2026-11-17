@@ -234,11 +234,16 @@ fun XmuksNavHost(
     onShowHomeConsume: () -> Unit = {},
     /** Whether the logged-in server is on the local network, so Android 17+ must allow reaching it. */
     isLocalServer: suspend () -> Boolean = { false },
+    /** The room list's tab to start on: the one the account switched from was on. */
+    startTab: HomeTab = HomeTab.Chats,
+    onHomeTabChange: (HomeTab) -> Unit = {},
     links: LinkViewModel = hiltViewModel(),
 ) {
     val backStack = rememberNavBackStack(HomeKey)
     // Out here, not in home: a space's tab bar switches it too.
-    var homeTab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
+    var homeTab by rememberSaveable { mutableStateOf(startTab) }
+    val tabChange by rememberUpdatedState(onHomeTabChange)
+    LaunchedEffect(homeTab) { tabChange(homeTab) }
     val listDetail = rememberListDetailSceneStrategy<NavKey>()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
