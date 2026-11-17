@@ -225,11 +225,14 @@ data class PowerLevels(
     }
 }
 
-/** Whether [actor] may delete [target]'s events: the level for it, and outranking them (as kick and ban). */
+/**
+ * Whether [actor] may delete [target]'s events: the redact level and the right to send redactions,
+ * as the spec has it. Unlike kicking and banning, they needn't outrank them.
+ */
 fun PowerLevels.canRedact(
     actor: String,
     target: String,
-) = actor != target && of(actor) >= redactOthers && of(actor) > of(target)
+) = actor != target && of(actor) >= redactOthers
 
 /** The levels for whole kinds of actions, by where they are in the content. */
 enum class Threshold(

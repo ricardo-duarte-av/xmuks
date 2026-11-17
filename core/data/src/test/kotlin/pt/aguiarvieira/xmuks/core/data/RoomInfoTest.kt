@@ -78,12 +78,12 @@ class RoomInfoTest {
     }
 
     @Test
-    fun `deleting someone's messages needs the redact level and outranking them`() {
+    fun `deleting someone's messages needs the redact level, not outranking them`() {
         val pl = RoomInfo.parse("!r", state("10", levels)).powerLevels
         assertEquals(50L, pl.redactOthers)
         assertTrue(pl.canRedact("@alice:x", "@bob:x"))
         assertTrue(pl.canRedact("@bob:x", "@carol:x"))
-        assertFalse(pl.canRedact("@bob:x", "@alice:x"))
+        assertTrue(pl.canRedact("@bob:x", "@alice:x"))
         assertFalse(pl.canRedact("@carol:x", "@dan:x"))
         assertFalse(pl.canRedact("@bob:x", "@bob:x"))
     }

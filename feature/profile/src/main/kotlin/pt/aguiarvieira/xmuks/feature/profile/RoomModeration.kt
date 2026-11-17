@@ -89,8 +89,11 @@ private enum class Moderation(
             DeleteRecent -> levels.redactOthers
         }
 
-    /** Inviting is the only one that doesn't act on them, so needn't outrank them. */
-    val outranks: Boolean get() = action != MembershipAction.Invite
+    /**
+     * Whether we must outrank them: the spec asks it of kicks, bans and levels, not of inviting
+     * them or deleting their events (the redact level is enough).
+     */
+    val outranks: Boolean get() = action != MembershipAction.Invite && this != DeleteRecent
 }
 
 /** Done at once, as in the member sheet: letting in and unbanning are undone as easily. */
@@ -178,7 +181,7 @@ private fun refusal(
     val theirs = levels.of(target)
     val needed = item.needed(levels)
     return when {
-        target in levels.creators -> stringResource(R.string.moderation_refused_creator)
+        item.outranks && target in levels.creators -> stringResource(R.string.moderation_refused_creator)
         mine < needed -> stringResource(R.string.moderation_refused_level, needed, mine)
         item.outranks && mine <= theirs -> stringResource(R.string.moderation_refused_outranked, name, theirs, mine)
         else -> null
@@ -228,8 +231,9 @@ private fun ModerationDialog(
     val item = open ?: return
     val levels = moderation.standing.levels
     when (item) {
+        // Done at once, with no dialog.
         Moderation.Approve, Moderation.Invite, Moderation.Unban -> {
-            Unit
+            return
         }
 
         Moderation.Role -> {
