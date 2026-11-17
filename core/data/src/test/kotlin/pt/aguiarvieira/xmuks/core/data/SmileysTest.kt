@@ -1,9 +1,13 @@
 package pt.aguiarvieira.xmuks.core.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import pt.aguiarvieira.xmuks.core.data.emoji.Smiley
+import pt.aguiarvieira.xmuks.core.data.emoji.emojiForSmiley
+import pt.aguiarvieira.xmuks.core.data.emoji.isInstantSmiley
 import pt.aguiarvieira.xmuks.core.data.emoji.smileyEndingAt
 
 class SmileysTest {
@@ -24,5 +28,22 @@ class SmileysTest {
         assertNull(smileyEndingAt("hello", 5))
         assertNull(smileyEndingAt("", 0))
         assertNull(smileyEndingAt(":)", 3))
+    }
+
+    @Test
+    fun punctuationSwapsAtOnceLettersAndDigitsWait() {
+        assertTrue(isInstantSmiley(":)"))
+        assertTrue(isInstantSmiley("-_-"))
+        assertFalse(isInstantSmiley(":p"))
+        assertFalse(isInstantSmiley("xD"))
+        assertFalse(isInstantSmiley("<3"))
+    }
+
+    @Test
+    fun longerSmileys() {
+        assertEquals("😑", emojiForSmiley("-_-"))
+        assertEquals("😓", emojiForSmiley("-_-;"))
+        assertEquals("😅", emojiForSmiley("^_^;"))
+        assertNull(emojiForSmiley(":))"))
     }
 }

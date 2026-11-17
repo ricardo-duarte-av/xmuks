@@ -23,10 +23,21 @@ fun smileyEndingAt(
     return Smiley(start, end, emoji)
 }
 
+/** The emoji [smiley] stands for, when it's one. */
+fun emojiForSmiley(smiley: String): String? = SMILEYS[smiley]
+
+/**
+ * Whether [smiley] can be swapped as soon as it's typed. It can when it ends in punctuation (`:)`,
+ * `-_-`). Ending in a letter or digit (`:p`, `xD`, `<3`), it could be the start of a word, a number
+ * or a `:shortcode:` (`:pray:`), so it waits for a space or for the message to be sent.
+ */
+fun isInstantSmiley(smiley: String): Boolean = smiley.lastOrNull()?.isLetterOrDigit() == false
+
 /**
  * Text smileys and the emoji they become. Based on emojibase's `emoticon` field (what Element's
  * "replace plain text emoji" uses), minus its odd ones (`:j`, `8#`, `:l` for 🤔). Ones a list or a
- * word could be (`B)`, `8)`, `D:`, `^^`) are left out. Japanese-style kaomoji are added.
+ * word could be (`B)`, `8)`, `D:`, `^^`) are left out, and so is `(:`, which would be swapped too
+ * soon in `(:memo:)`. Japanese-style kaomoji are added.
  */
 private val SMILEYS: Map<String, String> =
     buildMap<String, String> {
@@ -37,7 +48,7 @@ private val SMILEYS: Map<String, String> =
             for (text in texts) put(text, emoji)
         }
 
-        smileys("🙂", ":)", ":-)", "(:", "=)")
+        smileys("🙂", ":)", ":-)", "=)")
         smileys("😄", ":D", ":-D", "=D")
         smileys("😆", "xD", "XD")
         smileys("😂", ":')", ":'-)")

@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
 import pt.aguiarvieira.xmuks.core.data.emoji.closedShortcodeAt
+import pt.aguiarvieira.xmuks.core.data.emoji.emojiForSmiley
+import pt.aguiarvieira.xmuks.core.data.emoji.isInstantSmiley
 import pt.aguiarvieira.xmuks.core.data.emoji.matchingShortcode
 import pt.aguiarvieira.xmuks.core.data.emoji.shortcodeQueryAt
 import pt.aguiarvieira.xmuks.core.data.emoji.smileyEndingAt
@@ -98,10 +100,13 @@ class ComposerMentions(
         }.flowOn(Dispatchers.Default)
             .stateIn(scope, SharingStarted.WhileSubscribed(STOP_MS), emptyList())
 
-    /** The last smiley swapped. Deleting the space typed after it puts the smiley text back. */
+    /**
+     * The last smiley swapped. One backspace right after it (the emoji, or the space typed after it)
+     * puts the text back.
+     */
     private var swapped: SmileySwap? = null
 
-    /** A smiley put back that way: left alone when the space is typed again. */
+    /** A smiley put back that way: left alone when it would be swapped again. */
     private var kept: Pair<Int, String>? = null
 
     init {
@@ -110,28 +115,37 @@ class ComposerMentions(
 
     /**
      * Swaps what was just typed. A `:` typed right after a shortcode (`:memo` → `:memo:`) becomes its
-     * Unicode emoji. A space or new line typed after a smiley (`:)`) becomes its emoji too, when that
-     * setting is on. This only happens when typed: text put in whole (a draft restored, an edit, a
-     * paste) is left as it is, and so is one of our custom emoji's shortcodes, which are expanded when sent.
+     * Unicode emoji. With that setting on, smileys become emoji too: one ending in punctuation (`:)`)
+     * at once, one ending in a letter or digit (`:D`, `<3`) when a space or new line follows it, and a
+     * character that makes a longer smiley (`-_-` then `;`) swaps the emoji for that one's. This only
+     * happens when typed: text put in whole (a draft restored, an edit, a paste) is left as it is, and
+     * so is one of our custom emoji's shortcodes, which are expanded when sent.
      */
     private suspend fun swapTyped() {
         var before = draft.text.toString()
         snapshotFlow { draft.text.toString() to draft.selection }.collect { (text, selection) ->
             val previous = before
             before = text
+            // Gone (edited away, or sent): the same smiley typed again is swapped again.
+            val keep = kept
+            if (keep != null && !text.startsWith(keep.second, keep.first)) kept = null
             val last = swapped
             if (last != null && text != last.after) {
                 swapped = null
                 if (selection.collapsed && last.undoneBy(text, selection.end)) {
-                    undo(last)
+                    undo(last, selection.end)
                     return@collect
                 }
             }
             if (!selection.collapsed) return@collect
-            val typed = typedAt(previous, text, selection.end)
+            val cursor = selection.end
+            val typed = typedAt(previous, text, cursor) ?: return@collect
             when {
-                typed == ':' -> swapShortcode(text, selection.end)
-                (typed == ' ' || typed == '\n') && smileys.value -> swapSmiley(text, selection.end - 1)
+                typed == ':' -> swapShortcode(text, cursor)
+                !smileys.value -> Unit
+                typed == ' ' || typed == '\n' -> swapSmiley(text, cursor - 1)
+                last != null && previous == last.after && cursor == last.end + 1 -> extendSmiley(last, typed, cursor)
+                !typed.isLetterOrDigit() -> swapSmiley(text, cursor, cursor, instant = true)
             }
         }
     }
@@ -150,14 +164,19 @@ class ComposerMentions(
         }
     }
 
-    /** The smiley ending at [end] as its emoji; the cursor, at [cursor] past it, keeps its place. */
+    /**
+     * The smiley ending at [end] as its emoji; the cursor, at [cursor] past it, keeps its place. An
+     * [instant] swap is only for those [isInstantSmiley] says can't go on.
+     */
     private fun swapSmiley(
         text: String,
         end: Int,
         cursor: Int = end + 1,
+        instant: Boolean = false,
     ) {
         val smiley = smileyEndingAt(text, end) ?: return
         val original = text.substring(smiley.start, smiley.end)
+        if (instant && !isInstantSmiley(original)) return
         if (kept == smiley.start to original) return
         kept = null
         draft.edit {
@@ -167,10 +186,28 @@ class ComposerMentions(
         swapped = SmileySwap(smiley.start, smiley.emoji, original, draft.text.toString())
     }
 
-    private fun undo(swap: SmileySwap) {
-        val end = swap.start + swap.emoji.length
+    /** [typed] right after [last]'s emoji makes a longer smiley (`-_-` + `;`): that one's emoji instead. */
+    private fun extendSmiley(
+        last: SmileySwap,
+        typed: Char,
+        cursor: Int,
+    ) {
+        val original = last.original + typed
+        val emoji = emojiForSmiley(original) ?: return
         draft.edit {
-            replace(swap.start, end, swap.original)
+            replace(last.start, cursor, emoji)
+            selection = TextRange(last.start + emoji.length)
+        }
+        swapped = SmileySwap(last.start, emoji, original, draft.text.toString())
+    }
+
+    /** [swap]'s text back in place of its emoji, what's left of it before [cursor]. */
+    private fun undo(
+        swap: SmileySwap,
+        cursor: Int,
+    ) {
+        draft.edit {
+            replace(swap.start, cursor, swap.original)
             selection = TextRange(swap.start + swap.original.length)
         }
         kept = swap.start to swap.original
@@ -258,19 +295,27 @@ private class SmileySwap(
     val original: String,
     val after: String,
 ) {
+    /** Where the emoji ends. */
+    val end: Int get() = start + emoji.length
+
     /**
-     * [text] is [after] with the space typed after the emoji deleted (one backspace), and the cursor
-     * is right after the emoji.
+     * [text] is [after] less one backspace's worth right after the swap: the emoji (all of it, or
+     * its end) with the cursor where it was, or the space typed after it with the cursor at its end.
      */
     fun undoneBy(
         text: String,
         cursor: Int,
     ): Boolean {
-        val end = start + emoji.length
-        return cursor == end &&
-            text.length == after.length - 1 &&
-            after.getOrNull(end)?.isWhitespace() == true &&
-            text.regionMatches(0, after, 0, end) &&
-            text.regionMatches(end, after, end + 1, text.length - end)
+        if (cursor !in start..end) return false
+        val removed =
+            if (cursor == end) {
+                if (after.getOrNull(end)?.isWhitespace() != true) return false
+                end + 1
+            } else {
+                end
+            }
+        return text.length == after.length - (removed - cursor) &&
+            text.regionMatches(0, after, 0, cursor) &&
+            text.regionMatches(cursor, after, removed, text.length - cursor)
     }
 }
