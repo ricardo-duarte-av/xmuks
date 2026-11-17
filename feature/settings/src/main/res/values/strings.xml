@@ -107,6 +107,8 @@
     <string name="choice_tone_medium">👋🏽 Medium</string>
     <string name="choice_tone_medium_dark">👋🏾 Medium-dark</string>
     <string name="choice_tone_dark">👋🏿 Dark</string>
+    <string name="pref_replace_smileys">Replace smileys with emoji</string>
+    <string name="pref_replace_smileys_desc">Text smileys become emoji as you type, when followed by a space or sent: :) becomes 🙂, :( 🙁, :/ 😕, ^_^ 😊, -_- 😑. Press backspace right after one to keep the text.</string>
     <string name="pref_skin_tone">Emoji skin tone</string>
     <string name="pref_skin_tone_desc">The tone emoji with skin tones take in the picker and when completing a shortcode. Long-press one in the picker for another.</string>
     <string name="pref_sync_contacts">People in my phone\'s Contacts</string>

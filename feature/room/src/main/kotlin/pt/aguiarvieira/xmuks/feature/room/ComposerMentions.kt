@@ -17,6 +17,7 @@ import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
 import pt.aguiarvieira.xmuks.core.data.emoji.closedShortcodeAt
 import pt.aguiarvieira.xmuks.core.data.emoji.matchingShortcode
 import pt.aguiarvieira.xmuks.core.data.emoji.shortcodeQueryAt
+import pt.aguiarvieira.xmuks.core.data.emoji.smileyEndingAt
 import pt.aguiarvieira.xmuks.core.data.rooms.MentionTarget
 import pt.aguiarvieira.xmuks.core.data.rooms.MentionTargets
 import pt.aguiarvieira.xmuks.core.data.rooms.matching
@@ -45,6 +46,8 @@ class ComposerMentions(
     private val customEmoji: StateFlow<List<PackImage>> = MutableStateFlow(emptyList()),
     /** The skin tone Unicode emoji take when completed ([EmojiCatalog.withTone]). */
     private val skinTone: StateFlow<String?> = MutableStateFlow(null),
+    /** Text smileys typed become emoji (`:)` → 🙂), xmuks' setting. */
+    private val smileys: StateFlow<Boolean> = MutableStateFlow(false),
 ) {
     /** Fetched the first time someone's mentioned: the full list can be long. */
     private val members = MutableStateFlow<List<MentionTarget>?>(null)
@@ -95,31 +98,94 @@ class ComposerMentions(
         }.flowOn(Dispatchers.Default)
             .stateIn(scope, SharingStarted.WhileSubscribed(STOP_MS), emptyList())
 
+    /** The last smiley swapped. Deleting the space typed after it puts the smiley text back. */
+    private var swapped: SmileySwap? = null
+
+    /** A smiley put back that way: left alone when the space is typed again. */
+    private var kept: Pair<Int, String>? = null
+
     init {
-        scope.launch { swapClosedShortcodes() }
+        scope.launch { swapTyped() }
     }
 
     /**
-     * A `:` typed right after a shortcode (`:memo` → `:memo:`) swaps it for its Unicode emoji. Only
-     * when typed: text put in whole (a draft restored, an edit, a paste) is left as it is, and so is
-     * one of our custom emoji's, which is expanded when sent.
+     * Swaps what was just typed. A `:` typed right after a shortcode (`:memo` → `:memo:`) becomes its
+     * Unicode emoji. A space or new line typed after a smiley (`:)`) becomes its emoji too, when that
+     * setting is on. This only happens when typed: text put in whole (a draft restored, an edit, a
+     * paste) is left as it is, and so is one of our custom emoji's shortcodes, which are expanded when sent.
      */
-    private suspend fun swapClosedShortcodes() {
+    private suspend fun swapTyped() {
         var before = draft.text.toString()
         snapshotFlow { draft.text.toString() to draft.selection }.collect { (text, selection) ->
             val previous = before
             before = text
-            if (!selection.collapsed || !typedColon(previous, text, selection.end)) return@collect
-            val closed = closedShortcodeAt(text, selection.end) ?: return@collect
-            if (customEmoji.value.any { it.shortcode == closed.text }) return@collect
-            val glyph =
-                EmojiCatalog.byShortcode(closed.text)?.emoji?.let { EmojiCatalog.withTone(it, skinTone.value) }
-                    ?: return@collect
-            draft.edit {
-                replace(closed.start, closed.end, glyph)
-                this.selection = TextRange(closed.start + glyph.length)
+            val last = swapped
+            if (last != null && text != last.after) {
+                swapped = null
+                if (selection.collapsed && last.undoneBy(text, selection.end)) {
+                    undo(last)
+                    return@collect
+                }
+            }
+            if (!selection.collapsed) return@collect
+            val typed = typedAt(previous, text, selection.end)
+            when {
+                typed == ':' -> swapShortcode(text, selection.end)
+                (typed == ' ' || typed == '\n') && smileys.value -> swapSmiley(text, selection.end - 1)
             }
         }
+    }
+
+    private fun swapShortcode(
+        text: String,
+        cursor: Int,
+    ) {
+        val closed = closedShortcodeAt(text, cursor) ?: return
+        if (customEmoji.value.any { it.shortcode == closed.text }) return
+        val emoji = EmojiCatalog.byShortcode(closed.text)?.emoji ?: return
+        val glyph = EmojiCatalog.withTone(emoji, skinTone.value)
+        draft.edit {
+            replace(closed.start, closed.end, glyph)
+            selection = TextRange(closed.start + glyph.length)
+        }
+    }
+
+    /** The smiley ending at [end] as its emoji; the cursor, at [cursor] past it, keeps its place. */
+    private fun swapSmiley(
+        text: String,
+        end: Int,
+        cursor: Int = end + 1,
+    ) {
+        val smiley = smileyEndingAt(text, end) ?: return
+        val original = text.substring(smiley.start, smiley.end)
+        if (kept == smiley.start to original) return
+        kept = null
+        draft.edit {
+            replace(smiley.start, smiley.end, smiley.emoji)
+            selection = TextRange(cursor + smiley.emoji.length - original.length)
+        }
+        swapped = SmileySwap(smiley.start, smiley.emoji, original, draft.text.toString())
+    }
+
+    private fun undo(swap: SmileySwap) {
+        val end = swap.start + swap.emoji.length
+        draft.edit {
+            replace(swap.start, end, swap.original)
+            selection = TextRange(swap.start + swap.original.length)
+        }
+        kept = swap.start to swap.original
+    }
+
+    /**
+     * A smiley ending the message becomes its emoji as it's sent (`ok :)`, sent with no space typed
+     * after it), when that setting is on.
+     */
+    fun swapLastSmiley() {
+        if (!smileys.value) return
+        val text = draft.text.toString()
+        val end = text.trimEnd().length
+        swapSmiley(text, end, cursor = end)
+        swapped = null
     }
 
     /** [hint]'s emoji in place of the shortcode being typed: Unicode as is, a custom one as `:shortcode:`. */
@@ -172,13 +238,39 @@ class ComposerMentions(
     }
 }
 
-/** [text] is [previous] with one `:` typed just before [cursor]. */
-private fun typedColon(
+/** The one character typed just before [cursor], when [text] is [previous] with only that added. */
+private fun typedAt(
     previous: String,
     text: String,
     cursor: Int,
-): Boolean {
-    if (cursor <= 0 || text.length != previous.length + 1 || text[cursor - 1] != ':') return false
-    return text.regionMatches(0, previous, 0, cursor - 1) &&
-        text.regionMatches(cursor, previous, cursor - 1, text.length - cursor)
+): Char? {
+    if (cursor <= 0 || text.length != previous.length + 1) return null
+    val same =
+        text.regionMatches(0, previous, 0, cursor - 1) &&
+            text.regionMatches(cursor, previous, cursor - 1, text.length - cursor)
+    return if (same) text[cursor - 1] else null
+}
+
+/** A smiley swapped for [emoji] at [start], leaving the box as [after]. */
+private class SmileySwap(
+    val start: Int,
+    val emoji: String,
+    val original: String,
+    val after: String,
+) {
+    /**
+     * [text] is [after] with the space typed after the emoji deleted (one backspace), and the cursor
+     * is right after the emoji.
+     */
+    fun undoneBy(
+        text: String,
+        cursor: Int,
+    ): Boolean {
+        val end = start + emoji.length
+        return cursor == end &&
+            text.length == after.length - 1 &&
+            after.getOrNull(end)?.isWhitespace() == true &&
+            text.regionMatches(0, after, 0, end) &&
+            text.regionMatches(end, after, end + 1, text.length - end)
+    }
 }

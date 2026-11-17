@@ -178,12 +178,16 @@ class ShareViewModel
                                 .value(
                                     Prefs.skinTone
                                 ).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+                        val smileys =
+                            graph.preferences
+                                .value(Prefs.replaceSmileys)
+                                .stateIn(viewModelScope, SharingStarted.Eagerly, false)
                         CaptionMentions(
                             {
                                 field,
                                 scope,
                                 ->
-                                ComposerMentions(scope, field, id, graph.mentionTargets, customEmoji, tone)
+                                ComposerMentions(scope, field, id, graph.mentionTargets, customEmoji, tone, smileys)
                             },
                             graph.mediaUrls::avatar,
                             { field, scope -> RoomPing(scope, field, session.roomMention) },

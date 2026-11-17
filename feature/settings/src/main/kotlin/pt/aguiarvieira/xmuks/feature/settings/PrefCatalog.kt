@@ -70,6 +70,12 @@ internal val ENTRIES: List<PrefEntry> =
             Section.Sending,
         ),
         PrefEntry(Prefs.sendGallery, R.string.pref_send_gallery, R.string.pref_send_gallery_desc, Section.Sending),
+        PrefEntry(
+            Prefs.replaceSmileys,
+            R.string.pref_replace_smileys,
+            R.string.pref_replace_smileys_desc,
+            Section.Sending,
+        ),
         PrefEntry(Prefs.uploadDialog, R.string.pref_upload_dialog, R.string.pref_upload_dialog_desc, Section.Sending),
         PrefEntry(
             Prefs.hideFingerprint,

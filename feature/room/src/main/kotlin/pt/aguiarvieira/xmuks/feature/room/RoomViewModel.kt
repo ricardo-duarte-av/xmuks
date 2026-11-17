@@ -294,12 +294,17 @@ class RoomViewModel
         private val skinTone =
             prefs.map { it.get(Prefs.skinTone) }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+        /** Whether typed smileys become emoji (xmuks' setting). */
+        private val smileys =
+            prefs.map { it.get(Prefs.replaceSmileys) }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
         /** People, rooms and emoji offered as a mention or `:shortcode` is typed. */
-        internal val mentions = ComposerMentions(viewModelScope, draft, roomId, mentionTargets, customEmoji, skinTone)
+        internal val mentions =
+            ComposerMentions(viewModelScope, draft, roomId, mentionTargets, customEmoji, skinTone, smileys)
 
         /** The same, in another box (a media caption's), for as long as [scope] lasts. */
         val mentionsIn: (TextFieldState, CoroutineScope) -> ComposerMentions =
-            { field, scope -> ComposerMentions(scope, field, roomId, mentionTargets, customEmoji, skinTone) }
+            { field, scope -> ComposerMentions(scope, field, roomId, mentionTargets, customEmoji, skinTone, smileys) }
 
         /** An @room in the draft, and whether it pings everyone. */
         internal val roomPing = RoomPing(viewModelScope, draft, session.roomMention)
@@ -341,6 +346,7 @@ class RoomViewModel
 
         /** Hands the draft to the outbox (it survives the app dying) and clears the field. */
         fun send() {
+            mentions.swapLastSmiley()
             val text = draft.text.toString().trim()
             val mode = modes.mode.value
             // A caption may go: an empty one is an edit too.

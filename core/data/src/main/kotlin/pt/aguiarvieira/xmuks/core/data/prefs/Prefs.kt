@@ -99,6 +99,9 @@ object Prefs {
     /** The composer has a sticker button of its own beside the emoji one, instead of one for both. */
     val stickerButton = Pref.Bool("xmuks_sticker_button", false, DEVICE_GLOBAL)
 
+    /** Text smileys typed in the message box become emoji: `:)` → 🙂, `-_-` → 😑. */
+    val replaceSmileys = Pref.Bool("xmuks_replace_smileys", false, DEVICE_GLOBAL)
+
     /** The skin tones, lightest first: the n-th is the modifier U+1F3FB + n. */
     val skinTones = listOf("light", "medium_light", "medium", "medium_dark", "dark")
 
