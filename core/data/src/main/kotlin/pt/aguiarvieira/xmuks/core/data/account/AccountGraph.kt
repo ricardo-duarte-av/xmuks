@@ -47,6 +47,7 @@ import pt.aguiarvieira.xmuks.core.data.profile.RoomProfiles
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
 import pt.aguiarvieira.xmuks.core.data.push.PushRuleEditor
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
+import pt.aguiarvieira.xmuks.core.data.roominfo.ModerationRepository
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomDirectoryRepository
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
 import pt.aguiarvieira.xmuks.core.data.roominfo.SpaceHierarchyRepository
@@ -312,6 +313,8 @@ class AccountGraph(
     val invites by lazy { InvitesRepository(database.roomListDao(), roomInfo, contacts, mediaUrls) }
 
     val roomInfo by lazy { RoomInfoRepository(exec, database, syncIngestor) }
+
+    val moderation by lazy { ModerationRepository(exec, outbox) }
 
     val spaceEdits by lazy { SpaceEditRepository(exec, database, roomInfo, mediaUrls) }
 

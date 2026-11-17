@@ -14,6 +14,7 @@ import pt.aguiarvieira.xmuks.core.data.roominfo.PowerLevels
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomPreview
 import pt.aguiarvieira.xmuks.core.data.roominfo.Threshold
+import pt.aguiarvieira.xmuks.core.data.roominfo.canRedact
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.GomuksJson
 
@@ -74,6 +75,17 @@ class RoomInfoTest {
         assertTrue(pl.canChangeLevel("@alice:x", "@bob:x", 100))
         assertFalse(pl.canChangeLevel("@bob:x", "@carol:x"))
         assertFalse(pl.canChangeLevel("@alice:x", "@bob:x", 101))
+    }
+
+    @Test
+    fun `deleting someone's messages needs the redact level and outranking them`() {
+        val pl = RoomInfo.parse("!r", state("10", levels)).powerLevels
+        assertEquals(50L, pl.redactOthers)
+        assertTrue(pl.canRedact("@alice:x", "@bob:x"))
+        assertTrue(pl.canRedact("@bob:x", "@carol:x"))
+        assertFalse(pl.canRedact("@bob:x", "@alice:x"))
+        assertFalse(pl.canRedact("@carol:x", "@dan:x"))
+        assertFalse(pl.canRedact("@bob:x", "@bob:x"))
     }
 
     @Test

@@ -62,6 +62,7 @@ import pt.aguiarvieira.xmuks.core.data.profile.RoomProfiles
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
 import pt.aguiarvieira.xmuks.core.data.push.PushRuleEditor
 import pt.aguiarvieira.xmuks.core.data.push.RoomPushRules
+import pt.aguiarvieira.xmuks.core.data.roominfo.ModerationRepository
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomDirectoryRepository
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
 import pt.aguiarvieira.xmuks.core.data.roominfo.SpaceHierarchyRepository
@@ -299,6 +300,9 @@ object DataModule {
 
     @Provides
     fun roomInfoRepository(graph: AccountGraph): RoomInfoRepository = graph.roomInfo
+
+    @Provides
+    fun moderationRepository(graph: AccountGraph): ModerationRepository = graph.moderation
 
     @Provides
     fun spaceEditRepository(graph: AccountGraph): SpaceEditRepository = graph.spaceEdits

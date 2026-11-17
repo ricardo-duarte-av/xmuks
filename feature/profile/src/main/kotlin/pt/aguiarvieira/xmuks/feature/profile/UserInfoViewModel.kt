@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -38,6 +39,8 @@ import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.profile.RoomProfile
 import pt.aguiarvieira.xmuks.core.data.profile.RoomProfiles
 import pt.aguiarvieira.xmuks.core.data.profile.UserProfile
+import pt.aguiarvieira.xmuks.core.data.roominfo.ModerationRepository
+import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfoRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.network.ConnectionState
 
@@ -70,6 +73,8 @@ class UserInfoViewModel
         store: CredentialStore,
         @ApplicationContext context: Context,
         links: ContactLinks,
+        roomInfo: RoomInfoRepository,
+        moderationRepository: ModerationRepository,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -115,12 +120,23 @@ class UserInfoViewModel
         private val _roomProfile = MutableStateFlow<RoomProfile?>(null)
         val roomProfile: StateFlow<RoomProfile?> = _roomProfile.asStateFlow()
 
+        /** Our own Matrix ID: whose level moderation is weighed against. */
+        val me: StateFlow<String?> = profiles.me.stateIn(viewModelScope, WHILE_VISIBLE, null)
+
+        /** Opened from a room: moderating them there (null otherwise). */
+        val moderation: MemberModerationActions? =
+            roomId?.let { MemberModerationActions(it, userId, roomInfo, moderationRepository, tasks) }
+
         /** Their xmuks contact in the phone's Contacts, and linking it to a phone contact. */
         val phoneContact = PhoneContactActions(viewModelScope, links, userId)
 
         init {
             refresh()
-            if (roomId != null) viewModelScope.launch { _roomProfile.value = roomProfiles.of(roomId, userId) }
+            if (roomId != null) {
+                viewModelScope.launch { _roomProfile.value = roomProfiles.of(roomId, userId) }
+                // Again whenever the room's state changes: their membership, or anyone's level.
+                viewModelScope.launch { roomInfo.stateChanges(roomId).collectLatest { moderation?.load() } }
+            }
             viewModelScope.launch {
                 if (profiles.me.filterNotNull().first() == userId) return@launch
                 _directRoom.value = contacts.directRoom(userId)

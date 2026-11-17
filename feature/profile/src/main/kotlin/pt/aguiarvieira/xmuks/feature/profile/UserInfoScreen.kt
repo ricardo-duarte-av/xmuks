@@ -57,9 +57,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.flow.MutableStateFlow
 import pt.aguiarvieira.xmuks.core.data.profile.PerMessageProfiles
 import pt.aguiarvieira.xmuks.core.data.profile.RoomProfile
 import pt.aguiarvieira.xmuks.core.data.profile.UserProfile
+import pt.aguiarvieira.xmuks.core.data.roominfo.MemberStanding
+import pt.aguiarvieira.xmuks.core.data.roominfo.SentEvent
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
@@ -124,6 +127,10 @@ fun UserInfoRoute(
     val directRoom by viewModel.directRoom.collectAsStateWithLifecycle()
     val roomProfile by viewModel.roomProfile.collectAsStateWithLifecycle()
     val phoneContact by viewModel.phoneContact.state.collectAsStateWithLifecycle()
+    val me by viewModel.me.collectAsStateWithLifecycle()
+    val actions = viewModel.moderation
+    val standing by (actions?.standing ?: NO_STANDING).collectAsStateWithLifecycle()
+    val recent by (actions?.recent ?: NO_RECENT).collectAsStateWithLifecycle()
     val openRoom by rememberUpdatedState(onOpenRoom)
     LaunchedEffect(viewModel) { viewModel.openRoom.collect { openRoom(it) } }
     val media = remember(viewModel) { ProfileMedia(viewModel.media::avatar, viewModel.media::full) }
@@ -140,6 +147,11 @@ fun UserInfoRoute(
                 personas = PersonaEdits.of(viewModel.personas),
                 logout = viewModel::logout,
             )
+        }
+    val moderation =
+        actions?.takeUnless { isMe }?.let {
+            val name = roomProfile?.displayName ?: (state as? ProfileState.Loaded)?.profile?.displayName ?: userId
+            roomModeration(it, standing, me, userId, name, recent)
         }
     val context = LocalContext.current
     val uriHandler = remember(context, onOpenLink) { SafeUriHandler(context, onOpenLink) }
@@ -185,8 +197,33 @@ fun UserInfoRoute(
                         onLinkPhoneContact = viewModel.phoneContact::link,
                     )
                 },
+            moderation = moderation,
         )
     }
+}
+
+/** Moderating them, once we know where they stand and who we are. */
+private fun roomModeration(
+    actions: MemberModerationActions,
+    standing: MemberStanding?,
+    me: String?,
+    userId: String,
+    name: String,
+    recent: List<SentEvent>?,
+): RoomModeration? {
+    if (standing == null || me == null) return null
+    return RoomModeration(
+        standing = standing,
+        me = me,
+        userId = userId,
+        name = name,
+        recent = recent,
+        onSetLevel = actions::setLevel,
+        onMembership = actions::setMembership,
+        onBan = actions::ban,
+        onFindRecent = actions::findRecent,
+        onDeleteRecent = actions::deleteRecent,
+    )
 }
 
 /** Only on our own profile: the edits, our per-message profiles and the account. */
@@ -222,6 +259,8 @@ fun UserInfoScreen(
     roomProfile: RoomProfile? = null,
     own: OwnProfile? = null,
     other: OtherProfile? = null,
+    /** Opened from a room, on someone else: moderating them there. */
+    moderation: RoomModeration? = null,
 ) {
     val snackbar = remember { SnackbarHostState() }
     val failed = error?.let { stringResource(R.string.action_failed, it) }
@@ -278,7 +317,7 @@ fun UserInfoScreen(
             }
 
             is ProfileState.Loaded -> {
-                ProfileCards(state.profile, roomProfile, media, own, other, onOpenMedia, padding)
+                ProfileCards(state.profile, roomProfile, media, own, other, moderation, onOpenMedia, padding)
             }
         }
     }
@@ -291,6 +330,7 @@ private fun ProfileCards(
     media: ProfileMedia,
     own: OwnProfile?,
     other: OtherProfile?,
+    moderation: RoomModeration?,
     onOpenMedia: (ViewerMedia) -> Unit,
     padding: PaddingValues,
 ) {
@@ -309,6 +349,7 @@ private fun ProfileCards(
         other?.mutualRooms?.let { rooms ->
             item(key = "mutual") { MutualRoomsCard(rooms, other.onOpenRoom, cardModifier) }
         }
+        if (moderation != null) item(key = "moderation") { ModerationCard(moderation, cardModifier) }
         if (own != null) {
             item(key = "personas") { PersonasCard(own.personas, media, own.edits.personas, cardModifier) }
             item(key = "links") {
@@ -434,6 +475,8 @@ private fun NameBlock(
     }
 }
 
+private val NO_STANDING = MutableStateFlow<MemberStanding?>(null)
+private val NO_RECENT = MutableStateFlow<List<SentEvent>?>(null)
 private val BANNER_HEIGHT = 140.dp
 private val AVATAR_SIZE = 120.dp
 private const val BANNER_TINT = 0.35f

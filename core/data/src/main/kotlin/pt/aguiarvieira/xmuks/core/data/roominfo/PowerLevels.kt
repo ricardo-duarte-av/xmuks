@@ -60,6 +60,9 @@ data class PowerLevels(
         target: String,
     ) = actor != target && of(actor) >= ban && of(actor) > of(target)
 
+    /** The level needed to delete someone else's events: the redact level, and to send redactions at all. */
+    val redactOthers: Long get() = maxOf(redact, forEvent(REDACTION))
+
     /**
      * Whether [actor] may give [target] a new level: they need the right to change power levels, to
      * outrank the target (or be the target, demoting themselves), and can't give more than they have.
@@ -159,6 +162,7 @@ data class PowerLevels(
 
     companion object {
         const val TYPE = "m.room.power_levels"
+        const val REDACTION = "m.room.redaction"
         const val CALL_MEMBER_STATE = "org.matrix.msc3401.call.member"
         const val CALL_MEMBER_STICKY = "org.matrix.msc4143.rtc.member"
         const val CREATOR = Long.MAX_VALUE
@@ -220,6 +224,12 @@ data class PowerLevels(
                 .orEmpty()
     }
 }
+
+/** Whether [actor] may delete [target]'s events: the level for it, and outranking them (as kick and ban). */
+fun PowerLevels.canRedact(
+    actor: String,
+    target: String,
+) = actor != target && of(actor) >= redactOthers && of(actor) > of(target)
 
 /** The levels for whole kinds of actions, by where they are in the content. */
 enum class Threshold(

@@ -281,6 +281,7 @@ private fun LevelEditor(
                 onChoose = { actions.setLevel(userId, it) },
                 onDismiss = onDone,
                 title = userId,
+                peerName = userId.takeIf { it != me },
             )
         }
 

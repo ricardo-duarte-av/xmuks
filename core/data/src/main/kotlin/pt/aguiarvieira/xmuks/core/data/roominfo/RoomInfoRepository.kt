@@ -110,6 +110,8 @@ class RoomInfoRepository(
         userId: String,
         action: MembershipAction,
         reason: String? = null,
+        /** On a ban: asks clients to hide everything they sent (MSC4293), as well as any deleting we do. */
+        redactEvents: Boolean = false,
     ): Result<Unit> {
         val params =
             buildJsonObject {
@@ -117,6 +119,7 @@ class RoomInfoRepository(
                 put("room_id", JsonPrimitive(roomId))
                 put("user_id", JsonPrimitive(userId))
                 reason?.takeIf { it.isNotBlank() }?.let { put("reason", JsonPrimitive(it)) }
+                if (redactEvents && action == MembershipAction.Ban) put("msc4293_redact_events", JsonPrimitive(true))
             }
         return exec.exec("set_membership", params, ExecMode.Write).toResult().map { }
     }

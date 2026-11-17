@@ -158,6 +158,7 @@ private fun MemberConfirm(
                 isSelf = member.userId == me,
                 onChoose = { actions.setLevel(member.userId, it) },
                 onDismiss = onDone,
+                peerName = member.name.takeIf { member.userId != me },
             )
         }
 

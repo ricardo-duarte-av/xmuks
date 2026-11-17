@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -22,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -161,7 +163,8 @@ internal fun InviteDialog(
 
 /**
  * A member's new level: admin, moderator, member, or any number — never above ours. Lowering our
- * own is warned about: it can't be undone by us.
+ * own is warned about: it can't be undone by us. So is raising someone else ([peerName]) to ours:
+ * we couldn't lower theirs again.
  */
 @Composable
 internal fun RoleDialog(
@@ -172,7 +175,31 @@ internal fun RoleDialog(
     onChoose: (Long) -> Unit,
     onDismiss: () -> Unit,
     title: String = stringResource(R.string.member_role),
+    /** Whose level this is, when it's someone else's: giving them ours asks first. */
+    peerName: String? = null,
 ) {
+    var pending by remember { mutableStateOf<Long?>(null) }
+    pending?.let { level ->
+        // Cancelling goes back to the choice; confirming closes both.
+        PeerLevelWarning(
+            peerName.orEmpty(),
+            level,
+            onConfirm = {
+                onChoose(level)
+                onDismiss()
+            },
+            onDismiss = { pending = null },
+        )
+        return
+    }
+    val choose: (Long) -> Unit = { level ->
+        if (peerName != null && level >= mine && level != current) {
+            pending = level
+        } else {
+            if (level != current) onChoose(level)
+            onDismiss()
+        }
+    }
     val presets =
         listOf(PowerLevels.ADMIN, PowerLevels.MODERATOR, usersDefault).distinct().filter { it <= mine }
     var custom by remember { mutableStateOf(current !in presets) }
@@ -188,17 +215,22 @@ internal fun RoleDialog(
         text = {
             Column {
                 presets.forEach { level ->
-                    RadioRow(roleName(level, usersDefault), !custom && level == current) {
-                        if (level != current) onChoose(level)
-                        onDismiss()
-                    }
+                    RadioRow(roleName(level, usersDefault), !custom && level == current) { choose(level) }
                 }
                 RadioRow(stringResource(R.string.member_level), custom) { custom = true }
                 if (custom) {
+                    val typed = number.text.toString().toLongOrNull()
                     OutlinedTextField(
                         state = number,
                         lineLimits = TextFieldLineLimits.SingleLine,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = typed != null && typed > mine,
+                        supportingText =
+                            if (mine < PowerLevels.CREATOR) {
+                                { Text(stringResource(R.string.member_level_max, mine)) }
+                            } else {
+                                null
+                            },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -214,11 +246,33 @@ internal fun RoleDialog(
         },
         confirmButton = {
             if (custom) {
-                TextButton(enabled = customLevel != null, onClick = {
-                    customLevel?.let(onChoose)
-                    onDismiss()
-                }) { Text(stringResource(R.string.save)) }
+                TextButton(enabled = customLevel != null, onClick = { customLevel?.let(choose) }) {
+                    Text(stringResource(R.string.save))
+                }
             }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** Asks before giving someone our own level: from then on, we can't lower it or remove them. */
+@Composable
+private fun PeerLevelWarning(
+    name: String,
+    level: Long,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(painterResource(R.drawable.ic_warning), null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text(stringResource(R.string.member_peer_level_title)) },
+        text = { Text(stringResource(R.string.member_peer_level_warning, name, level)) },
+        confirmButton = {
+            TextButton(onClick = {
+                onConfirm()
+                onDismiss()
+            }) { Text(stringResource(R.string.member_peer_level_confirm), color = MaterialTheme.colorScheme.error) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )

@@ -300,4 +300,31 @@
     <string name="keyword_off_everywhere">Off everywhere</string>
     <string name="keyword_off_everywhere_toast">This keyword is off for every room: switch it on in Notification rules, Keywords</string>
     <string name="room_keywords_summary">Words that notify you here</string>
+    <string name="member_level_max">At most %1$d, your level</string>
+    <string name="member_peer_level_title">Give them your level?</string>
+    <string name="member_peer_level_warning">%1$s will be at your level (%2$d). You won\'t be able to lower it or remove them afterwards: only someone above you can.</string>
+    <string name="member_peer_level_confirm">Give level</string>
+    <string name="this_room">this room</string>
+    <string name="moderation_title">Moderation in %1$s</string>
+    <string name="moderation_refused_level">That needs level %1$d here; yours is %2$d.</string>
+    <string name="moderation_refused_outranked">%1$s\'s level (%2$d) isn\'t below yours (%3$d).</string>
+    <string name="moderation_refused_creator">Room creators can\'t be moderated.</string>
+    <string name="moderation_delete_recent">Delete recent messages</string>
+    <string name="moderation_delete_recent_title">Delete %1$s\'s recent messages?</string>
+    <string name="moderation_looking">Looking through the room\'s recent history…</string>
+    <string name="moderation_delete_none">Nothing recent from them to delete.</string>
+    <plurals name="moderation_delete_count">
+        <item quantity="one">%d event from the room\'s recent history will be deleted for everyone.</item>
+        <item quantity="other">%d events from the room\'s recent history will be deleted for everyone.</item>
+    </plurals>
+    <string name="moderation_keep_system">Keep system messages</string>
+    <string name="moderation_keep_system_summary">Joins, name and avatar changes</string>
+    <string name="moderation_delete">Delete</string>
+    <string name="moderation_ban_title">Ban %1$s?</string>
+    <string name="moderation_ban_explain">They\'ll be removed, and can\'t come back until unbanned.</string>
+    <string name="moderation_ban_delete">Also delete their recent messages</string>
+    <plurals name="moderation_deleting">
+        <item quantity="one">Deleting %d event</item>
+        <item quantity="other">Deleting %d events</item>
+    </plurals>
 </resources>
