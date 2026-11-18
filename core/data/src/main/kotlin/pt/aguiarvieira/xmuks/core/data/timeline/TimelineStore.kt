@@ -321,16 +321,6 @@ class TimelineStore(
 
     private fun room(roomId: String) = rooms.getOrPut(roomId) { RoomTimeline(roomId) }
 
-    /**
-     * A push for [roomId]: if its timeline is held but the stream isn't keeping it current (the app
-     * is away), its newest page now, so the room is current by the time the notification is tapped.
-     * Rooms not held are left alone: opening them loads them anyway.
-     */
-    suspend fun prefetch(roomId: String) {
-        val stale = mutex.withLock { rooms[roomId]?.let { it.loaded && !it.confirmed } == true }
-        if (stale) loadNewest(roomId)
-    }
-
     /** Which room a newest page was asked for, and when. */
     private class Fetch(
         val room: RoomTimeline,
@@ -355,7 +345,7 @@ class TimelineStore(
             try {
                 paginator.paginate(roomId, 0, pageSize)
             } catch (e: CancellationException) {
-                // e.g. a push's bounded prefetch: the room must not keep "fetching" (or its progress bar).
+                // e.g. the room closed: it must not keep "fetching" (or its progress bar).
                 withContext(NonCancellable) { finishNewest(roomId, fetch, page = null) }
                 throw e
             }

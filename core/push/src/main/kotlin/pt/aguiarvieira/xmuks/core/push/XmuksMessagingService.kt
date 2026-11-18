@@ -8,7 +8,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeoutOrNull
 import pt.aguiarvieira.xmuks.core.call.AccountCalls
 import pt.aguiarvieira.xmuks.core.call.IncomingCall
 import pt.aguiarvieira.xmuks.core.data.account.AccountGraph
@@ -55,18 +54,9 @@ class XmuksMessagingService : FirebaseMessagingService() {
             val onScreen =
                 graph.openRoom.roomId.value
                     .takeIf { graph.isActive.value }
+            // Nothing else: the push is the whole message. Opening the room (or the app) catches
+            // it up then, so a push costs only decrypting and showing it.
             notifiers.of(graph).show(payload, onScreen)
-            // Rooms we hold in memory catch up now, while the process is alive: tapping the
-            // notification then opens a current timeline. Bounded, so FCM's window isn't overrun
-            // (and every push doesn't keep us awake that long). A connection pooled from before
-            // may have died while we slept: a request on it would only hang until the bound.
-            graph.dropIdleConnections()
-            withTimeoutOrNull(PREFETCH_MS) {
-                payload.messages
-                    .map { it.roomId }
-                    .distinct()
-                    .forEach { graph.timelines.prefetch(it) }
-            }
         }
     }
 
@@ -96,7 +86,6 @@ class XmuksMessagingService : FirebaseMessagingService() {
 
     private companion object {
         const val PAYLOAD = "payload"
-        const val PREFETCH_MS = 3_000L
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 }

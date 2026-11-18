@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -229,22 +228,6 @@ class TimelineStoreTest {
             watching.cancel()
         }
 
-    @Test
-    fun `a push catches up a held room the stream isn't keeping current, and only that`() =
-        runBlocking {
-            store.streamChanged(true)
-            store.open("!a")
-            store.prefetch("!a")
-            assertEquals(1, gomuks.calls.size) // current while the stream is up: nothing to do
-            store.streamChanged(false)
-            gomuks.newest = 124
-            store.prefetch("!a")
-            store.prefetch("!never-opened")
-            assertEquals(listOf("!a" to 0L, "!a" to 0L), gomuks.calls)
-            assertEquals((71L..124L).toList(), ids("!a"))
-            assertEquals(false, store.observe("!a").value.refreshing)
-        }
-
     private fun live(
         roomId: String,
         id: Long,
@@ -306,19 +289,6 @@ class TimelineStoreTest {
             stale.join()
             assertEquals((151L..201L).toList(), ids("!a"))
             watching.cancel()
-        }
-
-    @Test
-    fun `a push prefetch cut short leaves no refresh hanging`() =
-        runBlocking {
-            store.streamChanged(true)
-            store.open("!a")
-            store.streamChanged(false)
-            gomuks.gate = CompletableDeferred()
-            withTimeoutOrNull(100) { store.prefetch("!a") }
-            assertFalse(store.observe("!a").value.refreshing)
-            store.open("!a")
-            assertEquals("nothing left marked as on the way: a later open fetches", 3, gomuks.calls.size)
         }
 
     @Test
