@@ -14,20 +14,22 @@ import pt.aguiarvieira.xmuks.core.notify.PeopleUris
 data class ContactPerson(
     val userId: String,
     val name: String,
-    /** JPEG, when they have an avatar. */
-    val photo: ByteArray? = null,
+    /** Their avatar (mxc), when they have one: its photo is fetched only when it changed. */
+    val avatarUrl: String? = null,
     /**
      * The network their DM is bridged to ("WhatsApp"), or null for a Matrix user. A bridged person
      * gets only Message (named for the network, so the same person on two bridges reads apart):
      * the bridges don't carry Matrix calls.
      */
     val network: String? = null,
-) {
-    override fun equals(other: Any?) =
-        other is ContactPerson && other.userId == userId && other.name == name && other.network == network
+)
 
-    override fun hashCode() = (userId.hashCode() * 31 + name.hashCode()) * 31 + network.hashCode()
-}
+/** One of our raw contacts, with what it was last written from (SYNC1: avatar, SYNC2: name). */
+private data class Existing(
+    val rawId: Long,
+    val avatarUrl: String?,
+    val name: String?,
+)
 
 /**
  * xmuks' contacts in the phone's Contacts: one raw contact per DM partner, under xmuks' own
@@ -42,12 +44,18 @@ class PhoneContacts(
 
     private fun account(userId: String) = Account(userId, ACCOUNT_TYPE)
 
-    /** Makes the Contacts rows match [people] exactly (adds, renames, re-photographs, removes). */
-    fun sync(
+    /**
+     * Makes the Contacts rows match [people] exactly (adds, renames, re-photographs, removes). Only
+     * what changed is written, and a photo is fetched ([photo], JPEG) only for a new avatar: this
+     * runs whenever the DMs change, and rewriting every contact each time costs real battery
+     * (ours, and the Contacts provider's re-processing every photo).
+     */
+    suspend fun sync(
         ownUserId: String,
         people: List<ContactPerson>,
         /** The other signed-in accounts' users: their contacts stay. */
         others: Set<String> = emptySet(),
+        photo: suspend (url: String) -> ByteArray? = { null },
     ) {
         val account = account(ownUserId)
         AccountManager.get(context).addAccountExplicitly(account, null, null)
@@ -66,17 +74,30 @@ class PhoneContacts(
                 ContentProviderOperation
                     .newDelete(
                         syncUri(RawContacts.CONTENT_URI)
-                    ).withSelection("${RawContacts._ID} = ?", arrayOf(existing.getValue(userId).toString()))
+                    ).withSelection("${RawContacts._ID} = ?", arrayOf(existing.getValue(userId).rawId.toString()))
                     .build()
         }
         for (person in people) {
-            val rawId = existing[person.userId]
-            if (rawId ==
-                null
-            ) {
-                insert(ops, account, person)
+            val known = existing[person.userId]
+            if (known == null) {
+                insert(ops, account, person, person.avatarUrl?.let { photo(it) })
             } else {
-                update(ops, rawId, person, rewriteActions = labels[rawId] != messageLabel(person))
+                val avatar = person.avatarUrl
+                // A new avatar replaces the photo; a gone one takes it away; one that can't be
+                // fetched now leaves it be (and is tried again next time).
+                val change =
+                    when {
+                        known.avatarUrl == avatar -> null
+                        avatar == null -> PhotoChange(null)
+                        else -> photo(avatar)?.let { PhotoChange(it) }
+                    }
+                update(
+                    ops,
+                    known,
+                    person,
+                    rewriteActions = labels[known.rawId] != messageLabel(person),
+                    photo = change,
+                )
             }
         }
         ops.chunked(BATCH).forEach { resolver.applyBatch(AUTHORITY, ArrayList(it)) }
@@ -118,22 +139,34 @@ class PhoneContacts(
             .orEmpty()
 
     /** Our raw contacts by user, from their source id. */
-    private fun existing(account: Account): Map<String, Long> =
+    private fun existing(account: Account): Map<String, Existing> =
         resolver
             .query(
                 RawContacts.CONTENT_URI,
-                arrayOf(RawContacts._ID, RawContacts.SOURCE_ID),
+                arrayOf(RawContacts._ID, RawContacts.SOURCE_ID, RawContacts.SYNC1, RawContacts.SYNC2),
                 "${RawContacts.ACCOUNT_TYPE} = ? AND ${RawContacts.ACCOUNT_NAME} = ? AND ${RawContacts.DELETED} = 0",
                 arrayOf(account.type, account.name),
                 null,
             )?.use { c ->
-                buildMap { while (c.moveToNext()) c.getString(1)?.let { put(it, c.getLong(0)) } }
+                buildMap<String, Existing> {
+                    while (c.moveToNext()) {
+                        val userId = c.getString(c.getColumnIndexOrThrow(RawContacts.SOURCE_ID)) ?: continue
+                        val known =
+                            Existing(
+                                rawId = c.getLong(c.getColumnIndexOrThrow(RawContacts._ID)),
+                                avatarUrl = c.getString(c.getColumnIndexOrThrow(RawContacts.SYNC1)),
+                                name = c.getString(c.getColumnIndexOrThrow(RawContacts.SYNC2)),
+                            )
+                        put(userId, known)
+                    }
+                }
             }.orEmpty()
 
     private fun insert(
         ops: MutableList<ContentProviderOperation>,
         account: Account,
         person: ContactPerson,
+        photo: ByteArray?,
     ) {
         val back = ops.size
         ops +=
@@ -142,6 +175,8 @@ class PhoneContacts(
                 .withValue(RawContacts.ACCOUNT_TYPE, account.type)
                 .withValue(RawContacts.ACCOUNT_NAME, account.name)
                 .withValue(RawContacts.SOURCE_ID, person.userId)
+                .withValue(RawContacts.SYNC1, person.avatarUrl.takeIf { photo != null })
+                .withValue(RawContacts.SYNC2, person.name)
                 .build()
 
         fun row() =
@@ -156,7 +191,7 @@ class PhoneContacts(
                     CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE
                 ).withValue(CommonDataKinds.StructuredName.DISPLAY_NAME, person.name)
                 .build()
-        person.photo?.let {
+        photo?.let {
             ops +=
                 row()
                     .withValue(
@@ -183,37 +218,63 @@ class PhoneContacts(
         .withValue(Data.DATA2, person.userId)
         .withValue(Data.DATA3, label)
 
-    /** Name, photo and the action rows follow (rows are rewritten: older ones were labelled differently). */
+    /** The photo to put in place of the old one: null [jpeg] takes it away. */
+    private class PhotoChange(
+        val jpeg: ByteArray?,
+    )
+
+    /**
+     * Name, photo and the action rows follow, each only when it changed (rows are rewritten: older
+     * ones were labelled differently). A null [photo] leaves the photo be.
+     */
     private fun update(
         ops: MutableList<ContentProviderOperation>,
-        rawId: Long,
+        known: Existing,
         person: ContactPerson,
         rewriteActions: Boolean,
+        photo: PhotoChange?,
     ) {
-        ops +=
-            ContentProviderOperation
-                .newUpdate(syncUri(Data.CONTENT_URI))
-                .withSelection(
-                    "${Data.RAW_CONTACT_ID} = ? AND ${Data.MIMETYPE} = ?",
-                    arrayOf(rawId.toString(), CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
-                ).withValue(CommonDataKinds.StructuredName.DISPLAY_NAME, person.name)
-                .build()
+        val rawId = known.rawId
+        if (known.name != person.name) {
+            ops +=
+                ContentProviderOperation
+                    .newUpdate(syncUri(Data.CONTENT_URI))
+                    .withSelection(
+                        "${Data.RAW_CONTACT_ID} = ? AND ${Data.MIMETYPE} = ?",
+                        arrayOf(rawId.toString(), CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
+                    ).withValue(CommonDataKinds.StructuredName.DISPLAY_NAME, person.name)
+                    .build()
+        }
         if (rewriteActions) rewriteActions(ops, rawId, person)
-        val photo = person.photo ?: return
-        ops +=
-            ContentProviderOperation
-                .newDelete(syncUri(Data.CONTENT_URI))
-                .withSelection(
-                    "${Data.RAW_CONTACT_ID} = ? AND ${Data.MIMETYPE} = ?",
-                    arrayOf(rawId.toString(), CommonDataKinds.Photo.CONTENT_ITEM_TYPE)
-                ).build()
-        ops +=
-            ContentProviderOperation
-                .newInsert(syncUri(Data.CONTENT_URI))
-                .withValue(Data.RAW_CONTACT_ID, rawId)
-                .withValue(Data.MIMETYPE, CommonDataKinds.Photo.CONTENT_ITEM_TYPE)
-                .withValue(CommonDataKinds.Photo.PHOTO, photo)
-                .build()
+        if (photo != null) {
+            ops +=
+                ContentProviderOperation
+                    .newDelete(syncUri(Data.CONTENT_URI))
+                    .withSelection(
+                        "${Data.RAW_CONTACT_ID} = ? AND ${Data.MIMETYPE} = ?",
+                        arrayOf(rawId.toString(), CommonDataKinds.Photo.CONTENT_ITEM_TYPE)
+                    ).build()
+            photo.jpeg?.let {
+                ops +=
+                    ContentProviderOperation
+                        .newInsert(syncUri(Data.CONTENT_URI))
+                        .withValue(Data.RAW_CONTACT_ID, rawId)
+                        .withValue(Data.MIMETYPE, CommonDataKinds.Photo.CONTENT_ITEM_TYPE)
+                        .withValue(CommonDataKinds.Photo.PHOTO, it)
+                        .build()
+            }
+        }
+        // What it's now written from (an avatar whose photo couldn't be fetched isn't recorded).
+        val avatar = if (photo == null) known.avatarUrl else person.avatarUrl
+        if (known.name != person.name || known.avatarUrl != avatar) {
+            ops +=
+                ContentProviderOperation
+                    .newUpdate(syncUri(RawContacts.CONTENT_URI))
+                    .withSelection("${RawContacts._ID} = ?", arrayOf(rawId.toString()))
+                    .withValue(RawContacts.SYNC1, avatar)
+                    .withValue(RawContacts.SYNC2, person.name)
+                    .build()
+        }
     }
 
     private fun rewriteActions(

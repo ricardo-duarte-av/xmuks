@@ -57,7 +57,10 @@ class XmuksMessagingService : FirebaseMessagingService() {
                     .takeIf { graph.isActive.value }
             notifiers.of(graph).show(payload, onScreen)
             // Rooms we hold in memory catch up now, while the process is alive: tapping the
-            // notification then opens a current timeline. Bounded, so FCM's window isn't overrun.
+            // notification then opens a current timeline. Bounded, so FCM's window isn't overrun
+            // (and every push doesn't keep us awake that long). A connection pooled from before
+            // may have died while we slept: a request on it would only hang until the bound.
+            graph.dropIdleConnections()
             withTimeoutOrNull(PREFETCH_MS) {
                 payload.messages
                     .map { it.roomId }
@@ -93,7 +96,7 @@ class XmuksMessagingService : FirebaseMessagingService() {
 
     private companion object {
         const val PAYLOAD = "payload"
-        const val PREFETCH_MS = 5_000L
+        const val PREFETCH_MS = 3_000L
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 }

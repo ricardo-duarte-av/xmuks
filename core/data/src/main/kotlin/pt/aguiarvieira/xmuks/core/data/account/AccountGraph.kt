@@ -249,10 +249,17 @@ class AccountGraph(
             scope,
             // Back in the foreground: a room still on screen from before may have missed things.
             onForeground = { scope.launch { timelines.refreshWatched() } },
-            // Every client is built from this one, so they share its pool (images included).
-            dropIdleConnections = { app.plainHttp.connectionPool.evictAll() },
+            dropIdleConnections = ::dropIdleConnections,
         )
     }
+
+    /**
+     * Closes pooled connections not in use, so the next requests open fresh ones: one left from
+     * earlier may have died silently in the background, and a request on it hangs until it times
+     * out. Network I/O (closing TLS writes): never on the main thread. Every client is built from
+     * the plain one, so they share its pool (images included).
+     */
+    fun dropIdleConnections() = app.plainHttp.connectionPool.evictAll()
 
     val mediaUrls by lazy { MediaUrls(server) }
 

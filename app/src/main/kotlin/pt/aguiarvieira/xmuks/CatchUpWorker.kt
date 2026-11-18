@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks
 
 import android.content.Context
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -37,24 +38,29 @@ class CatchUpWorker(
         accounts.signedIn().forEach { runCatching { it.pushRegistrar.ensureRegistered() } }
         // Only the shown account streams; the others catch up when they're shown.
         val caughtUp = accounts.current().foregroundConnection.catchUp(CATCH_UP_TIMEOUT_MS)
-        // Unreachable gomuks: try again sooner than the next period.
-        return if (caughtUp) Result.success() else Result.retry()
+        // Unreachable gomuks: try again sooner than the next period, a few times (each try can
+        // hold the phone awake for the whole timeout); after that, the next period will do.
+        return if (caughtUp || runAttemptCount >= MAX_RETRIES) Result.success() else Result.retry()
     }
 
     companion object {
         private const val NAME = "catch-up"
         private const val PERIOD_HOURS = 6L
         private const val CATCH_UP_TIMEOUT_MS = 90_000L
+        private const val MAX_RETRIES = 2
+        private const val RETRY_BACKOFF_MINUTES = 15L
 
         /** Once per install; kept as scheduled across launches. */
         fun schedule(context: Context) {
             val request =
                 PeriodicWorkRequestBuilder<CatchUpWorker>(PERIOD_HOURS, TimeUnit.HOURS)
                     .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, RETRY_BACKOFF_MINUTES, TimeUnit.MINUTES)
                     .build()
             // Not set up where app startup initializers don't run (Robolectric): nothing to schedule.
             val work = runCatching { WorkManager.getInstance(context) }.getOrNull() ?: return
-            work.enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+            // UPDATE: an install scheduled before carries on with this request's backoff.
+            work.enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
     }
 }

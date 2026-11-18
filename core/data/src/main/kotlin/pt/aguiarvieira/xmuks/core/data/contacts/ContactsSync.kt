@@ -41,9 +41,6 @@ class ContactsSync(
     /** Every signed-in account's Matrix user: one account's sync leaves the others' contacts be. */
     private val signedInUsers: suspend () -> Set<String> = { emptySet() },
 ) {
-    /** Photos already fetched, by avatar URL: a rename shouldn't download every avatar again. */
-    private val photos = HashMap<String, ByteArray>()
-
     @OptIn(FlowPreview::class)
     fun start() {
         scope.launch {
@@ -56,9 +53,17 @@ class ContactsSync(
                                 dm.dmUserId?.let { DmPerson(it, dm.name, dm.avatarUrl, dm.bridgeProtocol) }
                             }.distinctBy { it.userId }
                     }.distinctUntilChanged()
-            combine(preferences.value(Prefs.syncContacts), people, database.roomListDao().meta()) { on, list, meta ->
-                Triple(on, list, meta?.userId)
-            }.debounce(SETTLE_MS).collect { (on, list, me) ->
+            // Only our user from the sync state: the rest of it (the stream position) changes with
+            // nearly every event, and must not set off a sync each time.
+            val me =
+                database
+                    .roomListDao()
+                    .meta()
+                    .map { it?.userId }
+                    .distinctUntilChanged()
+            combine(preferences.value(Prefs.syncContacts), people, me) { on, list, user ->
+                Triple(on, list, user)
+            }.distinctUntilChanged().debounce(SETTLE_MS).collect { (on, list, me) ->
                 if (!allowed()) return@collect
                 withContext(Dispatchers.IO) {
                     runCatching {
@@ -67,8 +72,9 @@ class ContactsSync(
                         ) {
                             contacts.sync(
                                 me,
-                                list.map { dm -> ContactPerson(dm.userId, dm.name, photo(dm.avatarUrl), dm.network) },
+                                list.map { dm -> ContactPerson(dm.userId, dm.name, dm.avatarUrl, dm.network) },
                                 others = signedInUsers() - me,
+                                photo = ::photo,
                             )
                         } else if (me != null) {
                             // Off for this account: its contacts go, another account's stay.
@@ -88,9 +94,7 @@ class ContactsSync(
             ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
         }
 
-    private suspend fun photo(url: String?): ByteArray? {
-        url ?: return null
-        photos[url]?.let { return it }
+    private suspend fun photo(url: String): ByteArray? {
         val request =
             ImageRequest
                 .Builder(context)
@@ -104,17 +108,14 @@ class ContactsSync(
                 .image
                 ?.asDrawable(context.resources)
                 ?.toBitmap() ?: return null
-        val bytes =
-            ByteArrayOutputStream()
-                .also {
-                    bitmap.compress(
-                        Bitmap.CompressFormat.JPEG,
-                        JPEG_QUALITY,
-                        it
-                    )
-                }.toByteArray()
-        photos[url] = bytes
-        return bytes
+        return ByteArrayOutputStream()
+            .also {
+                bitmap.compress(
+                    Bitmap.CompressFormat.JPEG,
+                    JPEG_QUALITY,
+                    it
+                )
+            }.toByteArray()
     }
 
     private companion object {
