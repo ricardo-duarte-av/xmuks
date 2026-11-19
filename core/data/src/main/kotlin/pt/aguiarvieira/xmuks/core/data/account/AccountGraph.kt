@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
@@ -329,7 +330,7 @@ class AccountGraph(
 
     val spaceHierarchy by lazy { SpaceHierarchyRepository(exec, database) }
 
-    val linkResolver by lazy { LinkResolver(exec, roomListRepository) }
+    val linkResolver by lazy { LinkResolver(exec, roomListRepository) { invites.invite(it).first() != null } }
 
     val syncController by lazy { SyncController(syncIngestor, foregroundConnection) }
 

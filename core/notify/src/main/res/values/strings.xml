@@ -4,6 +4,15 @@
     <string name="channel_dm_description">Messages in one-to-one chats</string>
     <string name="channel_group">Group messages</string>
     <string name="channel_group_description">Messages in rooms with more people</string>
+    <string name="channel_invites">Invites</string>
+    <string name="channel_invites_description">Invitations to rooms and direct messages</string>
+    <string name="invite_dm">Wants to chat with you</string>
+    <string name="invite_room">Invited you to %1$s</string>
+    <string name="invite_room_unnamed">Invited you to a room</string>
+    <string name="invite_space">Invited you to the space %1$s</string>
+    <string name="invite_space_unnamed">Invited you to a space</string>
+    <string name="action_accept">Accept</string>
+    <string name="action_decline">Decline</string>
     <string name="action_reply">Reply</string>
     <string name="action_mark_read">Mark as read</string>
     <string name="reply_hint">Message</string>

@@ -20,8 +20,9 @@ import javax.inject.Inject
 /**
  * Runs the notification's actions. A reply joins the outbox (durable: it goes out even if we're
  * killed, and never twice) and shows in the notification at once; we stay up a few seconds for it
- * to leave. Mark as read tells gomuks and clears the notification. Both run as the notification's
- * account, whichever one is shown.
+ * to leave. Mark as read tells gomuks and clears the notification. An invite's accept joins (through
+ * the inviter's server) and decline leaves; its notification goes once that worked, and stays to
+ * try again if it didn't. All run as the notification's account, whichever one is shown.
  */
 @AndroidEntryPoint
 class ActionReceiver : BroadcastReceiver() {
@@ -42,8 +43,21 @@ class ActionReceiver : BroadcastReceiver() {
             try {
                 val graph = accounts.graph(account)
                 when (intent.action) {
-                    Actions.REPLY -> Actions.replyText(intent)?.let { graph.reply(roomId, it) }
-                    Actions.MARK_READ -> graph.markRead(roomId, eventId)
+                    Actions.REPLY -> {
+                        Actions.replyText(intent)?.let { graph.reply(roomId, it) }
+                    }
+
+                    Actions.MARK_READ -> {
+                        graph.markRead(roomId, eventId)
+                    }
+
+                    Actions.ACCEPT -> {
+                        graph.answerInvite(roomId, accept = true, serverOf(intent))
+                    }
+
+                    Actions.DECLINE -> {
+                        graph.answerInvite(roomId, accept = false)
+                    }
                 }
             } finally {
                 pending.finish()
@@ -68,6 +82,26 @@ class ActionReceiver : BroadcastReceiver() {
         notifiers.of(this).clear(roomId)
         if (eventId != null) roomSessions.open(roomId).writer.markRead(eventId)
     }
+
+    /** Joins (through [via], the inviter's server) or leaves; the notification goes once it worked. */
+    private suspend fun AccountGraph.answerInvite(
+        roomId: String,
+        accept: Boolean,
+        via: String? = null,
+    ) {
+        val answered =
+            withTimeoutOrNull(SEND_WAIT_MS) {
+                if (accept) roomInfo.join(roomId, listOfNotNull(via)) else roomInfo.leave(roomId)
+            }
+        if (answered?.isSuccess == true) notifiers.of(this).clear(roomId)
+    }
+
+    /** The inviter's server, which is certain to be in the room. */
+    private fun serverOf(intent: Intent) =
+        intent
+            .getStringExtra(Actions.INVITER)
+            ?.substringAfter(':', "")
+            ?.takeIf { it.isNotEmpty() }
 
     private companion object {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

@@ -47,6 +47,26 @@ class PushCodecTest {
     }
 
     @Test
+    fun `the fork's invites open, without messages`() {
+        val invite =
+            """
+            {"invites": [{"timestamp": 1790683133314, "room_id": "!r:s", "is_dm": true,
+              "inviter": {"id": "@alice:s", "name": "Alice", "avatar": "_gomuks/media/s/a"},
+              "self": {"id": "@me:s", "name": "Me"}, "reason": "hi"}],
+             "image_auth": "tok"}
+            """
+        val payload = PushCodec.open(seal(invite), key)!!
+        val opened = payload.invites.single()
+        assertTrue(payload.messages.isEmpty())
+        assertEquals("!r:s", opened.roomId)
+        assertNull(opened.roomName)
+        assertTrue(opened.isDm)
+        assertEquals("Alice", opened.inviter.name)
+        assertEquals("hi", opened.reason)
+        assertTrue(PushCodec.open(seal(sample), key)!!.invites.isEmpty())
+    }
+
+    @Test
     fun `a push opens as the account whose key sealed it`() {
         val other = ByteArray(32).also(SecureRandom()::nextBytes)
         val keys = listOf("first" to key, "second" to other)

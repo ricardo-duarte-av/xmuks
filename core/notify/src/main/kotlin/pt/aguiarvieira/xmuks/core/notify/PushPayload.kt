@@ -8,11 +8,15 @@ import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-/** What gomuks pushes (`PushNotification`): new messages, rooms read elsewhere, a media token. */
+/**
+ * What gomuks pushes (`PushNotification`): new messages, rooms read elsewhere, a media token; and,
+ * from xmuks' gomuks fork, invites.
+ */
 @Serializable
 data class PushPayload(
     val messages: List<PushMessage> = emptyList(),
     val dismiss: List<PushDismiss> = emptyList(),
+    val invites: List<PushInvite> = emptyList(),
     /** Appended as `?image_auth=` to gomuks media URLs: avatars load without our session. */
     @SerialName("image_auth") val imageAuth: String? = null,
 )
@@ -59,6 +63,27 @@ data class PushRtc(
     val ring: Boolean get() = type == "ring"
     val video: Boolean get() = intent == "video"
 }
+
+/**
+ * An invite to a room (xmuks' gomuks fork), from its stripped state: what the inviter's server
+ * says, unverified until joined.
+ */
+@Serializable
+data class PushInvite(
+    /** When we were invited (or, failing that, when gomuks got it). */
+    val timestamp: Long,
+    @SerialName("room_id") val roomId: String,
+    /** The room's name or alias; null for none (a DM, usually). */
+    @SerialName("room_name") val roomName: String? = null,
+    @SerialName("room_avatar") val roomAvatar: String? = null,
+    /** The inviter marked it a DM. */
+    @SerialName("is_dm") val isDm: Boolean = false,
+    @SerialName("is_space") val isSpace: Boolean = false,
+    val inviter: PushUser,
+    val self: PushUser,
+    /** Why we were invited, if the inviter said. */
+    val reason: String? = null,
+)
 
 @Serializable
 data class PushUser(

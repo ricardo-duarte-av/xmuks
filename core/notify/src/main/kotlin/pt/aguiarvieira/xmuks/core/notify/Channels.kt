@@ -20,10 +20,14 @@ import android.net.Uri
  * apart, and set apart, in Android's settings: the first account's keep their plain IDs (and the
  * settings made to them), another's are `account/messages_dm` and so on ([RoomKeys]). A room's own
  * channel goes in its account's group.
+ *
+ * Invites have a channel of their own in the account's group (`invites`, `account/invites`), to be
+ * silenced apart from messages (spam invites).
  */
 internal object Channels {
     const val DM = "messages_dm"
     const val GROUP = "messages_group"
+    const val INVITES = "invites"
 
     /** No longer used: quiet messages post silently. */
     private const val SILENT = "messages_silent"
@@ -79,6 +83,15 @@ internal object Channels {
                 ).apply {
                     description = context.getString(R.string.channel_group_description)
                     setSound(sound(R.raw.descending), audio)
+                    group = groupId
+                },
+                NotificationChannel(
+                    invitesOf(account),
+                    context.getString(R.string.channel_invites),
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = context.getString(R.string.channel_invites_description)
+                    setSound(sound(R.raw.bright), audio)
                     group = groupId
                 },
             ),
@@ -151,6 +164,9 @@ internal object Channels {
         account: String?,
         direct: Boolean,
     ) = RoomKeys.of(account, if (direct) DM else GROUP)
+
+    /** [account]'s invites channel (null: the first account's, [INVITES]). */
+    internal fun invitesOf(account: String?) = RoomKeys.of(account, INVITES)
 
     private fun groupOf(account: String?) = ACCOUNT_GROUP + (account ?: FIRST)
 

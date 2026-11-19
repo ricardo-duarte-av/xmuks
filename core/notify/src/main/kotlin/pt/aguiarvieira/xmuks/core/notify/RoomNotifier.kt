@@ -33,8 +33,11 @@ import java.util.concurrent.ConcurrentHashMap
  * Message notifications, one conversation per room: the people in it (Person, with avatars), a
  * long-lived shortcut per room (Conversations section, per-conversation settings, and Android's
  * own bubbles), messages appended as they come (never twice), the DM or group channel — or the
- * quiet one when the push rules said no sound — and opening the room when tapped.
+ * quiet one when the push rules said no sound — and opening the room when tapped. An invite (from
+ * xmuks' gomuks fork) shows in its room's place, with accept and decline; joining the room (or
+ * its first message) takes its place, and answering it anywhere clears it.
  */
+@Suppress("TooManyFunctions") // one room's notification, messages or invite, sharing its loading and posting
 class RoomNotifier(
     private val context: Context,
     private val images: ImageLoader,
@@ -77,16 +80,14 @@ class RoomNotifier(
         Channels.ensure(
             context,
             account,
-            payload.messages
-                .firstOrNull()
-                ?.self
-                ?.id
+            (payload.messages.firstOrNull()?.self ?: payload.invites.firstOrNull()?.self)?.id,
         )
         payload.dismiss.forEach { dismissed(it.roomId) }
         payload.messages
             .filter { it.roomId != openRoom }
             .groupBy { it.roomId }
             .forEach { (roomId, messages) -> showRoom(roomId, messages.sortedBy { it.timestamp }, payload.imageAuth) }
+        payload.invites.forEach { showInvite(it, payload.imageAuth) }
     }
 
     /** Read elsewhere: the notification goes, unless we just replied from it. */
@@ -171,6 +172,62 @@ class RoomNotifier(
                         setContentIntent(openRoom(roomId, intent))
                     }
                     actions.add(this, context, roomId, latest.eventId, account)
+                }.build()
+        post(roomId, notification)
+    }
+
+    /**
+     * An invite: who, to what, and why if they said; accept and decline, and tapping opens it (the
+     * invite's screen). It takes its room's place, unless that already has messages (joined since).
+     */
+    private suspend fun showInvite(
+        invite: PushInvite,
+        imageAuth: String?,
+    ) {
+        val roomId = invite.roomId
+        if (active(roomId) != null) return
+        val text =
+            when {
+                invite.isDm -> context.getString(R.string.invite_dm)
+                invite.isSpace && invite.roomName != null -> context.getString(R.string.invite_space, invite.roomName)
+                invite.isSpace -> context.getString(R.string.invite_space_unnamed)
+                invite.roomName != null -> context.getString(R.string.invite_room, invite.roomName)
+                else -> context.getString(R.string.invite_room_unnamed)
+            }
+        val body = invite.reason?.takeIf { it.isNotBlank() }?.let { "$text\n“$it”" } ?: text
+        // A DM's face is the inviter's; a room's its own (the inviter's when it has none).
+        val inviterAvatar = loadBitmap(invite.inviter.avatar, imageAuth)
+        val face =
+            if (invite.isDm || invite.roomAvatar == null) {
+                Avatars.roundBitmap(inviterAvatar, invite.inviter.name, invite.inviter.id)
+            } else {
+                Avatars.roundBitmap(
+                    loadBitmap(invite.roomAvatar, imageAuth) ?: inviterAvatar,
+                    invite.roomName ?: invite.inviter.name,
+                    roomId,
+                )
+            }
+        val intent = roomIntent?.invoke(roomId)
+        val notification =
+            NotificationCompat
+                .Builder(context, Channels.invitesOf(account))
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(ContextCompat.getColor(context, R.color.notification_accent))
+                .setContentTitle(invite.inviter.name)
+                .setContentText(text)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                .setLargeIcon(face)
+                .setCategory(NotificationCompat.CATEGORY_SOCIAL)
+                .setWhen(invite.timestamp)
+                .setShowWhen(true)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(true)
+                .addPerson(person(invite.inviter, imageAuth))
+                .apply {
+                    // With several accounts signed in, whose invite it is.
+                    if (multiAccount()) setSubText(invite.self.id)
+                    if (intent != null) setContentIntent(openRoom(roomId, intent))
+                    actions.addInvite(this, context, roomId, invite.inviter.id, account)
                 }.build()
         post(roomId, notification)
     }

@@ -111,6 +111,17 @@ class ChannelsTest {
     }
 
     @Test
+    fun invitesHaveAChannelOfTheirOwnPerAccount() {
+        Channels.ensure(context, null, "@test:x")
+        Channels.ensure(context, "acc2", "@me:y")
+        assertEquals(manager.getNotificationChannel(Channels.DM).group, manager.getNotificationChannel(Channels.INVITES).group)
+        assertEquals(
+            manager.getNotificationChannel("acc2/messages_dm").group,
+            manager.getNotificationChannel("acc2/invites").group,
+        )
+    }
+
+    @Test
     fun aRoomsOwnChannelIsInItsAccountsGroup() {
         Channels.ensure(context, "acc2", "@me:y")
         val id = Channels.customize(context, "acc2/!c:x", "C", direct = false)

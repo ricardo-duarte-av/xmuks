@@ -8,8 +8,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.RemoteInput
 
 /**
- * The notification's actions, reply and mark as read, sent to [receiver]: each app runs them its
- * own way (the phone through its outbox and room sessions, the watch straight to gomuks).
+ * The notification's actions, reply and mark as read (an invite's: accept and decline), sent to
+ * [receiver]: each app runs them its own way (the phone through its outbox and room sessions, the
+ * watch straight to gomuks).
  */
 class Actions(
     private val receiver: Class<out BroadcastReceiver>,
@@ -46,20 +47,45 @@ class Actions(
         builder.addAction(reply).addAction(markRead)
     }
 
+    /** An invite's: accept (join, through [inviterId]'s server) and decline. */
+    fun addInvite(
+        builder: NotificationCompat.Builder,
+        context: Context,
+        roomId: String,
+        inviterId: String,
+        account: String? = null,
+    ) {
+        fun action(
+            label: Int,
+            action: String,
+        ) = NotificationCompat.Action
+            .Builder(
+                0,
+                context.getString(label),
+                intent(context, action, roomId, null, account, mutable = false, inviterId = inviterId),
+            ).setShowsUserInterface(false)
+            .build()
+        builder.addAction(action(R.string.action_accept, ACCEPT)).addAction(action(R.string.action_decline, DECLINE))
+    }
+
     private fun intent(
         context: Context,
         action: String,
         roomId: String,
-        eventId: String,
+        eventId: String?,
         account: String?,
         mutable: Boolean,
+        inviterId: String? = null,
     ): PendingIntent {
         val intent =
             Intent(context, receiver)
                 .setAction(action)
                 .putExtra(ROOM_ID, roomId)
-                .putExtra(EVENT_ID, eventId)
-                .apply { if (account != null) putExtra(RoomKeys.EXTRA_ACCOUNT, account) }
+                .apply {
+                    if (eventId != null) putExtra(EVENT_ID, eventId)
+                    if (inviterId != null) putExtra(INVITER, inviterId)
+                    if (account != null) putExtra(RoomKeys.EXTRA_ACCOUNT, account)
+                }
         // A reply's intent must be mutable: the system fills in the typed text.
         val flags =
             PendingIntent.FLAG_UPDATE_CURRENT or
@@ -70,6 +96,9 @@ class Actions(
     companion object {
         const val REPLY = "pt.aguiarvieira.xmuks.action.REPLY"
         const val MARK_READ = "pt.aguiarvieira.xmuks.action.MARK_READ"
+        const val ACCEPT = "pt.aguiarvieira.xmuks.action.ACCEPT_INVITE"
+        const val DECLINE = "pt.aguiarvieira.xmuks.action.DECLINE_INVITE"
+        const val INVITER = "inviter"
         const val ROOM_ID = "room_id"
         const val EVENT_ID = "event_id"
         const val REPLY_TEXT = "reply_text"

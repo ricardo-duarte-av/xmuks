@@ -25,6 +25,11 @@ sealed interface LinkTarget {
         val eventId: String?,
     ) : LinkTarget
 
+    /** A room we're invited to: the invite, to answer it. */
+    data class Invited(
+        val roomId: String,
+    ) : LinkTarget
+
     /** A room we're not in: previewed, and joined or knocked on, through [via] servers. */
     data class NotJoined(
         val roomIdOrAlias: String,
@@ -44,6 +49,8 @@ sealed interface LinkTarget {
 class LinkResolver(
     private val exec: ExecClient,
     private val rooms: RoomListRepository,
+    /** Whether we have a pending invite to the room. */
+    private val isInvited: suspend (roomId: String) -> Boolean = { false },
 ) {
     suspend fun resolve(uri: String): LinkTarget {
         val link = MatrixLink.parse(uri) ?: return LinkTarget.Unknown
@@ -75,12 +82,10 @@ class LinkResolver(
         eventId: String?,
         via: List<String>,
     ): LinkTarget =
-        if (rooms.room(roomId).first() !=
-            null
-        ) {
-            LinkTarget.Room(roomId, eventId)
-        } else {
-            LinkTarget.NotJoined(roomId, via, eventId)
+        when {
+            rooms.room(roomId).first() != null -> LinkTarget.Room(roomId, eventId)
+            isInvited(roomId) -> LinkTarget.Invited(roomId)
+            else -> LinkTarget.NotJoined(roomId, via, eventId)
         }
 
     /** The room an alias points at, and the servers it can be reached through. */

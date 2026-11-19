@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.navigation
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -248,25 +249,7 @@ fun XmuksNavHost(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val openLink: (String) -> Unit = { uri ->
-        scope.launch {
-            when (val target = links.resolve(uri)) {
-                is LinkTarget.User -> {
-                    backStack.add(UserKey(target.userId))
-                }
-
-                is LinkTarget.Room -> {
-                    backStack.openRoom(target.roomId, LINK_SCOPE, target.eventId)
-                }
-
-                is LinkTarget.NotJoined -> {
-                    backStack.add(RoomPreviewKey(target.roomIdOrAlias, target.via, target.eventId))
-                }
-
-                LinkTarget.Unknown -> {
-                    Toast.makeText(context, R.string.link_unknown, Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
+        scope.launch { backStack.open(links.resolve(uri), context) }
     }
     StartupPermissions(isLocalServer)
     val consumed by rememberUpdatedState(onLinkConsume)
@@ -669,6 +652,20 @@ private fun NavBackStack<NavKey>.reopen(
     if (lastOrNull() != key) return
     removeAt(lastIndex)
     add(with)
+}
+
+/** Where a link leads: a person, a room (ours, one we're invited to, or one to preview), or nowhere. */
+private fun NavBackStack<NavKey>.open(
+    target: LinkTarget,
+    context: Context,
+) {
+    when (target) {
+        is LinkTarget.User -> add(UserKey(target.userId))
+        is LinkTarget.Room -> openRoom(target.roomId, LINK_SCOPE, target.eventId)
+        is LinkTarget.Invited -> add(InviteKey(target.roomId))
+        is LinkTarget.NotJoined -> add(RoomPreviewKey(target.roomIdOrAlias, target.via, target.eventId))
+        LinkTarget.Unknown -> Toast.makeText(context, R.string.link_unknown, Toast.LENGTH_SHORT).show()
+    }
 }
 
 /** After leaving a room: its screens go, back to the list it was opened from. */
