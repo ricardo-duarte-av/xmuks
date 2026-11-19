@@ -31,8 +31,9 @@ import pt.aguiarvieira.xmuks.core.data.timeline.Media
 import pt.aguiarvieira.xmuks.core.designsystem.util.Blurhash
 
 /**
- * A link's preview under its message: the site's title and description, and its picture — wide
- * ones across the top, squarer ones as a thumbnail beside the text. Tapping opens the link.
+ * A link's preview under its message: the site's title and description, and its picture. A picture
+ * at least [LARGE_PX] wide goes across the top (portrait ones cropped to [TALLEST]); smaller ones, and
+ * ones of unknown size, sit as a thumbnail beside the text. Tapping opens the link.
  */
 @Composable
 internal fun LinkPreviewCard(
@@ -43,8 +44,9 @@ internal fun LinkPreviewCard(
     modifier: Modifier = Modifier,
 ) {
     val uri = LocalUriHandler.current
-    val wide = preview.image?.takeIf { (it.aspectRatio() ?: 1f) >= WIDE }
-    val thumb = preview.image?.takeIf { wide == null }
+    val ratio = preview.image?.aspectRatio()
+    val large = preview.image?.takeIf { ratio != null && (it.width ?: 0) >= LARGE_PX }
+    val thumb = preview.image?.takeIf { large == null }
     val open = { runCatching { uri.openUri(preview.url) } }
     Column(
         modifier
@@ -53,13 +55,13 @@ internal fun LinkPreviewCard(
             .background(color.copy(alpha = TINT))
             .tapOrHold { open() },
     ) {
-        if (wide != null) {
+        if (large != null && ratio != null) {
             PreviewImage(
-                wide,
+                large,
                 resolver,
                 eventId,
                 { open() },
-                Modifier.fillMaxWidth().aspectRatio(wide.aspectRatio() ?: 1f)
+                Modifier.fillMaxWidth().aspectRatio(ratio.coerceAtLeast(TALLEST))
             )
         }
         Row(Modifier.padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -116,7 +118,11 @@ private fun PreviewImage(
     }
 }
 
-private const val WIDE = 1.2f
+/** Narrowest picture, in pixels, shown across the card rather than as a thumbnail. */
+private const val LARGE_PX = 512
+
+/** Tallest the card's picture gets (4:5); taller ones are cropped to it. */
+private const val TALLEST = 4f / 5f
 private const val TINT = 0.08f
 private const val QUIET = 0.75f
 private val THUMB = 64.dp
