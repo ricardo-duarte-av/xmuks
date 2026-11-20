@@ -3,6 +3,6 @@
     android:accountType="pt.aguiarvieira.xmuks"
     android:allowParallelSyncs="false"
     android:contentAuthority="com.android.contacts"
-    android:isAlwaysSyncable="true"
+    android:isAlwaysSyncable="false"
     android:supportsUploading="false"
     android:userVisible="false" />

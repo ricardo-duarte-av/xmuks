@@ -3,7 +3,9 @@ package pt.aguiarvieira.xmuks.core.data.contacts
 import android.accounts.Account
 import android.accounts.AccountManager
 import android.content.ContentProviderOperation
+import android.content.ContentResolver
 import android.content.Context
+import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds
 import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.RawContacts
@@ -23,6 +25,17 @@ data class ContactPerson(
      */
     val network: String? = null,
 )
+
+/**
+ * Our sync adapter is only there to declare the contact rows (CONTACTS_STRUCTURE): it syncs
+ * nothing, and Android must not start xmuks to run it (periodically, or when Contacts change).
+ */
+private fun neverSynced(account: Account) {
+    runCatching {
+        ContentResolver.setIsSyncable(account, ContactsContract.AUTHORITY, 0)
+        ContentResolver.setSyncAutomatically(account, ContactsContract.AUTHORITY, false)
+    }
+}
 
 /** One of our raw contacts, with what it was last written from (SYNC1: avatar, SYNC2: name). */
 private data class Existing(
@@ -59,6 +72,7 @@ class PhoneContacts(
     ) {
         val account = account(ownUserId)
         AccountManager.get(context).addAccountExplicitly(account, null, null)
+        neverSynced(account)
         // A signed-out account's leftovers go first.
         AccountManager
             .get(context)
@@ -102,6 +116,10 @@ class PhoneContacts(
         }
         ops.chunked(BATCH).forEach { resolver.applyBatch(AUTHORITY, ArrayList(it)) }
     }
+
+    /** Whether [ownUserId]'s contacts account is there (gone: someone removed it, so sync again). */
+    fun hasAccount(ownUserId: String): Boolean =
+        AccountManager.get(context).getAccountsByType(ACCOUNT_TYPE).any { it.name == ownUserId }
 
     /** Removes every xmuks contact (and the account): the setting was turned off, or we logged out. */
     fun clear() {

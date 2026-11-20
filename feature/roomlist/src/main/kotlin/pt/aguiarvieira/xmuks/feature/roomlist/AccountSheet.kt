@@ -126,7 +126,7 @@ class AccountsViewModel
                     if (ids.isEmpty()) {
                         flowOf(emptyMap())
                     } else {
-                        combine(ids.map { id -> accounts.graph(id).preview().map { id to it } }) { it.toMap() }
+                        combine(ids.map { id -> accounts.built(id).preview().map { id to it } }) { it.toMap() }
                     }
                 }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyMap())
 

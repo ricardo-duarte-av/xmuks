@@ -21,7 +21,7 @@ class XmuksApplication :
 
     override fun onCreate() {
         super.onCreate()
-        // The account on screen: its stream, shortcuts, notifications and unsent messages.
+        // The account on screen, once the app is: its stream, shortcuts, notifications and unsent messages.
         accounts.start()
         // Push renewal and catch-up while the app isn't open.
         CatchUpWorker.schedule(this)

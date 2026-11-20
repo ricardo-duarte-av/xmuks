@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.core.graphics.drawable.toBitmap
 import coil3.ImageLoader
 import coil3.asDrawable
@@ -24,6 +25,7 @@ import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
 import java.io.ByteArrayOutputStream
+import java.security.MessageDigest
 
 /**
  * Keeps an account's phone contacts (its DM partners) in step with its DMs, while the setting is on
@@ -40,7 +42,11 @@ class ContactsSync(
     private val scope: CoroutineScope,
     /** Every signed-in account's Matrix user: one account's sync leaves the others' contacts be. */
     private val signedInUsers: suspend () -> Set<String> = { emptySet() },
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
+    /** What was last written, per Matrix user: its [stamp], and when (`<user>@`). */
+    private val written by lazy { context.getSharedPreferences(WRITTEN_PREFS, Context.MODE_PRIVATE) }
+
     @OptIn(FlowPreview::class)
     fun start() {
         scope.launch {
@@ -70,12 +76,21 @@ class ContactsSync(
                         if (on &&
                             me != null
                         ) {
+                            val others = signedInUsers() - me
+                            // Every start of the account sees its DMs anew: nothing to do when
+                            // they're what was last written.
+                            val stamp = stamp(list, others)
+                            if (upToDate(me, stamp)) return@runCatching
                             contacts.sync(
                                 me,
                                 list.map { dm -> ContactPerson(dm.userId, dm.name, dm.avatarUrl, dm.network) },
-                                others = signedInUsers() - me,
+                                others = others,
                                 photo = ::photo,
                             )
+                            written.edit {
+                                putString(me, stamp)
+                                putLong(me + AT, clock())
+                            }
                         } else if (me != null) {
                             // Off for this account: its contacts go, another account's stay.
                             contacts.clear(me)
@@ -87,6 +102,36 @@ class ContactsSync(
                 }
             }
         }
+    }
+
+    /**
+     * What was last written for [me] is still what's wanted ([stamp]), less than a day ago, and its
+     * contacts account is still there. The daily pass takes another look at what may have changed
+     * outside xmuks, and fetches again an avatar that couldn't be fetched (not on every start).
+     */
+    private fun upToDate(
+        me: String,
+        stamp: String,
+    ): Boolean =
+        written.getString(me, null) == stamp &&
+            clock() - written.getLong(me + AT, 0) in 0 until RECHECK_MS &&
+            contacts.hasAccount(me)
+
+    /** A digest of what a sync writes: the people (names, avatars, networks) and whose contacts stay. */
+    private fun stamp(
+        people: List<DmPerson>,
+        others: Set<String>,
+    ): String {
+        val text =
+            buildString {
+                append(STAMP_VERSION).append('\n')
+                people.sortedBy { it.userId }.forEach { append(it).append('\n') }
+                others.sorted().forEach { append(it).append('\n') }
+            }
+        return MessageDigest
+            .getInstance("SHA-256")
+            .digest(text.toByteArray())
+            .joinToString("") { "%02x".format(it) }
     }
 
     private fun allowed() =
@@ -123,6 +168,12 @@ class ContactsSync(
         const val SETTLE_MS = 3_000L
         const val PHOTO_PX = 256
         const val JPEG_QUALITY = 85
+        const val WRITTEN_PREFS = "contacts-written"
+        const val AT = "@"
+        const val RECHECK_MS = 24L * 60 * 60 * 1000
+
+        /** Bumped when what a sync writes changes: every account then syncs once more. */
+        const val STAMP_VERSION = 1
     }
 }
 

@@ -9,6 +9,8 @@
     <!-- Opt-in: DM partners as phone contacts (ContactsSync). Asked for when turned on. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+    <!-- Our contacts account is never synced by Android (PhoneContacts turns it off). Normal permission. -->
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
 
     <application>
         <!-- Media shared to other apps: copies they may read (MediaShares). -->

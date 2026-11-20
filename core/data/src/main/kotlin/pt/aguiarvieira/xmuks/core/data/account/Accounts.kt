@@ -1,5 +1,8 @@
 package pt.aguiarvieira.xmuks.core.data.account
 
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -52,23 +55,37 @@ class Accounts(
 ) {
     private val graphs = ConcurrentHashMap<String, AccountGraph>()
 
+    /** The accounts whose starters have run (once each). */
+    private val started = ConcurrentHashMap.newKeySet<String>()
+
     /** The account on screen; null when none is signed in. */
     val active: StateFlow<String?> = registry.active
 
     fun current(): AccountGraph = graph(registry.active.value ?: registry.nextId())
 
-    /** [id]'s graph, built (and started) the first time it's asked for. */
+    /**
+     * [id]'s graph, built and started (its stream, outbox, shortcuts, contacts…) the first time
+     * it's asked for: for an account that is used, not just looked into ([built]).
+     */
     fun graph(id: String): AccountGraph {
+        val graph = built(id)
+        if (started.add(id)) starters.forEach { it.start(graph) }
+        return graph
+    }
+
+    /**
+     * [id]'s graph, built if need be but not started: enough to read what it holds (its push key,
+     * its user, its rooms). A push or a lookup must not set every account going: each start opens
+     * databases, a Contacts sync, shortcut updates… [graph] starts it when it's actually used.
+     */
+    fun built(id: String): AccountGraph {
         graphs[id]?.let { return it }
-        val built =
-            synchronized(graphs) {
-                graphs[id]?.let { return it }
-                val isActive =
-                    registry.active.map { it == id }.stateIn(scope, SharingStarted.Eagerly, registry.active.value == id)
-                AccountGraph(id, registry.store(id), isActive, app, ::userIds).also { graphs[id] = it }
-            }
-        starters.forEach { it.start(built) }
-        return built
+        return synchronized(graphs) {
+            graphs[id]?.let { return it }
+            val isActive =
+                registry.active.map { it == id }.stateIn(scope, SharingStarted.Eagerly, registry.active.value == id)
+            AccountGraph(id, registry.store(id), isActive, app, ::userIds).also { graphs[id] = it }
+        }
     }
 
     /** Shows [id] (signed in already): its screens take over from the shown account's. */
@@ -91,7 +108,7 @@ class Accounts(
     @OptIn(ExperimentalCoroutinesApi::class)
     fun summaries(): Flow<List<AccountSummary>> =
         registry.ids.flatMapLatest { ids ->
-            if (ids.isEmpty()) flowOf(emptyList()) else combine(ids.map { summary(graph(it)) }) { it.toList() }
+            if (ids.isEmpty()) flowOf(emptyList()) else combine(ids.map { summary(built(it)) }) { it.toList() }
         }
 
     private fun summary(graph: AccountGraph): Flow<AccountSummary> {
@@ -129,16 +146,27 @@ class Accounts(
         val active = registry.active.value ?: return null
 
         suspend fun AccountGraph.isIn() = roomListRepository.room(roomId).first() != null
-        if (graph(active).isIn()) return null
+        if (built(active).isIn()) return null
         return signedIn().firstOrNull { it.id != active && it.isIn() }?.id
     }
 
-    /** Every signed-in account's graph (built if need be), in the order they were added. */
-    fun signedIn(): List<AccountGraph> = registry.ids.value.map(::graph)
+    /** Every signed-in account's graph (built if need be, not started), in the order they were added. */
+    fun signedIn(): List<AccountGraph> = registry.ids.value.map(::built)
 
-    /** Keeps the shown account going: built and started as soon as it's switched to. */
+    /**
+     * Keeps the shown account going once the app is first on screen: built and started then, and
+     * as soon as it's switched to. A process woken in the background (a push, the catch-up worker,
+     * the watch, Contacts) starts no account for it: each does only what it came for. Main thread.
+     */
     fun start() {
-        current()
-        scope.launch { registry.active.collect { current() } }
+        ProcessLifecycleOwner.get().lifecycle.addObserver(
+            object : DefaultLifecycleObserver {
+                override fun onStart(owner: LifecycleOwner) {
+                    owner.lifecycle.removeObserver(this)
+                    current()
+                    scope.launch { registry.active.collect { current() } }
+                }
+            },
+        )
     }
 }
