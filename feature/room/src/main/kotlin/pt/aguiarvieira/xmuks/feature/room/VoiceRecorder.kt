@@ -49,11 +49,18 @@ internal class VoiceRecorder(
 
     /** The finished recording, or null when there was nothing (or it failed). */
     fun stop(): File? {
-        val done = recorder ?: return null
+        val stopped = recorder ?: return null
         recorder = null
-        val ok = runCatching { done.stop() }.isSuccess
-        done.release()
-        return file?.takeIf { ok && it.length() > 0 }.also { if (it == null) file?.delete() }
+        val ok = runCatching { stopped.stop() }.isSuccess
+        stopped.release()
+        val done = file?.takeIf { ok && it.length() > 0 }
+        if (done == null) {
+            file?.delete()
+            return null
+        }
+        // MediaRecorder's Ogg is a frame off (WhatsApp won't play it): the same audio, re-wrapped.
+        runCatching { OggOpus.repack(done.readBytes())?.let(done::writeBytes) }
+        return done
     }
 
     fun cancel() {
