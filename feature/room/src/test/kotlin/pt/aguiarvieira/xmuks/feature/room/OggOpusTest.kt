@@ -52,7 +52,14 @@ class OggOpusTest {
             lacing.write(p.size % 255)
         }
         val b = ByteBuffer.allocate(27 + lacing.size() + packets.sumOf { it.size }).order(ByteOrder.LITTLE_ENDIAN)
-        b.put("OggS".toByteArray()).put(0.toByte()).put(flags.toByte()).putLong(granule).putInt(SERIAL).putInt(sequence).putInt(0)
+        b
+            .put("OggS".toByteArray())
+            .put(0.toByte())
+            .put(flags.toByte())
+            .putLong(granule)
+            .putInt(SERIAL)
+            .putInt(sequence)
+            .putInt(0)
         b.put(lacing.size().toByte()).put(lacing.toByteArray())
         packets.forEach { b.put(it) }
         val bytes = b.array()
