@@ -39,7 +39,9 @@ status=0
 copy=$(mktemp -d)
 trap 'rm -rf "$copy"' EXIT
 sed 's/^max_line_length = .*/max_line_length = off/' .editorconfig > "$copy/.editorconfig"
-mapfile -t tests < <(git ls-files '*/src/test/*.kt')
+# New files too (not yet added: what's about to be committed), but not deleted ones.
+mapfile -t tests < <(git ls-files --cached --others --exclude-standard '*/src/test/*.kt' | sort -u |
+  while read -r f; do [ -f "$f" ] && echo "$f"; done)
 cp --parents "${tests[@]}" "$copy"
 (cd "$copy" && "$ktlint" "${fix[@]}" --relative '**/src/test/**/*.kt') || status=1
 if [ ${#fix[@]} -gt 0 ]; then
