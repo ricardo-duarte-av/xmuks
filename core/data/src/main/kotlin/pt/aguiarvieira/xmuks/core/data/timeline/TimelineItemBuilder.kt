@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
+import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.protocol.Event
 import pt.aguiarvieira.xmuks.core.protocol.Galleries
 import pt.aguiarvieira.xmuks.core.protocol.Receipt
@@ -411,7 +412,15 @@ class TimelineItemBuilder(
         const val PER_MESSAGE_PROFILE_STABLE = "m.per_message_profile"
         val MESSAGE_TYPES = setOf("m.room.message", "m.sticker", "m.room.encrypted") + PollTypes.starts
         val STATE_TYPES =
-            setOf("m.room.member", "m.room.name", "m.room.topic", "m.room.avatar", "m.room.create", "m.room.encryption")
+            setOf(
+                "m.room.member",
+                "m.room.name",
+                "m.room.topic",
+                "m.room.avatar",
+                "m.room.create",
+                "m.room.encryption",
+                SendBlock.TOMBSTONE,
+            )
         val HIDDEN_TYPES = setOf("m.reaction", "m.room.redaction")
     }
 }

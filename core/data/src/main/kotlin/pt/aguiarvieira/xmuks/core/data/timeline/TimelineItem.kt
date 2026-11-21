@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.core.data.timeline
 
+import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import java.time.LocalDate
 
 /** A sender's profile in one room (its `m.room.member` state). */
@@ -196,6 +197,12 @@ sealed interface Change {
     data object RoomCreated : Change
 
     data object EncryptionEnabled : Change
+
+    /** The room was upgraded (`m.room.tombstone`): [to] is where it went, if it says; [message] its why. */
+    data class Replaced(
+        val to: SendBlock.Replaced?,
+        val message: String?,
+    ) : Change
 }
 
 sealed interface MessageContent {

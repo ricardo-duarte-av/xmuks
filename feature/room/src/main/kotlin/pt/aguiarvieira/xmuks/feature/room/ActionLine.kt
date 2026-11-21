@@ -23,14 +23,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.data.timeline.Change
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.Reaction
@@ -186,6 +190,9 @@ internal fun StateChangeRow(
     val profile = item.change as? Change.ProfileChanged
     // A profile change is told with the new name ("Alice changed their name from Ann").
     val actorName = profile?.newName ?: item.actorName
+    // A replaced room: tapping the line (or its link) goes to the new one.
+    val successor = (item.change as? Change.Replaced)?.to
+    val openSuccessor = successor?.let { to -> { actions.openRoom(to.roomId, to.via) } }
     ActionLine(
         avatar = Avatar(actorName, item.actor, item.actorAvatarMxc),
         reactions = item.reactions,
@@ -204,14 +211,20 @@ internal fun StateChangeRow(
             modifier.combinedClickable(
                 interactionSource = null,
                 indication = null,
-                onClick = {},
+                onClick = openSuccessor ?: {},
                 onLongClick = { actions.onMessageMenu(item.asMessage()) },
             ),
         eventId = item.eventId,
     ) { lastLine ->
         val template = changeTemplate(item.change, item.actor)
         val actorColor = senderColor(item.actor)
-        val text = remember(template, actorName, actorColor) { fillTemplate(template, actorName, actorColor) }
+        val linkLabel = stringResource(R.string.change_replaced_open)
+        val linkColor = MaterialTheme.colorScheme.primary
+        val text =
+            remember(template, actorName, actorColor, successor, linkColor, actions) {
+                val filled = fillTemplate(template, actorName, actorColor)
+                if (openSuccessor == null) filled else filled + successorLink(linkLabel, linkColor, openSuccessor)
+            }
         val avatars = profile?.let { profileAvatars(it, actorName, resolver, actions) }.orEmpty()
         Text(
             text,
@@ -251,8 +264,21 @@ private val Change.eventType: String
             Change.RoomAvatar -> "m.room.avatar"
             Change.RoomCreated -> "m.room.create"
             Change.EncryptionEnabled -> "m.room.encryption"
+            is Change.Replaced -> SendBlock.TOMBSTONE
             else -> "m.room.member"
         }
+
+/** " · Go to the new room", as a link. */
+private fun successorLink(
+    label: String,
+    color: Color,
+    onClick: () -> Unit,
+): AnnotatedString =
+    buildAnnotatedString {
+        append(" · ")
+        val style = TextLinkStyles(SpanStyle(color = color, fontWeight = FontWeight.Medium))
+        withLink(LinkAnnotation.Clickable(SUCCESSOR_LINK, style) { onClick() }) { append(label) }
+    }
 
 /** [ACTOR] becomes the coloured name; [OLD_AVATAR]/[NEW_AVATAR] become inline avatar images. */
 private fun fillTemplate(
@@ -309,7 +335,19 @@ private fun changeTemplate(
         Change.RoomAvatar -> stringResource(R.string.change_room_avatar, ACTOR)
         Change.RoomCreated -> stringResource(R.string.change_created, ACTOR)
         Change.EncryptionEnabled -> stringResource(R.string.change_encryption, ACTOR)
+        is Change.Replaced -> replacedTemplate(change)
     }
+
+@Composable
+private fun replacedTemplate(change: Change.Replaced): String {
+    val reason = change.message?.trim()?.takeIf { it.isNotEmpty() }
+    return if (reason == null) {
+        stringResource(R.string.change_replaced, ACTOR)
+    } else {
+        // The reason is the upgrader's text: no stand-in characters of ours from it.
+        stringResource(R.string.change_replaced_reason, ACTOR, reason.filterNot { it in STAND_INS })
+    }
+}
 
 @Composable
 private fun profileTemplate(
@@ -353,6 +391,8 @@ private fun profileTemplate(
 private const val ACTOR = '\u0001'
 private const val OLD_AVATAR = '\u0002'
 private const val NEW_AVATAR = '\u0003'
+private val STAND_INS = setOf(ACTOR, OLD_AVATAR, NEW_AVATAR)
+private const val SUCCESSOR_LINK = "successor"
 private const val OLD_ID = "avatar:old"
 private const val NEW_ID = "avatar:new"
 private const val INLINE_AVATAR = 1.35f

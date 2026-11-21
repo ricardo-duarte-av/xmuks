@@ -37,6 +37,8 @@ data class RoomSummary(
     val call: CallBadge? = null,
     /** The other person, in a DM. */
     val dmUserId: String? = null,
+    /** The room was upgraded (tombstoned): talk has moved on to another room. */
+    val replaced: Boolean = false,
 )
 
 /** What kind of call a room has going on, for its badge. */

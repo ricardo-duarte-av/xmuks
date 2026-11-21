@@ -36,6 +36,7 @@ import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
+import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.data.roominfo.Threshold
 import pt.aguiarvieira.xmuks.core.data.sync.MemberStore
 import pt.aguiarvieira.xmuks.core.database.XmuksDatabase
@@ -271,6 +272,12 @@ class RoomSession(
         combine(state, dao.meta().map { it?.userId }.distinctUntilChanged()) { events, me ->
             val levels = RoomInfo.parse(roomId, events).powerLevels
             me != null && levels.of(me) >= levels.redact
+        }.distinctUntilChanged()
+
+    /** What keeps us from posting here (the room replaced, or the power levels); null when nothing. */
+    val sendBlock: Flow<SendBlock?> =
+        combine(state, dao.meta().map { it?.userId }.distinctUntilChanged()) { events, me ->
+            if (me == null || events.isEmpty()) null else SendBlock.of(roomId, events, me)
         }.distinctUntilChanged()
 
     /**

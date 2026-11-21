@@ -143,6 +143,7 @@ class RoomListRepository(
             isDirect = dmUserId != null,
             dmUserId = dmUserId,
             encrypted = encrypted,
+            replaced = replacementRoom != null,
             // Without the sender's member state, `@alice:example.org` reads better as `alice`.
             previewSender = previewSenderName?.takeIf { it.isNotBlank() } ?: previewSender?.let(::localpart),
             previewFromMe = previewSender != null && previewSender == me,

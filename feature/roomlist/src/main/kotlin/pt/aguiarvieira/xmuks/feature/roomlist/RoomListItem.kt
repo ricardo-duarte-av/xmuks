@@ -117,7 +117,8 @@ fun RoomListItem(
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = room.name,
+                    // A replaced room keeps its place, marked as a grave: talk has moved on.
+                    text = if (room.replaced) "$TOMBSTONE ${room.name}" else room.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = if (unread) FontWeight.Bold else FontWeight.Medium,
                     maxLines = 1,
@@ -253,3 +254,6 @@ object SharedScopes {
 /** The network badge: this share of the avatar, peeking out past its corner. */
 private const val BADGE_FRACTION = 0.42f
 private val BADGE_OFFSET = 3.dp
+
+/** Before a replaced room's name. */
+private const val TOMBSTONE = "\uD83E\uDEA6"

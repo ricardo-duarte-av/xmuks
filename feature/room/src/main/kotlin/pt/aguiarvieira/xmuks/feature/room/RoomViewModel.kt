@@ -45,6 +45,7 @@ import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
+import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.data.rooms.MentionTargets
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
@@ -140,6 +141,9 @@ class RoomViewModel
 
         /** Whether we may delete others' messages here (the room's power levels). */
         val canRedact: StateFlow<Boolean> = session.canRedact.stateIn(viewModelScope, WHILE_VISIBLE, false)
+
+        /** What keeps us from posting here (the room replaced, or our power level); null when nothing. */
+        val sendBlock: StateFlow<SendBlock?> = session.sendBlock.stateIn(viewModelScope, WHILE_VISIBLE, null)
 
         /** The room's call, while there is one. */
         val call: StateFlow<RoomCall?> = roomCalls.of(roomId).stateIn(viewModelScope, WHILE_VISIBLE, null)

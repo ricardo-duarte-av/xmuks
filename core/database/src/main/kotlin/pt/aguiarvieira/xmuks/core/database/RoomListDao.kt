@@ -20,6 +20,8 @@ data class RoomSummaryRow(
     val dmUserId: String?,
     val isSpace: Boolean,
     val encrypted: Boolean,
+    /** The room it was upgraded to, if it has been (tombstoned). */
+    val replacementRoom: String? = null,
     val sortingTs: Long,
     val unreadMessages: Int,
     val unreadNotifications: Int,
@@ -126,7 +128,7 @@ interface RoomListDao {
     /** Every joined non-space room, DMs included, most recent first. */
     @Query(
         """
-        SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.sortingTs,
+        SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.replacementRoom, r.sortingTs,
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
             e.previewText AS previewText, e.previewHtml AS previewHtml,
             e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
@@ -143,7 +145,7 @@ interface RoomListDao {
 
     @Query(
         """
-        SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.sortingTs,
+        SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.replacementRoom, r.sortingTs,
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
             e.previewText AS previewText, e.previewHtml AS previewHtml,
             e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
@@ -169,7 +171,7 @@ interface RoomListDao {
             UNION
             SELECT e.childId FROM space_edges e JOIN tree t ON e.spaceId = t.id
         )
-        SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.sortingTs,
+        SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.replacementRoom, r.sortingTs,
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
             e.previewText AS previewText, e.previewHtml AS previewHtml,
             e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
@@ -226,7 +228,7 @@ interface RoomListDao {
 
     @Query(
         """
-        SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.sortingTs,
+        SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.replacementRoom, r.sortingTs,
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
             e.previewText AS previewText, e.previewHtml AS previewHtml,
             e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,
@@ -243,7 +245,7 @@ interface RoomListDao {
     /** Those of [roomIds] we're in, most recently active first. */
     @Query(
         """
-        SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.sortingTs,
+        SELECT r.roomId, r.name, r.avatar, r.dmUserId, r.isSpace, r.encrypted, r.replacementRoom, r.sortingTs,
             r.unreadMessages, r.unreadNotifications, r.unreadHighlights, r.markedUnread,
             e.previewText AS previewText, e.previewHtml AS previewHtml,
             e.type AS previewType, e.sender AS previewSender, e.timestamp AS previewTs,

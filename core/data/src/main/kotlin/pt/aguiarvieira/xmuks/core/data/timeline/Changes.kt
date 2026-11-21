@@ -1,6 +1,7 @@
 package pt.aguiarvieira.xmuks.core.data.timeline
 
 import kotlinx.serialization.json.JsonObject
+import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.protocol.Event
 
 /** What a replied-to event without text is: the quote says so instead of showing nothing. */
@@ -32,6 +33,7 @@ internal fun roomChange(
         "m.room.avatar" -> Change.RoomAvatar
         "m.room.create" -> Change.RoomCreated
         "m.room.encryption" -> Change.EncryptionEnabled
+        SendBlock.TOMBSTONE -> Change.Replaced(SendBlock.replaced(content, event.sender), content.str("body"))
         else -> null
     }
 

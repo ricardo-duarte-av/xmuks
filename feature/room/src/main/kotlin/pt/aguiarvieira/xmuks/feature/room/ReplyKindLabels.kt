@@ -66,6 +66,15 @@ private fun changeLabel(change: Change): String =
             stringResource(profileLabel(change))
         }
 
+        else -> {
+            roomLabel(change)
+        }
+    }
+
+/** A room setting's change (name, topic, avatar…), as a reply quotes it. */
+@Composable
+private fun roomLabel(change: Change): String =
+    when (change) {
         is Change.RoomName -> {
             change.name?.let { stringResource(R.string.reply_room_name, it) }
                 ?: stringResource(R.string.reply_room_name_removed)
@@ -85,6 +94,14 @@ private fun changeLabel(change: Change): String =
 
         Change.EncryptionEnabled -> {
             stringResource(R.string.reply_encryption)
+        }
+
+        is Change.Replaced -> {
+            stringResource(R.string.reply_replaced)
+        }
+
+        else -> {
+            ""
         }
     }
 

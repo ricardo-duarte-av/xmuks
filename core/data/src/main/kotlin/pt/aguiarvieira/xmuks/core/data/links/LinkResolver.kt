@@ -104,13 +104,19 @@ class LinkResolver(
         /** Whether [uri] is a Matrix link we'd open in the app. */
         fun isMatrixLink(uri: String) = MatrixLink.parse(uri) != null
 
-        /** A link to [roomId] (and [eventId] in it), as notifications and shortcuts hand it to us. */
+        /**
+         * A link to [roomId] (and [eventId] in it), as notifications and shortcuts hand it to us;
+         * [via], servers to join it through if we're not in it.
+         */
         fun roomUri(
             roomId: String,
             eventId: String? = null,
+            via: List<String> = emptyList(),
         ): String {
             fun enc(s: String) = java.net.URLEncoder.encode(s.removePrefix("!").removePrefix("$"), "UTF-8")
-            return "matrix:roomid/${enc(roomId)}" + (eventId?.let { "/e/${enc(it)}" } ?: "")
+            val query = via.joinToString("&") { "via=${java.net.URLEncoder.encode(it, "UTF-8")}" }
+            return "matrix:roomid/${enc(roomId)}" + (eventId?.let { "/e/${enc(it)}" } ?: "") +
+                query.takeIf { it.isNotEmpty() }?.let { "?$it" }.orEmpty()
         }
     }
 }

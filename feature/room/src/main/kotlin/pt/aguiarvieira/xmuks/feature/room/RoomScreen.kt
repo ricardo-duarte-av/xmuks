@@ -83,8 +83,10 @@ import pt.aguiarvieira.xmuks.core.data.calls.RoomCall
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
 import pt.aguiarvieira.xmuks.core.data.emoji.ImagePack
 import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
+import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
+import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.BridgeInfo
 import pt.aguiarvieira.xmuks.core.data.timeline.Limit
@@ -154,6 +156,10 @@ fun RoomRoute(
     val call by viewModel.call.collectAsStateWithLifecycle()
     val canCall by viewModel.canCall.collectAsStateWithLifecycle()
     val canRedact by viewModel.canRedact.collectAsStateWithLifecycle()
+    val sendBlock by viewModel.sendBlock.collectAsStateWithLifecycle()
+    // Kept, so the timeline's actions (keyed on it) aren't rebuilt on every recomposition.
+    val openRoom =
+        remember(onOpenLink) { { id: String, via: List<String> -> onOpenLink(LinkResolver.roomUri(id, via = via)) } }
     val newestEvent by viewModel.newestEvent.collectAsStateWithLifecycle()
     val mentionHints by viewModel.mentions.suggestions.collectAsStateWithLifecycle()
     val emojiHints by viewModel.mentions.emoji.collectAsStateWithLifecycle()
@@ -227,6 +233,7 @@ fun RoomRoute(
             onLoadOlder = viewModel::loadOlder,
             onOpenMedia = onOpenMedia,
             onOpenUser = onOpenUser,
+            onOpenRoom = openRoom,
             onOpenRoomInfo = onOpenRoomInfo,
             onSearch = onSearch,
             onMentions = onMentions,
@@ -347,6 +354,7 @@ fun RoomRoute(
                     network = bridge?.protocol,
                     onLimit = viewModel.limited::show,
                     readOnly = preview,
+                    sendBlock = sendBlock,
                     canRedact = canRedact,
                     stickerButton = prefs.get(Prefs.stickerButton),
                 ),
@@ -418,6 +426,8 @@ class ComposerActions(
     val onLimit: (Limit) -> Unit = {},
     /** A preview: there's no composer, and all that would send is dimmed ([Limit.Preview]). */
     val readOnly: Boolean = false,
+    /** Why we can't post here (the room was replaced, or our power level): a bar stands in for the composer. */
+    val sendBlock: SendBlock? = null,
     /** We may delete others' messages here (the room's power levels). */
     val canRedact: Boolean = false,
     /** Stickers get a button of their own beside the emoji one (xmuks' setting). */
@@ -480,6 +490,8 @@ fun RoomScreen(
     onLeaveContext: () -> Unit,
     composer: ComposerActions,
     modifier: Modifier = Modifier,
+    /** Another room (a tombstone's successor), joined through [via] if we're not in it. */
+    onOpenRoom: (roomId: String, via: List<String>) -> Unit = { _, _ -> },
     onOpenRoomInfo: () -> Unit = {},
     onSearch: () -> Unit = {},
     onMentions: () -> Unit = {},
@@ -531,7 +543,7 @@ fun RoomScreen(
     val showContext by rememberUpdatedState(onShowContext)
     val currentComposer by rememberUpdatedState(composer)
     val actions =
-        remember(onOpenMedia, onOpenUser, player, onSaveMedia, onOpenThread, onCall, call != null) {
+        remember(onOpenMedia, onOpenUser, onOpenRoom, player, onSaveMedia, onOpenThread, onCall, call != null) {
             TimelineActions(
                 onSwipeReply = { currentComposer.replyOrSayWhy(it) },
                 joinCall = onCall,
@@ -540,6 +552,7 @@ fun RoomScreen(
                 openThread = onOpenThread,
                 openMedia = { onOpenMedia(it.inRoom(roomId)) },
                 openUser = onOpenUser,
+                openRoom = onOpenRoom,
                 player = player,
                 onUnsent = { overlays.unsent = it },
                 onMessageMenu = { overlays.menuFor = it },
@@ -648,8 +661,11 @@ fun RoomScreen(
                 widgetsState,
                 instead = { Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars)) }
             ) {
+                val block = composer.sendBlock
                 if (onOpenFully != null) {
                     PreviewBar(onOpenFully)
+                } else if (block != null) {
+                    SendBlockBar(block, onOpenRoom)
                 } else {
                     ComposerArea(overlays, composer, resolver) {
                         ComposerCard(

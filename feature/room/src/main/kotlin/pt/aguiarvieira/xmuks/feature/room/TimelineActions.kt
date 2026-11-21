@@ -54,6 +54,8 @@ class TimelineActions(
     val openMedia: (ViewerMedia) -> Unit,
     /** Someone's profile. */
     val openUser: (userId: String) -> Unit = {},
+    /** Another room (where a replaced one went), joined through [via] if we're not in it. */
+    val openRoom: (roomId: String, via: List<String>) -> Unit = { _, _ -> },
     /** Plays voice messages, audio and videos in their bubbles. */
     val player: InlinePlayer? = null,
     /** Show this event: scroll to it if loaded, else load a window around it. */

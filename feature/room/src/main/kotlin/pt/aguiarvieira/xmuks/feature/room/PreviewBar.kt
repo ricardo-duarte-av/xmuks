@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.room
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.heightIn
@@ -15,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCard
 import pt.aguiarvieira.xmuks.core.designsystem.component.ScreenCards
 
@@ -24,19 +26,71 @@ internal fun PreviewBar(
     onOpenFully: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    ComposerStandIn(
+        stringResource(R.string.preview_banner),
+        modifier,
+        action = stringResource(R.string.preview_open_room) to onOpenFully,
+    )
+}
+
+/**
+ * Where the composer would be, when we can't post: the room was replaced (and a way to the new
+ * one), or our power level is too low to send messages.
+ */
+@Composable
+internal fun SendBlockBar(
+    block: SendBlock,
+    onOpenRoom: (roomId: String, via: List<String>) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    when (block) {
+        is SendBlock.Replaced -> {
+            ComposerStandIn(
+                stringResource(R.string.room_replaced_bar),
+                modifier,
+                action = stringResource(R.string.room_replaced_open) to { onOpenRoom(block.roomId, block.via) },
+            )
+        }
+
+        is SendBlock.NoPermission -> {
+            ComposerStandIn(
+                stringResource(R.string.send_not_allowed),
+                modifier,
+                detail = stringResource(R.string.send_not_allowed_levels, block.needed, block.mine),
+            )
+        }
+    }
+}
+
+/** The composer's card (or bar) with [text] in it, and maybe a detail line and one button. */
+@Composable
+private fun ComposerStandIn(
+    text: String,
+    modifier: Modifier = Modifier,
+    detail: String? = null,
+    action: Pair<String, () -> Unit>? = null,
+) {
     val row =
         @Composable {
             Row(
                 Modifier.heightIn(min = ScreenCards.BarHeight).padding(start = 20.dp, end = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    stringResource(R.string.preview_banner),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                )
-                FilledTonalButton(onClick = onOpenFully) { Text(stringResource(R.string.preview_open_room)) }
+                Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                    Text(
+                        text,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (detail != null) {
+                        Text(
+                            detail,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                action?.let { (label, onClick) -> FilledTonalButton(onClick = onClick) { Text(label) } }
             }
         }
     val insets = modifier.windowInsetsPadding(WindowInsets.navigationBars)
