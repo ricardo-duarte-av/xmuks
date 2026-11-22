@@ -63,7 +63,7 @@ class SendBlockTest {
     }
 
     @Test
-    fun `no power levels: anyone may send`() {
+    fun `without power levels anyone may send`() {
         assertNull(SendBlock.of("!r", state(create), "@me:x"))
     }
 
