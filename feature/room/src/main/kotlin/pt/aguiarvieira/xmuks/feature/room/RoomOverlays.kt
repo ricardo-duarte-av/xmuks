@@ -545,7 +545,7 @@ private fun MessageMenuFor(
             state.deleting = message
             state.menuFor = null
         },
-        quickReactions = quickReactions(composer.emoji.recent, features?.allowedReactions),
+        quickReactions = quickReactions(composer.emoji.recent, composer.features?.allowedReactions),
         onReact = { key ->
             composer.emoji.onReact(message, Picked.Unicode(key))
             state.menuFor = null
