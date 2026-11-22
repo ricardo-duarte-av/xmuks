@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pt.aguiarvieira.xmuks.core.data.emoji.ImagePack
 import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
+import pt.aguiarvieira.xmuks.core.data.roominfo.RoomPermissions
 import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.Reaction
 import pt.aguiarvieira.xmuks.core.data.timeline.ReplyTarget
@@ -44,8 +45,10 @@ class EmojiActions(
     started: SharingStarted,
     /** What the bridged network here allows; null when nothing is limited. */
     private val features: () -> RoomFeatures? = { null },
-    /** A reaction the network won't take, not sent: said in a toast. */
+    /** A reaction the network (or our power level) won't allow, not sent: said in a toast. */
     private val onLimit: (Limit) -> Unit = {},
+    /** What our power level lets us do here. */
+    private val permissions: () -> RoomPermissions = { RoomPermissions.Unknown },
     /** Where a sticker goes: a reply, or into the thread shown. */
     private val replyTo: () -> ReplyTarget? = { null },
     /** A sticker went out: the reply it answered is done with. */
@@ -65,7 +68,7 @@ class EmojiActions(
         picked: Picked,
     ) {
         val existing = message.reactions.firstOrNull { it.key == picked.key }
-        if (existing?.mine != true && refused(picked.key, picked is Picked.Custom)) return
+        if (refused(picked.key, picked is Picked.Custom, takingBack = existing?.mine == true)) return
         val shortcode = (picked as? Picked.Custom)?.image?.shortcode
         val replacing = makingWay(message, picked.key, existing)
         scope.launch { session.emoji.toggleReaction(message.eventId, picked.key, existing, shortcode, replacing) }
@@ -77,18 +80,26 @@ class EmojiActions(
         key: String,
     ) {
         val existing = message.reactions.firstOrNull { it.key == key }
-        // Taking ours back is always fine; joining in is a new reaction.
-        if (existing?.mine != true && refused(key, key.startsWith("mxc://"))) return
+        if (refused(key, key.startsWith("mxc://"), takingBack = existing?.mine == true)) return
         val replacing = makingWay(message, key, existing)
         scope.launch { session.emoji.toggleReaction(message.eventId, key, existing, replacing = replacing) }
     }
 
-    /** Whether the network here won't take [key] as a reaction: if so, it's said, not sent. */
+    /**
+     * Whether [key] can't go as a reaction (or, [takingBack] ours, be deleted): if so, it's said,
+     * not sent. Taking back is a redaction, which the network always takes; reacting needs both.
+     */
     private fun refused(
         key: String,
         custom: Boolean,
+        takingBack: Boolean,
     ): Boolean {
-        val limit = features()?.reactionBlock(key, custom) ?: return false
+        val limit =
+            if (takingBack) {
+                permissions().deleteOwn
+            } else {
+                permissions().reaction ?: features()?.reactionBlock(key, custom)
+            } ?: return false
         onLimit(limit)
         return true
     }

@@ -49,6 +49,10 @@ internal fun limitText(
             Limit.Preview -> {
                 context.getString(R.string.preview_read_only)
             }
+
+            is Limit.NoPermission -> {
+                context.getString(R.string.limit_no_permission, limit.needed, limit.mine)
+            }
         }
     return text.replaceFirstChar { it.uppercase() }
 }

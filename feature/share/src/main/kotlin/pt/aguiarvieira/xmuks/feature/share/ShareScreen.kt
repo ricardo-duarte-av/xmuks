@@ -1,5 +1,6 @@
 package pt.aguiarvieira.xmuks.feature.share
 
+import android.content.Context
 import android.text.format.Formatter
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -76,6 +77,7 @@ import pt.aguiarvieira.xmuks.core.data.account.AccountSummary
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.media.MediaKind
 import pt.aguiarvieira.xmuks.core.data.media.SizeOption
+import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.designsystem.component.NetworkBadge
 import pt.aguiarvieira.xmuks.core.designsystem.component.RoomAvatar
@@ -130,6 +132,12 @@ fun ShareRoute(
                 if (!forwarding) {
                     forwarding = true
                     scope.launch {
+                        val block = viewModel.blockIn(roomId)
+                        if (block != null) {
+                            Toast.makeText(context, blockText(context, block), Toast.LENGTH_LONG).show()
+                            forwarding = false
+                            return@launch
+                        }
                         val sent = viewModel.forwardMessage(roomId)
                         if (sent == null) {
                             Toast.makeText(context, R.string.forward_failed, Toast.LENGTH_LONG).show()
@@ -146,7 +154,16 @@ fun ShareRoute(
         RoomPicker(
             rooms,
             { viewModel.query.value = it },
-            { viewModel.choose(it) },
+            { roomId ->
+                scope.launch {
+                    val block = viewModel.blockIn(roomId)
+                    if (block == null) {
+                        viewModel.choose(roomId)
+                    } else {
+                        Toast.makeText(context, blockText(context, block), Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
             { onDone(null) },
             modifier,
             title = stringResource(if (viewModel.forwarding) R.string.forward_to else R.string.share_to),
@@ -644,3 +661,13 @@ private val PICKER_AVATAR = 40.dp
 private val BADGE_OFFSET = 2.dp
 private const val BADGE_FRACTION = 0.42f
 private const val CAPTION_LINES = 5
+
+/** Why a room picked to share to can't take it. */
+private fun blockText(
+    context: Context,
+    block: SendBlock,
+): String =
+    when (block) {
+        is SendBlock.Replaced -> context.getString(R.string.share_room_replaced)
+        is SendBlock.NoPermission -> context.getString(R.string.share_no_permission, block.needed, block.mine)
+    }

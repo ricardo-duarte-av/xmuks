@@ -12,6 +12,9 @@
     <string name="share_change_room">Change</string>
     <string name="share_remove">Remove</string>
     <string name="share_preparing">Getting the files ready…</string>
+    <!-- A room picked to share to can't take it: it was replaced, or our power level is too low. -->
+    <string name="share_room_replaced">That room has been replaced by a new one</string>
+    <string name="share_no_permission">You can\'t send messages there: it needs power level %1$d, yours is %2$d</string>
     <string name="forward_failed">Couldn\'t forward the message</string>
     <string name="size_original">Original</string>
     <string name="size_large">Large</string>

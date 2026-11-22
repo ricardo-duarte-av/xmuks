@@ -92,11 +92,11 @@ internal fun SwipeToReply(
 }
 
 /**
- * A swipe's reply: the composer answers [message], unless the bridged network takes no replies or
- * this is a preview (then it says so).
+ * A swipe's reply: the composer answers [message], unless the bridged network takes no replies,
+ * our power level can't send messages, or this is a preview (then it says so).
  */
 internal fun ComposerActions.replyOrSayWhy(message: TimelineItem.Message) {
-    val block = if (readOnly) Limit.Preview else features?.replyBlock()
+    val block = if (readOnly) Limit.Preview else permissions.message ?: features?.replyBlock()
     if (block != null) onLimit(block) else onReply(message)
 }
 

@@ -200,7 +200,12 @@ private fun PickerContent(
             resolver = resolver,
             onPick = { picked ->
                 if (request.mode == PickerMode.Sticker) {
-                    (picked as? Picked.Custom)?.let { composer.emoji.onSticker(it.image) }
+                    val limit = composer.stickerLimit
+                    if (limit != null) {
+                        composer.onLimit(limit)
+                    } else {
+                        (picked as? Picked.Custom)?.let { composer.emoji.onSticker(it.image) }
+                    }
                     onClose()
                 } else {
                     // Stays open for more.

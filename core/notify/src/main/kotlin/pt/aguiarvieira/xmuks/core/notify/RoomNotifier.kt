@@ -116,6 +116,22 @@ class RoomNotifier(
         post(roomId, builder.build())
     }
 
+    /**
+     * A reply from the notification that couldn't go (the room's power levels, or it was
+     * replaced): the notification posted again as it was, which ends the reply's spinner.
+     */
+    fun replyRefused(roomId: String) {
+        val current = active(roomId) ?: return
+        post(
+            roomId,
+            NotificationCompat
+                .Builder(context, current)
+                .setOnlyAlertOnce(true)
+                .setSilent(true)
+                .build(),
+        )
+    }
+
     private suspend fun showRoom(
         roomId: String,
         messages: List<PushMessage>,

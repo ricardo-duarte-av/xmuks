@@ -270,6 +270,8 @@
     <string name="limit_poll_unsupported">%1$s doesn\'t support polls</string>
     <string name="limit_location_unsupported">%1$s doesn\'t support locations</string>
     <string name="limit_reaction_not_allowed">%1$s doesn\'t allow this reaction</string>
+    <!-- The room's power levels hold an action back. %1$d is the level it needs, %2$d ours. -->
+    <string name="limit_no_permission">Not allowed here: it needs power level %1$d, yours is %2$d</string>
     <string name="preview_read_only">Open the room to do this: a preview sends nothing</string>
     <string name="preview_banner">Preview · not marked as read</string>
     <string name="preview_open_room">Open room</string>

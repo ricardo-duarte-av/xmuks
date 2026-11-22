@@ -3,16 +3,19 @@ package pt.aguiarvieira.xmuks.core.push
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.widget.Toast
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import pt.aguiarvieira.xmuks.core.account.AccountRegistry
 import pt.aguiarvieira.xmuks.core.data.account.AccountGraph
 import pt.aguiarvieira.xmuks.core.data.account.Accounts
+import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.notify.Actions
 import pt.aguiarvieira.xmuks.core.notify.RoomKeys
 import javax.inject.Inject
@@ -44,7 +47,7 @@ class ActionReceiver : BroadcastReceiver() {
                 val graph = accounts.graph(account)
                 when (intent.action) {
                     Actions.REPLY -> {
-                        Actions.replyText(intent)?.let { graph.reply(roomId, it) }
+                        Actions.replyText(intent)?.let { graph.reply(context, roomId, it) }
                     }
 
                     Actions.MARK_READ -> {
@@ -66,11 +69,35 @@ class ActionReceiver : BroadcastReceiver() {
     }
 
     private suspend fun AccountGraph.reply(
+        context: Context,
         roomId: String,
         text: String,
     ) {
+        val session = roomSessions.open(roomId)
+        // As in the room: where we can't post, it isn't sent, and that's said.
+        session.loadState()
+        val block = session.sendBlock.first()
+        if (block != null) {
+            notifiers.of(this).replyRefused(roomId)
+            val why =
+                when (block) {
+                    is SendBlock.Replaced -> {
+                        context.getString(R.string.reply_room_replaced)
+                    }
+
+                    is SendBlock.NoPermission -> {
+                        context.getString(
+                            R.string.reply_no_permission,
+                            block.needed,
+                            block.mine
+                        )
+                    }
+                }
+            withContext(Dispatchers.Main) { Toast.makeText(context, why, Toast.LENGTH_LONG).show() }
+            return
+        }
         notifiers.of(this).replied(roomId, text)
-        roomSessions.open(roomId).writer.send(text)
+        session.writer.send(text)
         // Give it the chance to go out before the process may be let go (the outbox retries anyway).
         withTimeoutOrNull(SEND_WAIT_MS) { outbox.observe(roomId).first { it.isEmpty() } }
     }

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -36,6 +37,7 @@ import pt.aguiarvieira.xmuks.core.data.media.MediaShares
 import pt.aguiarvieira.xmuks.core.data.media.PickedFile
 import pt.aguiarvieira.xmuks.core.data.media.SizeOption
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
+import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.MediaForwarder
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomSession
@@ -281,6 +283,16 @@ class ShareViewModel
                     _sizes.update { list -> list.map { if (it.size == size) it.copy(bytes = out.length()) else it } }
                 }
             }
+        }
+
+        /**
+         * What keeps us (as the account sharing) from posting in [roomId], if anything: its
+         * state is loaded to see. The room list stays whole; picking such a room says why.
+         */
+        suspend fun blockIn(roomId: String): SendBlock? {
+            val session = graph.roomSessions.open(roomId)
+            session.loadState()
+            return session.sendBlock.first()
         }
 
         /** Forwards the whole message to [roomId]; the room, to open, or null when it couldn't be had. */

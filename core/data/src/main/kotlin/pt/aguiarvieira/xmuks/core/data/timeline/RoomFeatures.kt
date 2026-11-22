@@ -106,6 +106,12 @@ sealed interface Limit {
 
     /** Not the network: the room is only being previewed, and nothing is sent from a preview. */
     data object Preview : Limit
+
+    /** Not the network: the room's power levels. It [needed] a level, and ours is [mine]. */
+    data class NoPermission(
+        val needed: Long,
+        val mine: Long,
+    ) : Limit
 }
 
 /** What a network would make of a file about to be sent. */

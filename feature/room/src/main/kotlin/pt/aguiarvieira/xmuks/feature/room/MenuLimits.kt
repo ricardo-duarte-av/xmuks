@@ -18,8 +18,17 @@ internal class MenuLimits(
     val moreReactions: Limit? = null,
     /** Pinning, ending a poll, deleting: whatever the network. */
     val write: Limit? = null,
+    /** Our power level's say on pinning, ending a poll and deleting this message. */
+    val pin: Limit? = null,
+    val endPoll: Limit? = null,
+    val remove: Limit? = null,
     val onLimit: (Limit) -> Unit = {},
 ) {
+    /** What holds back pinning, ending the poll, deleting: a preview's [write], else our power level. */
+    val pinning: Limit? get() = write ?: pin
+    val ending: Limit? get() = write ?: endPoll
+    val deleting: Limit? get() = write ?: remove
+
     companion object {
         /** A preview's: every item that would send is dimmed, and says so. */
         fun preview(onLimit: (Limit) -> Unit): MenuLimits =

@@ -86,11 +86,13 @@ import pt.aguiarvieira.xmuks.core.data.emoji.PackImage
 import pt.aguiarvieira.xmuks.core.data.links.LinkResolver
 import pt.aguiarvieira.xmuks.core.data.media.ImageSize
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
+import pt.aguiarvieira.xmuks.core.data.roominfo.RoomPermissions
 import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomSummary
 import pt.aguiarvieira.xmuks.core.data.timeline.BridgeInfo
 import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
+import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomFeatures
 import pt.aguiarvieira.xmuks.core.data.timeline.RoomWidget
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
@@ -155,7 +157,7 @@ fun RoomRoute(
     val limited by viewModel.limited.value.collectAsStateWithLifecycle()
     val call by viewModel.call.collectAsStateWithLifecycle()
     val canCall by viewModel.canCall.collectAsStateWithLifecycle()
-    val canRedact by viewModel.canRedact.collectAsStateWithLifecycle()
+    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val sendBlock by viewModel.sendBlock.collectAsStateWithLifecycle()
     // Kept, so the timeline's actions (keyed on it) aren't rebuilt on every recomposition.
     val openRoom =
@@ -355,7 +357,7 @@ fun RoomRoute(
                     onLimit = viewModel.limited::show,
                     readOnly = preview,
                     sendBlock = sendBlock,
-                    canRedact = canRedact,
+                    permissions = permissions,
                     stickerButton = prefs.get(Prefs.stickerButton),
                 ),
             onOpenFully = onOpenFully.takeIf { preview },
@@ -428,15 +430,43 @@ class ComposerActions(
     val readOnly: Boolean = false,
     /** Why we can't post here (the room was replaced, or our power level): a bar stands in for the composer. */
     val sendBlock: SendBlock? = null,
-    /** We may delete others' messages here (the room's power levels). */
-    val canRedact: Boolean = false,
+    /** What our power level lets us do here: what it doesn't stays, dimmed, and says why. */
+    val permissions: RoomPermissions = RoomPermissions.Unknown,
     /** Stickers get a button of their own beside the emoji one (xmuks' setting). */
     val stickerButton: Boolean = false,
 ) {
     /** [action], unless this is a preview: then it says why it can't. */
-    fun <A, B> unlessReadOnly(action: (A, B) -> Unit): (A, B) -> Unit {
-        if (!readOnly) return action
-        return { _, _ -> onLimit(Limit.Preview) }
+    fun <A, B> unlessReadOnly(action: (A, B) -> Unit): (A, B) -> Unit = unless({ null }, action)
+
+    /** [action], unless this is a preview or [limit] holds it back for its first argument: then it says why. */
+    fun <A, B> unless(
+        limit: (A) -> Limit?,
+        action: (A, B) -> Unit,
+    ): (A, B) -> Unit =
+        { a, b ->
+            val why = if (readOnly) Limit.Preview else limit(a)
+            if (why != null) onLimit(why) else action(a, b)
+        }
+
+    /** Why a sticker can't go here (a preview, or our power level), if it can't. */
+    val stickerLimit: Limit? get() = if (readOnly) Limit.Preview else permissions.sticker
+
+    /** Opens the stickers ([open]), unless they can't go here: then it says why. */
+    fun stickersOrSayWhy(open: () -> Unit) {
+        val limit = stickerLimit
+        if (limit != null) onLimit(limit) else open()
+    }
+
+    /** Votes [picks] in [message]'s poll, unless this is a preview or our power level can't: then it says why. */
+    fun voteOrSayWhy(
+        message: TimelineItem.Message,
+        picks: List<String>,
+    ) {
+        val poll = (message.content as? MessageContent.Poll)?.poll
+        unless(
+            { _: TimelineItem.Message -> poll?.let { permissions.pollVote(it.stable) } },
+            polls.onVote
+        )(message, picks)
     }
 }
 
@@ -558,7 +588,8 @@ fun RoomScreen(
                 onMessageMenu = { overlays.menuFor = it },
                 onReaction = composer.unlessReadOnly(composer.emoji.onToggle),
                 showReactions = composer.onShowReactions,
-                onVote = composer.unlessReadOnly(composer.polls.onVote),
+                // Read at the tap: the power levels can change while the room is open.
+                onVote = { message, picks -> currentComposer.voteOrSayWhy(message, picks) },
                 jumpTo = { eventId ->
                     val index = shown?.indexOfEvent(eventId) ?: -1
                     if (index >= 0) {
@@ -679,7 +710,10 @@ fun RoomScreen(
                             commands = composer.commands,
                             onEmoji = { openPanel(overlays, PickerMode.Emoji, keyboard, focus) },
                             stickerButton = composer.stickerButton,
-                            onSticker = { openPanel(overlays, PickerMode.Sticker, keyboard, focus) },
+                            stickerLimit = composer.stickerLimit,
+                            onSticker = {
+                                composer.stickersOrSayWhy { openPanel(overlays, PickerMode.Sticker, keyboard, focus) }
+                            },
                             onAttach = { overlays.attaching = true },
                             onFocus = overlays::keyboardComing,
                             personas = composer.personas,

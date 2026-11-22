@@ -36,6 +36,7 @@ import pt.aguiarvieira.xmuks.core.data.prefs.PrefLayers
 import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.roominfo.RoomInfo
+import pt.aguiarvieira.xmuks.core.data.roominfo.RoomPermissions
 import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.data.roominfo.Threshold
 import pt.aguiarvieira.xmuks.core.data.sync.MemberStore
@@ -267,17 +268,16 @@ class RoomSession(
             me == null || events.isEmpty() || RoomInfo.parse(roomId, events).powerLevels.canCall(me)
         }.distinctUntilChanged()
 
-    /** Whether we may delete others' events here (the room's power levels). */
-    val canRedact: Flow<Boolean> =
+    /** What our power level lets us do here, action by action (all of it until the state is in). */
+    val permissions: Flow<RoomPermissions> =
         combine(state, dao.meta().map { it?.userId }.distinctUntilChanged()) { events, me ->
-            val levels = RoomInfo.parse(roomId, events).powerLevels
-            me != null && levels.of(me) >= levels.redact
+            RoomPermissions.of(roomId, events, me)
         }.distinctUntilChanged()
 
     /** What keeps us from posting here (the room replaced, or the power levels); null when nothing. */
     val sendBlock: Flow<SendBlock?> =
-        combine(state, dao.meta().map { it?.userId }.distinctUntilChanged()) { events, me ->
-            if (me == null || events.isEmpty()) null else SendBlock.of(roomId, events, me)
+        combine(state, permissions) { events, permissions ->
+            SendBlock.replaced(events) ?: SendBlock.of(permissions)
         }.distinctUntilChanged()
 
     /**

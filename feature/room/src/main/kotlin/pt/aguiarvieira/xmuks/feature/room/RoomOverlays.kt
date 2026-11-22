@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import pt.aguiarvieira.xmuks.core.data.roominfo.RoomPermissions
 import pt.aguiarvieira.xmuks.core.data.timeline.Action
 import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.Media
@@ -200,11 +201,11 @@ private fun quickReactions(
     return ordered.distinct().take(QUICK_REACTIONS)
 }
 
-/** Why the bridged network won't take [picked] as a reaction, if it won't. */
+/** Why [picked] can't go as a reaction (our power level, or the bridged network), if it can't. */
 private fun reactionLimit(
     composer: ComposerActions,
     picked: Picked,
-): Limit? = composer.features?.reactionBlock(picked.key, picked is Picked.Custom)
+): Limit? = composer.permissions.reaction ?: composer.features?.reactionBlock(picked.key, picked is Picked.Custom)
 
 /**
  * The message box, with the composer's emoji/sticker panel under it when open. Under the box is
@@ -323,7 +324,7 @@ private fun ComposerOverlays(
     if (state.attaching) {
         AttachSheet(
             available = composer.attachments,
-            limitOf = { attachmentLimit(composer.features, it) },
+            limitOf = { attachmentLimit(composer.features, composer.permissions, it) },
             onLimit = composer.onLimit,
             onPick = {
                 when (it) {
@@ -388,16 +389,24 @@ private fun DeleteFor(
     )
 }
 
-/** Why the bridged network won't take [attachment], if it won't. */
+/** Why [attachment] can't go here (our power level, or the bridged network), if it can't. */
 private fun attachmentLimit(
+    features: RoomFeatures?,
+    permissions: RoomPermissions,
+    attachment: Attachment,
+): Limit? =
+    if (attachment == Attachment.Poll) {
+        permissions.pollStart ?: features?.pollBlock()
+    } else {
+        permissions.message ?: networkLimit(features, attachment)
+    }
+
+/** Why the bridged network won't take [attachment], if it won't. */
+private fun networkLimit(
     features: RoomFeatures?,
     attachment: Attachment,
 ): Limit? =
     when (attachment) {
-        Attachment.Poll -> {
-            features?.pollBlock()
-        }
-
         Attachment.Location -> {
             features?.locationBlock()
         }
@@ -414,6 +423,35 @@ private fun attachmentLimit(
         }
     }
 
+/**
+ * What holds back each of the menu's items for [message]: a preview everything that sends; else
+ * our power level first (it holds back on any network), then what the network won't do.
+ */
+private fun menuLimits(
+    message: TimelineItem.Message,
+    composer: ComposerActions,
+    onLimit: (Limit) -> Unit,
+): MenuLimits {
+    if (composer.readOnly) return MenuLimits.preview(onLimit)
+    val features = composer.features
+    val permissions = composer.permissions
+    val now = System.currentTimeMillis()
+    val send = permissions.message
+    val react = permissions.reaction
+    return MenuLimits(
+        edit = send ?: features?.editBlock(message.timestamp, now),
+        delete = features?.deleteBlock(message.timestamp, now),
+        reply = send ?: features?.replyBlock(),
+        thread = send ?: features?.threadBlock(),
+        reaction = { key -> react ?: features?.reactionBlock(key, custom = false) },
+        moreReactions = react ?: features?.takeUnless { it.reaction.works }?.let { Limit.Unsupported(Action.React) },
+        pin = permissions.pin,
+        endPoll = (message.content as? MessageContent.Poll)?.let { permissions.pollEnd(it.poll.stable) },
+        remove = if (message.fromMe) permissions.deleteOwn else permissions.deleteOthers,
+        onLimit = onLimit,
+    )
+}
+
 /** The long-press menu for [message], and what each of its items does. */
 @Composable
 private fun MessageMenuFor(
@@ -426,29 +464,15 @@ private fun MessageMenuFor(
     onForward: ((String) -> Unit)?,
     onShare: ((TimelineItem.Message) -> Unit)?,
 ) {
-    val features = composer.features
-    val now = System.currentTimeMillis()
     val onLimit = { limit: Limit ->
         state.menuFor = null
         composer.onLimit(limit)
     }
     MessageMenu(
         message,
-        limits =
-            if (composer.readOnly) {
-                MenuLimits.preview(onLimit)
-            } else {
-                MenuLimits(
-                    edit = features?.editBlock(message.timestamp, now),
-                    delete = features?.deleteBlock(message.timestamp, now),
-                    reply = features?.replyBlock(),
-                    thread = features?.threadBlock(),
-                    reaction = { key -> features?.reactionBlock(key, custom = false) },
-                    moreReactions = features?.takeUnless { it.reaction.works }?.let { Limit.Unsupported(Action.React) },
-                    onLimit = onLimit,
-                )
-            },
-        pinned = if (pins.pins.canPin) message.eventId in pins.pins.eventIds else null,
+        limits = menuLimits(message, composer, onLimit),
+        // Offered to all, dimmed for whoever may not ([MenuLimits.pin]).
+        pinned = message.eventId in pins.pins.eventIds,
         onPin = {
             pins.onToggle(message.eventId)
             state.menuFor = null
@@ -530,7 +554,7 @@ private fun MessageMenuFor(
             state.picker = PickerRequest(PickerMode.Emoji, reactTo = message)
             state.menuFor = null
         },
-        canDeleteOthers = composer.canRedact,
+        canDeleteOthers = composer.permissions.deleteOthers == null,
         onDismiss = { state.menuFor = null },
     )
 }

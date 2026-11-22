@@ -22,23 +22,15 @@ sealed interface SendBlock {
     companion object {
         const val TOMBSTONE = "m.room.tombstone"
 
-        /**
-         * What keeps [me] from posting in the room with [state]; null when nothing does. In an
-         * encrypted room what goes out is `m.room.encrypted`, so that's the type the server checks.
-         */
+        /** What keeps [me] from posting in the room with [state]; null when nothing does. */
         fun of(
             roomId: String,
             state: List<Event>,
             me: String,
-        ): SendBlock? {
-            replaced(state)?.let { return it }
-            val info = RoomInfo.parse(roomId, state)
-            val levels = info.powerLevels
-            val type = if (info.encrypted) "m.room.encrypted" else "m.room.message"
-            val needed = levels.forEvent(type)
-            val mine = levels.of(me)
-            return if (mine < needed) NoPermission(needed, mine) else null
-        }
+        ): SendBlock? = replaced(state) ?: of(RoomPermissions.of(roomId, state, me))
+
+        /** What keeps us from posting messages, by [permissions]; null when nothing does. */
+        fun of(permissions: RoomPermissions): SendBlock? = permissions.message?.let { NoPermission(it.needed, it.mine) }
 
         /** The room's tombstone, if it has one that names its successor. */
         fun replaced(state: List<Event>): Replaced? =

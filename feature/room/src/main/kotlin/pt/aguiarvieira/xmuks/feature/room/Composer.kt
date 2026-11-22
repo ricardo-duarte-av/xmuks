@@ -42,6 +42,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pt.aguiarvieira.xmuks.core.data.commands.BotCommand
+import pt.aguiarvieira.xmuks.core.data.timeline.Limit
 import pt.aguiarvieira.xmuks.core.data.timeline.MessageContent
 import pt.aguiarvieira.xmuks.core.data.timeline.SendState
 import pt.aguiarvieira.xmuks.core.data.timeline.TimelineItem
@@ -67,6 +68,8 @@ internal fun ComposerCard(
     stickerButton: Boolean = false,
     /** Opens the picker on its stickers, from that button. */
     onSticker: () -> Unit = {},
+    /** Why stickers can't go here, if they can't: the button stays, dimmed. */
+    stickerLimit: Limit? = null,
     onAttach: () -> Unit = {},
     /** The message box got focus (a tap into it): the keyboard is coming back. */
     onFocus: () -> Unit = {},
@@ -119,7 +122,7 @@ internal fun ComposerCard(
                         Icon(painterResource(R.drawable.ic_mood), contentDescription = stringResource(R.string.emoji))
                     }
                     if (stickerButton) {
-                        IconButton(onClick = onSticker) {
+                        IconButton(onClick = onSticker, modifier = Modifier.limited(stickerLimit)) {
                             Icon(
                                 painterResource(R.drawable.ic_sticker),
                                 contentDescription = stringResource(R.string.sticker_button),

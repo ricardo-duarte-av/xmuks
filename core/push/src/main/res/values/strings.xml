@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="account_shortcut_signed_out">This account is signed out</string>
+    <!-- A reply from a notification that wasn't sent. %1$d is the power level it needs, %2$d ours. -->
+    <string name="reply_room_replaced">Not sent: this room has been replaced by a new one</string>
+    <string name="reply_no_permission">Not sent: messages here need power level %1$d, yours is %2$d</string>
 </resources>

@@ -45,6 +45,7 @@ import pt.aguiarvieira.xmuks.core.data.prefs.PreferenceStore
 import pt.aguiarvieira.xmuks.core.data.prefs.Prefs
 import pt.aguiarvieira.xmuks.core.data.profile.ProfileRepository
 import pt.aguiarvieira.xmuks.core.data.push.OpenRoom
+import pt.aguiarvieira.xmuks.core.data.roominfo.RoomPermissions
 import pt.aguiarvieira.xmuks.core.data.roominfo.SendBlock
 import pt.aguiarvieira.xmuks.core.data.rooms.MentionTargets
 import pt.aguiarvieira.xmuks.core.data.rooms.RoomListRepository
@@ -139,8 +140,9 @@ class RoomViewModel
         /** The room's widgets (web pages it offers), by name. */
         val widgets: StateFlow<List<RoomWidget>> = session.widgets.stateIn(viewModelScope, WHILE_VISIBLE, emptyList())
 
-        /** Whether we may delete others' messages here (the room's power levels). */
-        val canRedact: StateFlow<Boolean> = session.canRedact.stateIn(viewModelScope, WHILE_VISIBLE, false)
+        /** What our power level lets us do here, action by action. */
+        val permissions: StateFlow<RoomPermissions> =
+            session.permissions.stateIn(viewModelScope, WHILE_VISIBLE, RoomPermissions.Unknown)
 
         /** What keeps us from posting here (the room replaced, or our power level); null when nothing. */
         val sendBlock: StateFlow<SendBlock?> = session.sendBlock.stateIn(viewModelScope, WHILE_VISIBLE, null)
@@ -283,6 +285,7 @@ class RoomViewModel
                 WHILE_VISIBLE,
                 { features.value },
                 limited::show,
+                permissions = { permissions.value },
                 replyTo = { target.reply() },
                 onSent = { if (modes.mode.value is ComposeMode.Reply) modes.cancel() },
             )
