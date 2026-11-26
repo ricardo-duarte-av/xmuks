@@ -1,5 +1,7 @@
 package pt.aguiarvieira.xmuks.core.push
 
+import android.os.SystemClock
+import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
@@ -16,6 +18,8 @@ import pt.aguiarvieira.xmuks.core.notify.PushCodec
 import pt.aguiarvieira.xmuks.core.notify.PushMessage
 import pt.aguiarvieira.xmuks.core.notify.PushPayload
 import pt.aguiarvieira.xmuks.core.protocol.rtc.RtcSignals
+import java.io.File
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 /**
@@ -43,21 +47,68 @@ class XmuksMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         val sealed = message.data[PAYLOAD] ?: return
+        val started = SystemClock.elapsedRealtime()
         // FCM gives this call its own thread and a few seconds: done in place, then it may let us go.
-        runBlocking {
-            val (graph, opened) = open(sealed) ?: return@runBlocking
-            // A ring rings (full screen, ringtone) instead of showing as a message.
-            val (rings, messages) = opened.messages.partition { it.rtc?.ring == true }
-            rings.forEach { calls.incoming(graph).ring(it.toIncomingCall()) }
-            val payload = opened.copy(messages = messages)
-            // A room is on screen only in the account shown.
-            val onScreen =
-                graph.openRoom.roomId.value
-                    .takeIf { graph.isActive.value }
-            // Nothing else: the push is the whole message. Opening the room (or the app) catches
-            // it up then, so a push costs only decrypting and showing it.
-            notifiers.of(graph).show(payload, onScreen)
-        }
+        val line =
+            runBlocking {
+                val (graph, opened) = open(sealed) ?: return@runBlocking "undecryptable"
+                // A ring rings (full screen, ringtone) instead of showing as a message.
+                val (rings, messages) = opened.messages.partition { it.rtc?.ring == true }
+                rings.forEach { calls.incoming(graph).ring(it.toIncomingCall()) }
+                val payload = opened.copy(messages = messages)
+                // A room is on screen only in the account shown.
+                val onScreen =
+                    graph.openRoom.roomId.value
+                        .takeIf { graph.isActive.value }
+                // Nothing else: the push is the whole message. Opening the room (or the app) catches
+                // it up then, so a push costs only decrypting and showing it.
+                val shown = notifiers.of(graph).show(payload, onScreen)
+                describe(graph.id, opened, rings.size, shown)
+            }
+        // What pushes cost and what they bring (the battery investigation): one line each, in
+        // logcat and in a file adb can read (Android/data/…/files), since logcat forgets in an hour.
+        val full = "$line bytes=${sealed.length} ms=${SystemClock.elapsedRealtime() - started}"
+        Log.i(TAG, full)
+        record(full)
+    }
+
+    /** Appends [line] to the push log, starting it over past [LOG_MAX_BYTES]. */
+    private fun record(line: String) {
+        runCatching {
+            val file = File(getExternalFilesDir(null) ?: return, LOG_FILE)
+            synchronized(LOG_LOCK) {
+                if (file.length() > LOG_MAX_BYTES) file.delete()
+                file.appendText("${LocalDateTime.now()} $line\n")
+            }
+        }.onFailure { Log.w(TAG, "Couldn't write the push log", it) }
+    }
+
+    /** A push in one line: whose, what it carried, and how much of it was shown. */
+    private fun describe(
+        account: String,
+        push: PushPayload,
+        rings: Int,
+        shown: Int,
+    ): String {
+        val messages = push.messages.filter { it.rtc?.ring != true }
+        val rooms =
+            messages
+                .groupingBy { it.roomId }
+                .eachCount()
+                .entries
+                .joinToString(",") { "${it.key}x${it.value}" }
+        val flags =
+            messages.joinToString("") {
+                when {
+                    it.rtc != null -> "c"
+                    it.mention -> "m"
+                    it.sound -> "s"
+                    it.image != null -> "i"
+                    else -> "-"
+                }
+            }
+        return "account=$account messages=${messages.size} shown=$shown rings=$rings " +
+            "dismiss=${push.dismiss.size} invites=${push.invites.size} flags=$flags rooms=$rooms"
     }
 
     /**
@@ -86,6 +137,10 @@ class XmuksMessagingService : FirebaseMessagingService() {
 
     private companion object {
         const val PAYLOAD = "payload"
+        const val TAG = "XmuksPush"
+        const val LOG_FILE = "push-log.txt"
+        const val LOG_MAX_BYTES = 4L * 1024 * 1024
+        val LOG_LOCK = Any()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 }

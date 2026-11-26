@@ -71,11 +71,12 @@ class RoomNotifier(
     /** Rooms replied to from their notification: gomuks' dismissal (it marks them read) is ignored meanwhile. */
     private val guardUntil = ConcurrentHashMap<String, Long>()
 
+    /** Shows [payload]; how many messages and invites it actually posted (new to their notification). */
     suspend fun show(
         payload: PushPayload,
         /** The room on screen: nothing for it. */
         openRoom: String?,
-    ) {
+    ): Int {
         // The account's channels, under its name (who it is comes with every message).
         Channels.ensure(
             context,
@@ -83,11 +84,13 @@ class RoomNotifier(
             (payload.messages.firstOrNull()?.self ?: payload.invites.firstOrNull()?.self)?.id,
         )
         payload.dismiss.forEach { dismissed(it.roomId) }
-        payload.messages
-            .filter { it.roomId != openRoom }
-            .groupBy { it.roomId }
-            .forEach { (roomId, messages) -> showRoom(roomId, messages.sortedBy { it.timestamp }, payload.imageAuth) }
-        payload.invites.forEach { showInvite(it, payload.imageAuth) }
+        val messages =
+            payload.messages
+                .filter { it.roomId != openRoom }
+                .groupBy { it.roomId }
+                .entries
+                .sumOf { (roomId, messages) -> showRoom(roomId, messages.sortedBy { it.timestamp }, payload.imageAuth) }
+        return messages + payload.invites.count { showInvite(it, payload.imageAuth) }
     }
 
     /** Read elsewhere: the notification goes, unless we just replied from it. */
@@ -132,11 +135,12 @@ class RoomNotifier(
         )
     }
 
+    /** How many of [messages] it posted: none when the notification already has them all. */
     private suspend fun showRoom(
         roomId: String,
         messages: List<PushMessage>,
         imageAuth: String?,
-    ) {
+    ): Int {
         val latest = messages.last()
         // gomuks' own word when it gives it (is_dm, only ever true); otherwise our cache, then a guess.
         val direct = latest.isDm || (isDirect(roomId) ?: (latest.roomName == latest.sender.name))
@@ -148,7 +152,7 @@ class RoomNotifier(
                 ?.toSet()
                 .orEmpty()
         val fresh = messages.filter { it.eventId !in seen }
-        if (fresh.isEmpty()) return
+        if (fresh.isEmpty()) return 0
         // With several accounts signed in, whose it is: in the title and the shortcut's label.
         val owner = latest.self.id.takeIf { multiAccount() }
         val style =
@@ -190,6 +194,7 @@ class RoomNotifier(
                     actions.add(this, context, roomId, latest.eventId, account)
                 }.build()
         post(roomId, notification)
+        return fresh.size
     }
 
     /**
@@ -199,9 +204,9 @@ class RoomNotifier(
     private suspend fun showInvite(
         invite: PushInvite,
         imageAuth: String?,
-    ) {
+    ): Boolean {
         val roomId = invite.roomId
-        if (active(roomId) != null) return
+        if (active(roomId) != null) return false
         val text =
             when {
                 invite.isDm -> context.getString(R.string.invite_dm)
@@ -246,6 +251,7 @@ class RoomNotifier(
                     actions.addInvite(this, context, roomId, invite.inviter.id, account)
                 }.build()
         post(roomId, notification)
+        return true
     }
 
     /**

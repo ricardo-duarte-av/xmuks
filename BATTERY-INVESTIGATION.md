@@ -41,6 +41,56 @@ Rough budget from the code: 330 pushes × ~1–4 s ≈ 5–20 min/day, plus the 
 from 3h11m. **Something not visible from the code is keeping the process in a background
 state.** The device has to tell us what.
 
+## Device findings (2026-11-26 evening, captures in `battery/`, not committed)
+
+Since 07:08 (12h23m on battery): xmuks 242 mAh estimated, 3rd on the phone; 127 of it is
+screen. Rest: CPU 47 (fg 25, bg 13.6, cached 8), mobile radio 47.5 (21 while cached, i.e.
+pushes), GPU 9, wake locks 3.4.
+
+- **"Background" = Top Sleeping.** 5h01m of the time is xmuks left on top with the screen
+  locked (≈ 4h52m in 30+ spans up to 26 min). The user locks the phone with xmuks open.
+- **Live test (19:35, xmuks opened, then locked, sampled 8 min):** the stream closes as designed.
+  After lock: ~12 s CPU in worker threads and ~0.5 MB received during the 30 s linger, then
+  **flat**: no RenderThread, no main thread, no bytes. Each push while locked cost ~0.4–1.4 s CPU.
+  Top Sleeping by itself is **cleared**.
+- **While the stream is open, the worker threads are busy:** ~5 s CPU per 20 s on screen
+  (render ~1.9 s, main ~1.5 s), and ~14 KB/s received. Process total 43 min CPU in ~24 h:
+  RenderThread 10.7 min, main 8 min, **~18 min in threads that have exited** (Dispatchers /
+  OkHttp), i.e. stream ingest. Every unlock reconnects and every lock lingers 30 s, so many
+  short visits add up.
+- **Pushes:** 1151 `XmuksMessagingService` starts; wake locks ~5 min total. Not the main cost,
+  but at ~1 s CPU each they're ~15–20 min CPU/day.
+- **CatchUpWorker:** 2 runs, 2 s. Cleared.
+- **Unexplained: 1.85 GB Wi-Fi received** (next app: 73 MB). ~960 MB of it in the 16:00–18:00
+  netstats bucket, state FOREGROUND. Ask the user what they did then; if nothing media-heavy,
+  this is a download loop and the top lead. User says they didn't use xmuks then. History:
+  xmuks on top 15:34–16:11 (screen mostly off, short ~6 s wake-ups), then on top with the
+  screen on 16:11–16:22 with video decoder activity (system-wide, not attributed per app). Open.
+- **Android's "3h11m background" is the Top Sleeping time**, not work. The whole `bg` bucket
+  (5h09m) is ~31 mAh (≈0.8% of the 3896 mAh batterystats capacity), cached (pushes) ~34 mAh.
+- **Ranking:** total drain 2516 mAh since 07:08. xmuks 242 is #2 after Android system (279);
+  next is Play services at 84. Settings' "20%" is xmuks's share of the app-attributed drain, so
+  in battery terms ≈ 6 points: 127 mAh screen, 47.5 mobile radio (21 of it while cached = pushes
+  on mobile), 47 CPU, 9 GPU.
+- Settings data usage: 536 MB **mobile** since 2026-10-03, consistent with netstats. The 1.85 GB
+  is Wi-Fi; check it in Settings under non-carrier (Wi-Fi) data usage.
+
+**Pushes: 1151 received vs ~330 notifications.** ~70% of pushes show nothing. Every push is now
+logged (tag `XmuksPush`, and appended to `Android/data/pt.aguiarvieira.xmuks/files/push-log.txt`,
+restarted past 4 MB): account, messages, how many were actually shown, rings, dismiss, invites,
+per-message flags (`c` call, `m` mention, `s` sound, `i` image, `-` plain), rooms with counts,
+payload size and time held. After a day:
+
+```
+adb pull /sdcard/Android/data/pt.aguiarvieira.xmuks/files/push-log.txt battery/
+```
+
+Group by account and by kind (shown=0 with messages, dismiss-only, …): that's plan B's input.
+
+Next: (a) find the 960 MB (what was on screen 15:34–16:11; media cache size); (b) measure the
+stream's ingest cost per frame/byte while open (`StreamStatsTracker`?), especially the burst
+right after reconnect.
+
 ## Decisions the user made
 
 - **Never skip `get_event` on a push.** The push payload can't tell the event's full extent
